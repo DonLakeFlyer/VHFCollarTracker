@@ -189,6 +189,7 @@ private:
     void _sendVibration(void);
     void _sendStatusTextMessages(void);
     void _respondWithAutopilotVersion(void);
+    void _respondWithMemoryVect(void);
     void _sendRCChannels(void);
     void _paramRequestListWorker(void);
     void _logDownloadWorker(void);

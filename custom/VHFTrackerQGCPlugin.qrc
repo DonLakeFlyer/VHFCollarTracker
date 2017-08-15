@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/qml">
+        <file alias="VHFTrackerWidget.qml">src/VHFTrackerWidget.qml</file>
+    </qresource>
+	<qresource prefix="/res">
+        <file alias="PaintedDogsLogo.png">resources/PaintedDogsLogo.png</file>
+	</qresource>
+</RCC>

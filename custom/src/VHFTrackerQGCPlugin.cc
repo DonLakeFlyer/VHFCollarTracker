@@ -1,0 +1,68 @@
+#include "VHFTrackerQGCPlugin.h"
+#include "QmlPageInfo.h"
+
+#include <QDebug>
+
+VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbox)
+    : QGCCorePlugin(app, toolbox)
+{
+    _showAdvancedUI = true;
+}
+
+VHFTrackerQGCPlugin::~VHFTrackerQGCPlugin()
+{
+
+}
+
+QString VHFTrackerQGCPlugin::brandImageIndoor(void) const
+{
+    return QStringLiteral("/res/PaintedDogsLogo.png");
+}
+
+QString VHFTrackerQGCPlugin::brandImageOutdoor(void) const
+{
+    return QStringLiteral("/res/PaintedDogsLogo.png");
+}
+
+QVariantList& VHFTrackerQGCPlugin::settingsPages(void)
+{
+    if(_settingsPages.size() == 0) {
+        _settingsPages = QGCCorePlugin::settingsPages();
+    }
+
+    return _settingsPages;
+}
+
+QVariantList& VHFTrackerQGCPlugin::instrumentPages(void)
+{
+    if(_instrumentPages.size() == 0) {
+        _instrumentPages = QGCCorePlugin::instrumentPages();
+        _instrumentPages.prepend(QVariant::fromValue(new QmlPageInfo(tr("Tracker"), QUrl::fromUserInput("qrc:/qml/VHFTrackerWidget.qml"), QUrl(), this)));
+    }
+
+    return _instrumentPages;
+}
+
+bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, mavlink_message_t message)
+{
+    switch (message.msgid) {
+    case MAVLINK_MSG_ID_MEMORY_VECT:
+        return _handleMemoryVect(vehicle, link, message);
+    }
+
+    return true;
+}
+
+bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
+{
+    Q_UNUSED(vehicle);
+    Q_UNUSED(link);
+
+    mavlink_memory_vect_t memoryVect;
+
+    mavlink_msg_memory_vect_decode(&message, &memoryVect);
+
+    qDebug() << "_handleMemoryVect";
+
+    return false;
+}

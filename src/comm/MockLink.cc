@@ -828,6 +828,7 @@ void MockLink::_handleCommandLong(const mavlink_message_t& msg)
     case MAV_CMD_USER_1:
         // Test command which always returns MAV_RESULT_ACCEPTED
         commandResult = MAV_RESULT_ACCEPTED;
+        _respondWithMemoryVect();
         break;
     case MAV_CMD_USER_2:
         // Test command which always returns MAV_RESULT_FAILED
@@ -903,6 +904,24 @@ void MockLink::_respondWithAutopilotVersion(void)
                                             0,                               // vendor_id,
                                             0,                               // product_id,
                                             0);                              // uid
+    respondWithMavlinkMessage(msg);
+}
+
+void MockLink::_respondWithMemoryVect(void)
+{
+    mavlink_message_t msg;
+
+    int8_t values[32];
+    memset(values, 0, sizeof(values));
+
+    mavlink_msg_memory_vect_pack_chan(_vehicleSystemId,
+                                      _vehicleComponentId,
+                                      _mavlinkChannel,
+                                      &msg,
+                                      0,                    // address
+                                      1,                    // ver
+                                      0,                    // type
+                                      values);
     respondWithMavlinkMessage(msg);
 }
 
