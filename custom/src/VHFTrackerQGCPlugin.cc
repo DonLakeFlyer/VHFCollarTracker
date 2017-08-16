@@ -1,5 +1,5 @@
 #include "VHFTrackerQGCPlugin.h"
-#include "QmlPageInfo.h"
+#include "DirectionMapItem.h"
 
 #include <QDebug>
 
@@ -37,7 +37,7 @@ QVariantList& VHFTrackerQGCPlugin::instrumentPages(void)
 {
     if(_instrumentPages.size() == 0) {
         _instrumentPages = QGCCorePlugin::instrumentPages();
-        _instrumentPages.prepend(QVariant::fromValue(new QmlPageInfo(tr("Tracker"), QUrl::fromUserInput("qrc:/qml/VHFTrackerWidget.qml"), QUrl(), this)));
+        _instrumentPages.prepend(QVariant::fromValue(new QmlComponentInfo(tr("Tracker"), QUrl::fromUserInput("qrc:/qml/VHFTrackerWidget.qml"), QUrl(), this)));
     }
 
     return _instrumentPages;
@@ -62,7 +62,19 @@ bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* lin
 
     mavlink_msg_memory_vect_decode(&message, &memoryVect);
 
-    qDebug() << "_handleMemoryVect";
+    QList<QColor> signalStrength;
+    for (int i=0; i<16; i++) {
+        signalStrength.append(QColor(0, (uint8_t)memoryVect.value[i], 0));
+    }
+
+    DirectionMapItem* mapItem;
+    if (_mapItems.count() == 0) {
+        mapItem = new DirectionMapItem(this);
+        _mapItems.append(mapItem);
+    } else {
+        mapItem = _mapItems.value<DirectionMapItem*>(0);
+    }
+    mapItem->setSignalStrengthColors(signalStrength);
 
     return false;
 }

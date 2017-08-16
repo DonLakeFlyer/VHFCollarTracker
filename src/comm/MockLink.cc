@@ -915,8 +915,13 @@ void MockLink::_respondWithMemoryVect(void)
 {
     mavlink_message_t msg;
 
-    int8_t values[32];
+    uint8_t values[32];
     memset(values, 0, sizeof(values));
+
+    values[0] = 255;
+    values[1] = values[15] = 128;
+    values[2] = values[14] = 64;
+    values[3] = values[13] = 32;
 
     mavlink_msg_memory_vect_pack_chan(_vehicleSystemId,
                                       _vehicleComponentId,
@@ -925,7 +930,7 @@ void MockLink::_respondWithMemoryVect(void)
                                       0,                    // address
                                       1,                    // ver
                                       0,                    // type
-                                      values);
+                                      (int8_t*)values);
     respondWithMavlinkMessage(msg);
 }
 
