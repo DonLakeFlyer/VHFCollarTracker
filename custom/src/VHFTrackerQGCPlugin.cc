@@ -64,7 +64,7 @@ bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* lin
 
     QList<QColor> signalStrength;
     for (int i=0; i<16; i++) {
-        signalStrength.append(QColor(0, (uint8_t)memoryVect.value[i], 0));
+        signalStrength.append(QColor(0, (uint8_t)memoryVect.value[i] * 2, 0));
     }
 
     DirectionMapItem* mapItem;
