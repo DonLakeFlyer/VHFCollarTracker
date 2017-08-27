@@ -49,8 +49,8 @@ bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, 
     switch (message.msgid) {
     case MAVLINK_MSG_ID_MEMORY_VECT:
         return _handleMemoryVect(vehicle, link, message);
-    case MAVLINK_MSG_ID_NAMED_VALUE_INT:
-        return _handleNamedValueInt(vehicle,link, message);
+    case MAVLINK_MSG_ID_DEBUG:
+        return _handleDebug(vehicle,link, message);
     }
 
     return true;
@@ -83,16 +83,16 @@ bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* lin
 }
 
 
-bool VHFTrackerQGCPlugin::_handleNamedValueInt(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
+bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
 {
     Q_UNUSED(vehicle);
     Q_UNUSED(link);
 
-    mavlink_named_value_int_t namedValueInt;
+    mavlink_debug_t debugMsg;
 
-    mavlink_msg_named_value_int_decode(&message, &namedValueInt);
+    mavlink_msg_debug_decode(&message, &debugMsg);
 
-    _beepStrength = namedValueInt.value;
+    _beepStrength = debugMsg.value;
     emit beepStrengthChanged(_beepStrength);
 
     return false;

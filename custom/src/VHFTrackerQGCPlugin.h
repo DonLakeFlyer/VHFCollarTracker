@@ -26,7 +26,7 @@ signals:
 
 private:
     bool _handleMemoryVect(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
-    bool _handleNamedValueInt(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
+    bool _handleDebug(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
 
     QVariantList        _settingsPages;
     QVariantList        _instrumentPages;
