@@ -5,6 +5,7 @@
 
 VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbox)
     : QGCCorePlugin(app, toolbox)
+    , _beepStrength(0)
 {
     _showAdvancedUI = true;
 }
@@ -48,6 +49,8 @@ bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, 
     switch (message.msgid) {
     case MAVLINK_MSG_ID_MEMORY_VECT:
         return _handleMemoryVect(vehicle, link, message);
+    case MAVLINK_MSG_ID_NAMED_VALUE_INT:
+        return _handleNamedValueInt(vehicle,link, message);
     }
 
     return true;
@@ -75,6 +78,22 @@ bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* lin
         mapItem = _mapItems.value<DirectionMapItem*>(0);
     }
     mapItem->setSignalStrengthColors(signalStrength);
+
+    return false;
+}
+
+
+bool VHFTrackerQGCPlugin::_handleNamedValueInt(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
+{
+    Q_UNUSED(vehicle);
+    Q_UNUSED(link);
+
+    mavlink_named_value_int_t namedValueInt;
+
+    mavlink_msg_named_value_int_decode(&message, &namedValueInt);
+
+    _beepStrength = namedValueInt.value;
+    emit beepStrengthChanged(_beepStrength);
 
     return false;
 }
