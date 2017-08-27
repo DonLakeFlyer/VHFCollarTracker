@@ -218,15 +218,15 @@ Vehicle::Vehicle(LinkInterface*             link,
 
     // Ask the vehicle for protocol version info.
     sendMavCommand(MAV_COMP_ID_ALL,                         // Don't know default component id yet.
-                    MAV_CMD_REQUEST_PROTOCOL_VERSION,
+                   MAV_CMD_REQUEST_PROTOCOL_VERSION,
                    false,                                   // No error shown if fails
-                    1);                                     // Request protocol version
+                   1);                                     // Request protocol version
 
     // Ask the vehicle for firmware version info.
     sendMavCommand(MAV_COMP_ID_ALL,                         // Don't know default component id yet.
-                    MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES,
+                   MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES,
                    false,                                   // No error shown if fails
-                    1);                                     // Request firmware version
+                   1);                                     // Request firmware version
 
     _firmwarePlugin->initializeVehicle(this);
 
@@ -625,7 +625,7 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
         break;
     case MAVLINK_MSG_ID_SCALED_PRESSURE3:
         _handleScaledPressure3(message);
-        break;        
+        break;
     case MAVLINK_MSG_ID_CAMERA_FEEDBACK:
         _handleCameraFeedback(message);
         break;
@@ -643,7 +643,7 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
         emit mavlinkSerialControl(ser.device, ser.flags, ser.timeout, ser.baudrate, QByteArray(reinterpret_cast<const char*>(ser.data), ser.count));
     }
         break;
-    // Following are ArduPilot dialect messages
+        // Following are ArduPilot dialect messages
 
     case MAVLINK_MSG_ID_WIND:
         _handleWind(message);
@@ -848,22 +848,22 @@ void Vehicle::_handleHilActuatorControls(mavlink_message_t &message)
     mavlink_msg_hil_actuator_controls_decode(&message, &hil);
     emit hilActuatorControlsChanged(hil.time_usec, hil.flags,
                                     hil.controls[0],
-                                    hil.controls[1],
-                                    hil.controls[2],
-                                    hil.controls[3],
-                                    hil.controls[4],
-                                    hil.controls[5],
-                                    hil.controls[6],
-                                    hil.controls[7],
-                                    hil.controls[8],
-                                    hil.controls[9],
-                                    hil.controls[10],
-                                    hil.controls[11],
-                                    hil.controls[12],
-                                    hil.controls[13],
-                                    hil.controls[14],
-                                    hil.controls[15],
-                                    hil.mode);
+            hil.controls[1],
+            hil.controls[2],
+            hil.controls[3],
+            hil.controls[4],
+            hil.controls[5],
+            hil.controls[6],
+            hil.controls[7],
+            hil.controls[8],
+            hil.controls[9],
+            hil.controls[10],
+            hil.controls[11],
+            hil.controls[12],
+            hil.controls[13],
+            hil.controls[14],
+            hil.controls[15],
+            hil.mode);
 }
 
 void Vehicle::_handleCommandAck(mavlink_message_t& message)
@@ -930,19 +930,19 @@ void Vehicle::_handleCommandLong(mavlink_message_t& message)
     mavlink_msg_command_long_decode(&message, &cmd);
 
     switch (cmd.command) {
-        // Other component on the same system
-        // requests that QGC frees up the serial port of the autopilot
-        case MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN:
-            if (cmd.param6 > 0) {
-                // disconnect the USB link if its a direct connection to a Pixhawk
-                for (int i = 0; i < _links.length(); i++) {
-                    SerialLink *sl = qobject_cast<SerialLink*>(_links.at(i));
-                    if (sl && sl->getSerialConfig()->usbDirect()) {
-                        qDebug() << "Disconnecting:" << _links.at(i)->getName();
-                        qgcApp()->toolbox()->linkManager()->disconnectLink(_links.at(i));
-                    }
+    // Other component on the same system
+    // requests that QGC frees up the serial port of the autopilot
+    case MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN:
+        if (cmd.param6 > 0) {
+            // disconnect the USB link if its a direct connection to a Pixhawk
+            for (int i = 0; i < _links.length(); i++) {
+                SerialLink *sl = qobject_cast<SerialLink*>(_links.at(i));
+                if (sl && sl->getSerialConfig()->usbDirect()) {
+                    qDebug() << "Disconnecting:" << _links.at(i)->getName();
+                    qgcApp()->toolbox()->linkManager()->disconnectLink(_links.at(i));
                 }
             }
+        }
         break;
     }
 #endif
@@ -2056,9 +2056,9 @@ void Vehicle::_connectionActive(void)
 
         // Re-negotiate protocol version for the link
         sendMavCommand(MAV_COMP_ID_ALL,                         // Don't know default component id yet.
-                        MAV_CMD_REQUEST_PROTOCOL_VERSION,
+                       MAV_CMD_REQUEST_PROTOCOL_VERSION,
                        false,                                   // No error shown if fails
-                        1);                                     // Request protocol version
+                       1);                                     // Request protocol version
     }
 }
 
@@ -2336,24 +2336,50 @@ void Vehicle::setCurrentMissionSequence(int seq)
 
 void Vehicle::sendMavCommand(int component, MAV_CMD command, bool showError, float param1, float param2, float param3, float param4, float param5, float param6, float param7)
 {
-    MavCommandQueueEntry_t entry;
+    if (command == MAV_CMD_USER_1 || command == MAV_CMD_USER_2) {
+        // HACK CITY
+        mavlink_message_t       msg;
+        mavlink_command_long_t  cmd;
 
-    entry.component = component;
-    entry.command = command;
-    entry.showError = showError;
-    entry.rgParam[0] = param1;
-    entry.rgParam[1] = param2;
-    entry.rgParam[2] = param3;
-    entry.rgParam[3] = param4;
-    entry.rgParam[4] = param5;
-    entry.rgParam[5] = param6;
-    entry.rgParam[6] = param7;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.command = command;
+        cmd.confirmation = 0;
+        cmd.param1 = param1;
+        cmd.param2 = param1;
+        cmd.param3 = param1;
+        cmd.param4 = param1;
+        cmd.param5 = param1;
+        cmd.param6 = param1;
+        cmd.param7 = param1;
+        cmd.target_system = _id;
+        cmd.target_component = component;
+        mavlink_msg_command_long_encode_chan(_mavlink->getSystemId(),
+                                             _mavlink->getComponentId(),
+                                             priorityLink()->mavlinkChannel(),
+                                             &msg,
+                                             &cmd);
 
-    _mavCommandQueue.append(entry);
+        sendMessageOnLink(priorityLink(), msg);
+    } else {
+        MavCommandQueueEntry_t entry;
 
-    if (_mavCommandQueue.count() == 1) {
-        _mavCommandRetryCount = 0;
-        _sendMavCommandAgain();
+        entry.component = component;
+        entry.command = command;
+        entry.showError = showError;
+        entry.rgParam[0] = param1;
+        entry.rgParam[1] = param2;
+        entry.rgParam[2] = param3;
+        entry.rgParam[3] = param4;
+        entry.rgParam[4] = param5;
+        entry.rgParam[5] = param6;
+        entry.rgParam[6] = param7;
+
+        _mavCommandQueue.append(entry);
+
+        if (_mavCommandQueue.count() == 1) {
+            _mavCommandRetryCount = 0;
+            _sendMavCommandAgain();
+        }
     }
 }
 
@@ -2512,7 +2538,7 @@ void Vehicle::setSoloFirmware(bool soloFirmware)
 }
 
 #if 0
-    // Temporarily removed, waiting for new command implementation
+// Temporarily removed, waiting for new command implementation
 void Vehicle::motorTest(int motor, int percent, int timeoutSecs)
 {
     doCommandLongUnverified(_defaultComponentId, MAV_CMD_DO_MOTOR_TEST, motor, MOTOR_TEST_THROTTLE_PERCENT, percent, timeoutSecs);
@@ -2648,11 +2674,11 @@ void Vehicle::_ackMavlinkLogData(uint16_t sequence)
     ack.target_component = _defaultComponentId;
     ack.target_system = id();
     mavlink_msg_logging_ack_encode_chan(
-        _mavlink->getSystemId(),
-        _mavlink->getComponentId(),
-        priorityLink()->mavlinkChannel(),
-        &msg,
-        &ack);
+                _mavlink->getSystemId(),
+                _mavlink->getComponentId(),
+                priorityLink()->mavlinkChannel(),
+                &msg,
+                &ack);
     sendMessageOnLink(priorityLink(), msg);
 }
 
@@ -2661,7 +2687,7 @@ void Vehicle::_handleMavlinkLoggingData(mavlink_message_t& message)
     mavlink_logging_data_t log;
     mavlink_msg_logging_data_decode(&message, &log);
     emit mavlinkLogData(this, log.target_system, log.target_component, log.sequence,
-        log.first_message_offset, QByteArray((const char*)log.data, log.length), false);
+                        log.first_message_offset, QByteArray((const char*)log.data, log.length), false);
 }
 
 void Vehicle::_handleMavlinkLoggingDataAcked(mavlink_message_t& message)
@@ -2670,7 +2696,7 @@ void Vehicle::_handleMavlinkLoggingDataAcked(mavlink_message_t& message)
     mavlink_msg_logging_data_acked_decode(&message, &log);
     _ackMavlinkLogData(log.sequence);
     emit mavlinkLogData(this, log.target_system, log.target_component, log.sequence,
-        log.first_message_offset, QByteArray((const char*)log.data, log.length), true);
+                        log.first_message_offset, QByteArray((const char*)log.data, log.length), true);
 }
 
 void Vehicle::setFirmwarePluginInstanceData(QObject* firmwarePluginInstanceData)

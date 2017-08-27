@@ -274,6 +274,12 @@ void MAVLinkProtocol::receiveBytes(LinkInterface* link, QByteArray b)
                 emit vehicleHeartbeatInfo(link, message.sysid, message.compid, heartbeat.mavlink_version, heartbeat.autopilot, heartbeat.type);
             }
 
+            if (message.msgid == MAVLINK_MSG_ID_COMMAND_ACK) {
+                mavlink_command_ack_t ack;
+                mavlink_msg_command_ack_decode(&message, &ack);
+                qDebug() << "Command ack" << ack.command << message.sysid << message.compid;
+            }
+
             // Detect if we are talking to an old radio not supporting v2
             mavlink_status_t* mavlinkStatus = mavlink_get_channel_status(mavlinkChannel);
             if (message.msgid == MAVLINK_MSG_ID_RADIO_STATUS) {
