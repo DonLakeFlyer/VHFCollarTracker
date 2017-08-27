@@ -42,6 +42,11 @@ Column {
         enabled:                    _activeVehicle
     }
 
+    QGCLabel {
+        font.pointSize: ScreenTools.largeFontPointSize
+        text: QGroundControl.corePlugin.beepStrength
+    }
+
     Component {
         id: settingsDialog
 
