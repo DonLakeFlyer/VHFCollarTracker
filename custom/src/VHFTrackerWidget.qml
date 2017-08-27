@@ -31,7 +31,14 @@ Column {
     QGCButton {
         anchors.horizontalCenter:   parent.horizontalCenter
         text:                       qsTr("Detect Animal")
-        onClicked:                  _activeVehicle.sendCommand(150 /* MAV_COMP_ID_PERIPHERAL */, 31010 /* MAV_CMD_USER_1 */, true)
+        onClicked:                  _activeVehicle.sendCommand(158 /* MAV_COMP_ID_PERIPHERAL */, 31010 /* MAV_CMD_USER_1 */, true)
+        enabled:                    _activeVehicle
+    }
+
+    QGCButton {
+        anchors.horizontalCenter:   parent.horizontalCenter
+        text:                       qsTr("Cancel    ")
+        onClicked:                  _activeVehicle.sendCommand(158 /* MAV_COMP_ID_PERIPHERAL */, 31011 /* MAV_CMD_USER_2 */, true)
         enabled:                    _activeVehicle
     }
 
