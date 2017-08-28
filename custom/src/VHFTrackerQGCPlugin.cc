@@ -85,6 +85,7 @@ bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* lin
 
 bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
 {
+    qDebug() << "handleDebug";
     Q_UNUSED(vehicle);
     Q_UNUSED(link);
 
