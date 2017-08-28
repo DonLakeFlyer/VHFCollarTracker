@@ -22,11 +22,18 @@ Column {
 
     property bool showSettingsIcon: true
 
+    property var _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
+    property int _beepCount: 0
+
     function showSettings() {
         qgcView.showDialog(settingsDialog, qsTr("Settings"), qgcView.showDialogDefaultWidth, StandardButton.Ok)
     }
 
-    property var _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
+    Connections {
+        target: QGroundControl.corePlugin
+
+        onBeepStrengthChanged: _beepCount++
+    }
 
     QGCButton {
         anchors.horizontalCenter:   parent.horizontalCenter
@@ -42,9 +49,17 @@ Column {
         enabled:                    _activeVehicle
     }
 
-    QGCLabel {
-        font.pointSize: ScreenTools.largeFontPointSize
-        text: QGroundControl.corePlugin.beepStrength
+    Row {
+        spacing: ScreenTools.defaultFontPixelWidth
+
+        QGCLabel {
+            font.pointSize: ScreenTools.largeFontPointSize
+            text: QGroundControl.corePlugin.beepStrength
+        }
+        QGCLabel {
+            font.pointSize: ScreenTools.largeFontPointSize
+            text: _beepCount
+        }
     }
 
     Component {

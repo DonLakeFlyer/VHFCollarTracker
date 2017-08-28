@@ -280,6 +280,10 @@ void MAVLinkProtocol::receiveBytes(LinkInterface* link, QByteArray b)
                 qDebug() << "Command ack" << ack.command << message.sysid << message.compid;
             }
 
+            if (message.msgid == MAVLINK_MSG_ID_DEBUG) {
+                qDebug() << "Debug" << message.sysid << message.compid;
+            }
+
             // Detect if we are talking to an old radio not supporting v2
             mavlink_status_t* mavlinkStatus = mavlink_get_channel_status(mavlinkChannel);
             if (message.msgid == MAVLINK_MSG_ID_RADIO_STATUS) {
