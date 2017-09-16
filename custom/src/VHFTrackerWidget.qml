@@ -10,6 +10,7 @@
 import QtQuick          2.3
 import QtQuick.Layouts  1.2
 import QtQuick.Dialogs  1.2
+import QtQuick.Controls 1.4
 
 import QGroundControl               1.0
 import QGroundControl.Controls      1.0
@@ -22,8 +23,9 @@ Column {
 
     property bool showSettingsIcon: true
 
-    property var _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
-    property int _beepCount: 0
+    property var _activeVehicle:    QGroundControl.multiVehicleManager.activeVehicle
+    property int _beepCount:        0
+    property int _beepStrength:     0
 
     function showSettings() {
         qgcView.showDialog(settingsDialog, qsTr("Settings"), qgcView.showDialogDefaultWidth, StandardButton.Ok)
@@ -32,7 +34,10 @@ Column {
     Connections {
         target: QGroundControl.corePlugin
 
-        onBeepStrengthChanged: _beepCount++
+        onBeepStrengthChanged: {
+            _beepCount++
+            _beepStrength = beepStrength
+        }
     }
 
     QGCButton {
@@ -49,13 +54,45 @@ Column {
         enabled:                    _activeVehicle
     }
 
-    Row {
+    ProgressBar {
+        anchors.left:   parent.left
+        anchors.right:  parent.right
+        minimumValue:   0
+        maximumValue:   500
+        value:          _beepStrength
+
+        onValueChanged: beepResetTimer.start()
+
+        Behavior on value {
+            PropertyAnimation {
+                duration:       250
+                easing.type:    Easing.InOutQuad
+            }
+        }
+
+        Timer {
+            id:             beepResetTimer
+            interval:       500
+            repeat:         false
+            onTriggered:    _beepStrength = 0
+        }
+    }
+
+    RowLayout {
         spacing: ScreenTools.defaultFontPixelWidth
 
+        QGCLabel { text: "Beep" }
         QGCLabel {
             font.pointSize: ScreenTools.largeFontPointSize
             text: QGroundControl.corePlugin.beepStrength
         }
+    }
+
+
+    RowLayout {
+        spacing: ScreenTools.defaultFontPixelWidth
+
+        QGCLabel { text: "Count" }
         QGCLabel {
             font.pointSize: ScreenTools.largeFontPointSize
             text: _beepCount

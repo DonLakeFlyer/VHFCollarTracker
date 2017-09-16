@@ -5,7 +5,7 @@ import QGroundControl               1.0
 import QGroundControl.ScreenTools   1.0
 
 MapQuickItem {
-    coordinate:     QGroundControl.multiVehicleManager.activeVehicle.coordinate
+    coordinate:     customMapObject.coordinate
     anchorPoint.x:  0
     anchorPoint.y:  0
 

@@ -3,24 +3,20 @@
 #include "QmlComponentInfo.h"
 
 #include <QVariantList>
+#include <QGeoCoordinate>
 
 class DirectionMapItem : public QmlComponentInfo
 {
     Q_OBJECT
 
-    Q_PROPERTY(QVariantList signalStrength READ signalStrength NOTIFY signalStrengthChanged)
+    Q_PROPERTY(QGeoCoordinate   coordinate      MEMBER _coordinate      CONSTANT)
+    Q_PROPERTY(QVariantList     signalStrength  MEMBER _signalStrength  CONSTANT)
 
 public:
-    DirectionMapItem(QObject* parent = NULL);
+    DirectionMapItem(const QGeoCoordinate& coordinate, const QList<QColor>& signalStrengthColors, QObject* parent = NULL);
     ~DirectionMapItem();
 
-    QVariantList signalStrength(void) const;
-
-    void setSignalStrengthColors(QList<QColor> colors);
-
-signals:
-    void signalStrengthChanged(void);
-
 private:
-    QVariantList _signalStrength;
+    QGeoCoordinate  _coordinate;
+    QVariantList    _signalStrength;
 };

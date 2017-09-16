@@ -1,5 +1,6 @@
 #include "VHFTrackerQGCPlugin.h"
 #include "DirectionMapItem.h"
+#include "Vehicle.h"
 
 #include <QDebug>
 
@@ -58,26 +59,18 @@ bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, 
 
 bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
 {
-    Q_UNUSED(vehicle);
     Q_UNUSED(link);
 
     mavlink_memory_vect_t memoryVect;
 
     mavlink_msg_memory_vect_decode(&message, &memoryVect);
 
-    QList<QColor> signalStrength;
+    QList<QColor> signalStrengthColors;
     for (int i=0; i<16; i++) {
-        signalStrength.append(QColor(0, (uint8_t)memoryVect.value[i] * 2, 0));
+        signalStrengthColors.append(QColor(0, (uint8_t)memoryVect.value[i] * 2, 0));
     }
 
-    DirectionMapItem* mapItem;
-    if (_mapItems.count() == 0) {
-        mapItem = new DirectionMapItem(this);
-        _mapItems.append(mapItem);
-    } else {
-        mapItem = _mapItems.value<DirectionMapItem*>(0);
-    }
-    mapItem->setSignalStrengthColors(signalStrength);
+    _mapItems.append(new DirectionMapItem(vehicle->coordinate(), signalStrengthColors, this));
 
     return false;
 }
@@ -85,7 +78,6 @@ bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* lin
 
 bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
 {
-    qDebug() << "handleDebug";
     Q_UNUSED(vehicle);
     Q_UNUSED(link);
 
