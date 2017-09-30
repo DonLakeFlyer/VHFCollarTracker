@@ -32,10 +32,14 @@ HEADERS += \
     $$PWD/src/DirectionMapItem.h \
     $$PWD/src/VHFTrackerFirmwarePlugin.h \
     $$PWD/src/VHFTrackerFirmwarePluginFactory.h \
+    $$PWD/src/VHFTrackerQGCOptions.h \
     $$PWD/src/VHFTrackerQGCPlugin.h \
+    $$PWD/src/VHFTrackerSettings.h \
 
 SOURCES += \
     $$PWD/src/DirectionMapItem.cc \
     $$PWD/src/VHFTrackerFirmwarePlugin.cc \
     $$PWD/src/VHFTrackerFirmwarePluginFactory.cc \
+    $$PWD/src/VHFTrackerQGCOptions.cc \
     $$PWD/src/VHFTrackerQGCPlugin.cc \
+    $$PWD/src/VHFTrackerSettings.cc \
