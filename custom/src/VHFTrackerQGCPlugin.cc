@@ -1,12 +1,13 @@
 #include "VHFTrackerQGCPlugin.h"
 #include "DirectionMapItem.h"
 #include "Vehicle.h"
+#include "VHFTrackerSettings.h"
 
 #include <QDebug>
 
 VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbox)
-    : QGCCorePlugin(app, toolbox)
-    , _beepStrength(0)
+    : QGCCorePlugin (app, toolbox)
+    , _beepStrength (0)
 {
     _showAdvancedUI = true;
 }
@@ -14,6 +15,13 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
 VHFTrackerQGCPlugin::~VHFTrackerQGCPlugin()
 {
 
+}
+
+void VHFTrackerQGCPlugin::setToolbox(QGCToolbox* toolbox)
+{
+    QGCCorePlugin::setToolbox(toolbox);
+    _vhfSettings = new VHFTrackerSettings(this);
+    _vhfQGCOptions = new VHFTrackerQGCOptions(this, this);
 }
 
 QString VHFTrackerQGCPlugin::brandImageIndoor(void) const
