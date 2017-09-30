@@ -24,6 +24,24 @@ Item {
     id:             flyOVerlay
     anchors.fill:   parent
 
+    QGCPalette { id: qgcPal; colorGroupEnabled: true }
+
+    readonly property string scaleState: "topMode"
+
+    property var    _corePlugin:        QGroundControl.corePlugin
+    property real   _margins:           ScreenTools.defaultFontPixelWidth
+    property int    _pulseCount:        0
+    property int    _pulseStrength:     0
+
+    Connections {
+        target: QGroundControl.corePlugin
+
+        onBeepStrengthChanged: {
+            _pulseCount++
+            _pulseStrength = beepStrength
+        }
+    }
+
     Rectangle {
         anchors.topMargin:      _margins
         anchors.leftMargin:     ScreenTools.defaultFontPixelWidth * 10
@@ -31,40 +49,67 @@ Item {
         anchors.top:            parent.top
         anchors.left:           parent.left
         anchors.right:          parent.right
-        height:                 ScreenTools.defaultFontPixelHeight * 2
+        height:                 valueColumn.y +  valueColumn.height + _margins
         color:                  "white"
 
-        QGCPalette { id: qgcPal; colorGroupEnabled: true }
+        Column {
+            id:                 valueColumn
+            anchors.margins:    _margins
+            anchors.top:        parent.top
+            anchors.right:      parent.right
 
-        readonly property string scaleState: "topMode"
+            QGCLabel {
+                anchors.horizontalCenter:   parent.horizontalCenter
+                width:                      (ScreenTools.defaultFontPixelWidth * ScreenTools.largeFontPointRatio) * 4
+                horizontalAlignment:        Text.AlignHCenter
+                text:                       _corePlugin.beepStrength
+                color:                      "black"
+                font.pointSize:             ScreenTools.largeFontPointSize
+            }
 
-        property var    _corePlugin:    QGroundControl.corePlugin
-        property real   _margins:       ScreenTools.defaultFontPixelWidth
-
-        QGCLabel {
-            id:                     pulseText
-            anchors.rightMargin:    _margins
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.right:          parent.right
-            horizontalAlignment:    Text.AlignHCenter
-            width:                  (ScreenTools.defaultFontPixelWidth * ScreenTools.largeFontPointRatio) * 4
-            text:                   _corePlugin.beepStrength
-            color:                  "black"
-            font.pointSize:         ScreenTools.largeFontPointSize
+            QGCLabel {
+                anchors.horizontalCenter:   parent.horizontalCenter
+                horizontalAlignment:        Text.AlignHCenter
+                text:                       _pulseCount
+                color:                      "black"
+                font.pointSize:             ScreenTools.largeFontPointSize
+            }
         }
 
         Rectangle {
-            anchors.margins:        1
-            anchors.rightMargin:    _margins
+            anchors.margins:        _margins
             anchors.left:           parent.left
-            anchors.right:          pulseText.left
-            anchors.top:            parent.top
-            anchors.bottom:         parent.bottom
-            color:                  "green"
-        }
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.right:          valueColumn.left
+            height:                 ScreenTools.defaultFontPixelHeight * 2
+            border.color:           "green"
 
-        QGCLabel {
+            Rectangle {
+                anchors.margins:        1
+                anchors.rightMargin:    _rightMargin
+                anchors.fill:           parent
+                color:                  "green"
 
+                property real   _maximumPulse:   500
+                property real   _value:         _pulseStrength
+                property real   _rightMargin:   (parent.width - 2) - ((parent.width - 2) * (Math.min(_pulseStrength, _maximumPulse) / _maximumPulse))
+
+                on_ValueChanged: pulseResetTimer.start()
+
+                Behavior on _value {
+                    PropertyAnimation {
+                        duration:       250
+                        easing.type:    Easing.InOutQuad
+                    }
+                }
+
+                Timer {
+                    id:             pulseResetTimer
+                    interval:       500
+                    repeat:         false
+                    onTriggered:    _pulseStrength = 0
+                }
+            }
         }
     }
 }
