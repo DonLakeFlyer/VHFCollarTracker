@@ -18,25 +18,84 @@ import QGroundControl.ScreenTools   1.0
 
 /// VHF Tracker page for Instrument Panel PageView
 Column {
-    width:      pageWidth
-    spacing:    ScreenTools.defaultFontPixelHeight
+    anchors.margins:    _margins
+    anchors.top:        parent.top
+    anchors.left:       parent.left
+    width:              pageWidth
+    spacing:            ScreenTools.defaultFontPixelHeight / 2
 
     property bool showSettingsIcon: false
 
     property var _activeVehicle:    QGroundControl.multiVehicleManager.activeVehicle
+    property var _margins:          ScreenTools.defaultFontPixelWidth
 
+    Row {
+        spacing: _margins
 
-    QGCButton {
-        anchors.horizontalCenter:   parent.horizontalCenter
-        text:                       qsTr("Detect Animal")
-        onClicked:                  _activeVehicle.sendCommand(158 /* MAV_COMP_ID_PERIPHERAL */, 31010 /* MAV_CMD_USER_1 */, true)
-        enabled:                    _activeVehicle
+        QGCButton {
+            text:       qsTr("Detect Animal")
+            enabled:    _activeVehicle
+            onClicked:  _activeVehicle.sendCommand(158 /* MAV_COMP_ID_PERIPHERAL */, 31010 /* MAV_CMD_USER_1 */, true)
+        }
+
+        QGCButton {
+            text:       qsTr("Cancel")
+            enabled:    _activeVehicle
+            onClicked:  _activeVehicle.sendCommand(158 /* MAV_COMP_ID_PERIPHERAL */, 31011 /* MAV_CMD_USER_2 */, true)
+        }
     }
 
-    QGCButton {
-        anchors.horizontalCenter:   parent.horizontalCenter
-        text:                       qsTr("Cancel")
-        onClicked:                  _activeVehicle.sendCommand(158 /* MAV_COMP_ID_PERIPHERAL */, 31011 /* MAV_CMD_USER_2 */, true)
-        enabled:                    _activeVehicle
+    RowLayout {
+        spacing: _margins
+
+        QGCTextField {
+            id:                     freqNumerator
+            anchors.baseline:       decimalPoint.baseline
+            Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 6
+            inputMethodHints:       Qt.ImhFormattedNumbersOnly
+            validator:              IntValidator { bottom: 1 }
+        }
+
+        QGCLabel {
+            id:     decimalPoint
+            text:   "."
+        }
+
+        QGCTextField {
+            id:                     freqDenominator
+            anchors.baseline:       decimalPoint.baseline
+            Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 6
+            inputMethodHints:       Qt.ImhFormattedNumbersOnly
+            validator:              IntValidator { bottom: 1 }
+        }
+
+        QGCButton {
+            text: qsTr("Set Freq")
+            enabled:    _activeVehicle
+            onClicked:  _activeVehicle.sendCommand(158,     // MAV_COMP_ID_PERIPHERAL
+                                                   31012,   // MAV_CMD_USER_3
+                                                   true,    // showError
+                                                   parseInt(freqNumerator.text),
+                                                   parseInt(freqDenominator.text))
+        }
+    }
+
+    RowLayout {
+        spacing: _margins
+
+        QGCTextField {
+            id:                 gainField
+            inputMethodHints:   Qt.ImhFormattedNumbersOnly
+            validator:          IntValidator { bottom: 0 }
+        }
+
+        QGCButton {
+            text:       qsTr("Set Gain")
+            enabled:    _activeVehicle
+            onClicked:  _activeVehicle.sendCommand(158,     // MAV_COMP_ID_PERIPHERAL
+                                                   31013,   // MAV_CMD_USER_4
+                                                   true,    // showError
+                                                   parseInt(gainField.text))
+        }
     }
 }
