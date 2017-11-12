@@ -6,36 +6,19 @@ import QGroundControl.ScreenTools   1.0
 
 MapQuickItem {
     coordinate:     customMapObject.coordinate
-    anchorPoint.x:  0
-    anchorPoint.y:  0
+    anchorPoint.x:  sourceItem.width / 2
+    anchorPoint.y:  sourceItem.height / 2
 
     property var customMapObject
 
     property real _roseRadius: ScreenTools.defaultFontPixelWidth * 10
 
-    sourceItem: Item {
-        Repeater {
-            model: customMapObject.signalStrength
+    sourceItem: Rectangle {
+        width:  _radius * 2
+        height: _radius * 2
+        radius: _radius
+        color:  "white"
 
-            Item {
-                width:              0
-                height:             0
-                transformOrigin:    Item.Bottom
-                rotation:           (360.0 / 16.0) * index
-
-                Rectangle {
-                    anchors.horizontalCenter:   parent.horizontalCenter
-                    y:                          -_roseRadius - _radius
-                    width:                      _radius * 2
-                    height:                     _radius * 2
-                    radius:                     _radius
-                    color:                      modelData
-                    border.color:               "white"
-                    border.width:               1
-
-                    property real _radius: ScreenTools.defaultFontPixelWidth
-                }
-            }
-        }
+        property real _radius: ScreenTools.defaultFontPixelWidth
     }
 }
