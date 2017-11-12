@@ -43,7 +43,6 @@ Column {
 
     QGCTextField {
         id:                     frequency
-        anchors.baseline:       decimalPoint.baseline
         Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 6
         inputMethodHints:       Qt.ImhFormattedNumbersOnly
         validator:              IntValidator { bottom: 1 }
