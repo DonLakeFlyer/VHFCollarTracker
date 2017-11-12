@@ -1,5 +1,6 @@
 #include "VHFTrackerQGCPlugin.h"
 #include "DirectionMapItem.h"
+#include "LineMapItem.h"
 #include "Vehicle.h"
 #include "VHFTrackerSettings.h"
 
@@ -56,8 +57,10 @@ QVariantList& VHFTrackerQGCPlugin::instrumentPages(void)
 bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, mavlink_message_t message)
 {
     switch (message.msgid) {
+#if 0
     case MAVLINK_MSG_ID_MEMORY_VECT:
         return _handleMemoryVect(vehicle, link, message);
+#endif
     case MAVLINK_MSG_ID_DEBUG:
         return _handleDebug(vehicle,link, message);
     }
@@ -65,6 +68,7 @@ bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, 
     return true;
 }
 
+#if 0
 bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
 {
     Q_UNUSED(link);
@@ -82,7 +86,7 @@ bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* lin
 
     return false;
 }
-
+#endif
 
 bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
 {
@@ -93,8 +97,14 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
 
     mavlink_msg_debug_decode(&message, &debugMsg);
 
-    _beepStrength = debugMsg.value;
-    emit beepStrengthChanged(_beepStrength);
+    qDebug() << "debugMsg" << debugMsg.time_boot_ms << debugMsg.ind;
+    if (debugMsg.ind == 0) {
+        _beepStrength = debugMsg.value;
+        emit beepStrengthChanged(_beepStrength);
+    } else if (debugMsg.ind == 1) {
+        _mapItems.append(new DirectionMapItem(vehicle->coordinate(), debugMsg.ind, debugMsg.value, this));
+        _mapItems.append(new LineMapItem(vehicle->coordinate(), debugMsg.ind, debugMsg.value, this));
+    }
 
     return false;
 }

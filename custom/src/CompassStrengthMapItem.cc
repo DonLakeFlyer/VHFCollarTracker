@@ -3,13 +3,13 @@
 #include <QColor>
 #include <QDebug>
 
-DirectionMapItem::DirectionMapItem(const QGeoCoordinate& coordinate, double heading, double signalStrength, QObject* parent)
+DirectionMapItem::DirectionMapItem(const QGeoCoordinate& coordinate, const QList<QColor>& signalStrengthColors, QObject* parent)
     : QmlComponentInfo  (QString(), QUrl::fromUserInput("qrc:/qml/DirectionMapItem.qml"), QUrl(), parent)
     , _coordinate       (coordinate)
-    , _heading          (heading)
-    , _signalStrength   (signalStrength)
 {
-
+    foreach (QColor color, signalStrengthColors) {
+        _signalStrength.append(QVariant::fromValue(color));
+    }
 }
 
 DirectionMapItem::~DirectionMapItem()

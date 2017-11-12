@@ -5,7 +5,7 @@
 #include <QVariantList>
 #include <QGeoCoordinate>
 
-class DirectionMapItem : public QmlComponentInfo
+class LineMapItem : public QmlComponentInfo
 {
     Q_OBJECT
 
@@ -14,8 +14,8 @@ class DirectionMapItem : public QmlComponentInfo
     Q_PROPERTY(double           signalStrength  MEMBER _signalStrength  CONSTANT)
 
 public:
-    DirectionMapItem(const QGeoCoordinate& coordinate, double heading, double signalStrength, QObject* parent = NULL);
-    ~DirectionMapItem();
+    LineMapItem(const QGeoCoordinate& coordinate, double heading, double signalStrength, QObject* parent = NULL);
+    ~LineMapItem();
 
 private:
     QGeoCoordinate  _coordinate;

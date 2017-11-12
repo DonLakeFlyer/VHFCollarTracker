@@ -30,6 +30,7 @@ INCLUDEPATH += \
 
 HEADERS += \
     $$PWD/src/DirectionMapItem.h \
+    $$PWD/src/LineMapItem.h \
     $$PWD/src/VHFTrackerFirmwarePlugin.h \
     $$PWD/src/VHFTrackerFirmwarePluginFactory.h \
     $$PWD/src/VHFTrackerQGCOptions.h \
@@ -38,6 +39,7 @@ HEADERS += \
 
 SOURCES += \
     $$PWD/src/DirectionMapItem.cc \
+    $$PWD/src/LineMapItem.cc \
     $$PWD/src/VHFTrackerFirmwarePlugin.cc \
     $$PWD/src/VHFTrackerFirmwarePluginFactory.cc \
     $$PWD/src/VHFTrackerQGCOptions.cc \
