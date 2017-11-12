@@ -32,6 +32,7 @@ Item {
     property real   _margins:           ScreenTools.defaultFontPixelWidth
     property int    _pulseCount:        0
     property int    _pulseStrength:     0
+    property int    _bpm:               _corePlugin.bpm
 
     Connections {
         target: QGroundControl.corePlugin
@@ -67,12 +68,19 @@ Item {
                 font.pointSize:             ScreenTools.largeFontPointSize
             }
 
-            QGCLabel {
-                anchors.horizontalCenter:   parent.horizontalCenter
-                horizontalAlignment:        Text.AlignHCenter
-                text:                       _pulseCount
-                color:                      "black"
-                font.pointSize:             ScreenTools.largeFontPointSize
+            Row {
+                spacing: _margins
+
+                QGCLabel {
+                    text:                       _bpm
+                    color:                      "black"
+                    font.pointSize:             ScreenTools.largeFontPointSize
+                }
+
+                QGCLabel {
+                    text:                       _pulseCount
+                    color:                      "black"
+                }
             }
         }
 

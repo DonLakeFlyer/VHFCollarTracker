@@ -8,6 +8,7 @@
 VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbox)
     : QGCCorePlugin (app, toolbox)
     , _beepStrength (0)
+    , _bpm          (0)
 {
     _showAdvancedUI = true;
 }
@@ -95,6 +96,16 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
 
     _beepStrength = debugMsg.value;
     emit beepStrengthChanged(_beepStrength);
+
+    if (_beepStrength == 0) {
+        _elapsedTimer.invalidate();
+    } else {
+        if (_elapsedTimer.isValid()) {
+            _bpm = (60 * 1000) / _elapsedTimer.elapsed();
+            emit bpmChanged(_bpm);
+        }
+        _elapsedTimer.restart();
+    }
 
     return false;
 }

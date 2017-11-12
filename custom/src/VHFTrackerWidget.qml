@@ -41,54 +41,45 @@ Column {
         onClicked:  _activeVehicle.sendCommand(158 /* MAV_COMP_ID_PERIPHERAL */, 31011 /* MAV_CMD_USER_2 */, true)
     }
 
-    RowLayout {
-        spacing: _margins
-
-        QGCTextField {
-            id:                     freqNumerator
-            anchors.baseline:       decimalPoint.baseline
-            Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 6
-            inputMethodHints:       Qt.ImhFormattedNumbersOnly
-            validator:              IntValidator { bottom: 1 }
-        }
-
-        QGCLabel {
-            id:     decimalPoint
-            text:   "."
-        }
-
-        QGCTextField {
-            id:                     freqDenominator
-            anchors.baseline:       decimalPoint.baseline
-            Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 6
-            inputMethodHints:       Qt.ImhFormattedNumbersOnly
-            validator:              IntValidator { bottom: 1 }
-        }
+    QGCTextField {
+        id:                     frequency
+        anchors.baseline:       decimalPoint.baseline
+        Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 6
+        inputMethodHints:       Qt.ImhFormattedNumbersOnly
+        validator:              IntValidator { bottom: 1 }
     }
-
 
     QGCButton {
         text: qsTr("Set Freq")
         enabled:    _activeVehicle
-        onClicked:  _activeVehicle.sendCommand(158,     // MAV_COMP_ID_PERIPHERAL
-                                               31012,   // MAV_CMD_USER_3
-                                               true,    // showError
-                                               parseInt(freqNumerator.text),
-                                               parseInt(freqDenominator.text))
+        onClicked:  _activeVehicle.sendCommand(158,                         // MAV_COMP_ID_PERIPHERAL
+                                               31012,                       // MAV_CMD_USER_3
+                                               false,                       // showError
+                                               parseInt(frequency.text))
     }
 
     QGCTextField {
         id:                 gainField
         inputMethodHints:   Qt.ImhFormattedNumbersOnly
-        validator:          IntValidator { bottom: 0 }
+        validator:          IntValidator { bottom: 1; top: 50 }
     }
 
     QGCButton {
         text:       qsTr("Set Gain")
         enabled:    _activeVehicle
-        onClicked:  _activeVehicle.sendCommand(158,     // MAV_COMP_ID_PERIPHERAL
-                                               31013,   // MAV_CMD_USER_4
-                                               true,    // showError
+        onClicked:  _activeVehicle.sendCommand(158,                         // MAV_COMP_ID_PERIPHERAL
+                                               31013,                       // MAV_CMD_USER_4
+                                               false,                       // showError
                                                parseInt(gainField.text))
     }
+
+    QGCCheckBox {
+        text: qsTr("Amplified")
+        onClicked:  _activeVehicle.sendCommand(158,                         // MAV_COMP_ID_PERIPHERAL
+                                               31014,                       // MAV_CMD_USER_4
+                                               false,                       // showError
+                                               checked ? 1 : 0)
+    }
+
+    Item { width: 1; height: 1 }
 }

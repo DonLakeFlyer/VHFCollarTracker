@@ -5,6 +5,8 @@
 #include "SettingsFact.h"
 #include "VHFTrackerQGCOptions.h"
 
+#include <QElapsedTimer>
+
 class VHFTrackerSettings;
 
 class VHFTrackerQGCPlugin : public QGCCorePlugin
@@ -17,6 +19,7 @@ public:
 
     Q_PROPERTY(VHFTrackerSettings*  vhfSettings     MEMBER _vhfSettings     CONSTANT)
     Q_PROPERTY(int                  beepStrength    MEMBER _beepStrength    NOTIFY beepStrengthChanged)
+    Q_PROPERTY(int                  bpm             MEMBER _bpm             NOTIFY bpmChanged)
 
     // Overrides from QGCCorePlugin
     QString             brandImageIndoor    (void) const final;
@@ -32,6 +35,7 @@ public:
 
 signals:
     void beepStrengthChanged(int beepStrength);
+    void bpmChanged         (int bpm);
 
 private:
     bool _handleMemoryVect  (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
@@ -41,6 +45,8 @@ private:
     QVariantList            _instrumentPages;
     QmlObjectListModel      _mapItems;
     int                     _beepStrength;
+    int                     _bpm;
+    QElapsedTimer           _elapsedTimer;
     VHFTrackerQGCOptions*   _vhfQGCOptions;
     VHFTrackerSettings*     _vhfSettings;
 };
