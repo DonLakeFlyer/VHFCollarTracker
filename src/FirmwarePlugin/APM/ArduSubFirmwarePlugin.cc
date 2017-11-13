@@ -132,11 +132,6 @@ bool ArduSubFirmwarePlugin::supportsThrottleModeCenterZero(void)
     return false;
 }
 
-bool ArduSubFirmwarePlugin::supportsManualControl(void)
-{
-    return true;
-}
-
 bool ArduSubFirmwarePlugin::supportsRadio(void)
 {
     return false;
@@ -230,4 +225,15 @@ APMSubmarineFactGroup::APMSubmarineFactGroup(QObject* parent)
     _lightsLevel1Fact.setRawValue  (std::numeric_limits<float>::quiet_NaN());
     _lightsLevel2Fact.setRawValue  (std::numeric_limits<float>::quiet_NaN());
     _pilotGainFact.setRawValue     (std::numeric_limits<float>::quiet_NaN());
+}
+
+QString ArduSubFirmwarePlugin::vehicleImageOpaque(const Vehicle* vehicle) const
+{
+    Q_UNUSED(vehicle);
+    return QStringLiteral("/qmlimages/subVehicleArrowOpaque.png");
+}
+
+QString ArduSubFirmwarePlugin::vehicleImageOutline(const Vehicle* vehicle) const
+{
+    return vehicleImageOpaque(vehicle);
 }

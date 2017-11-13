@@ -119,6 +119,8 @@ void TCPLink::_disconnect(void)
     if (_socket) {
         _socketIsConnected = false;
         _socket->deleteLater(); // Make sure delete happens on correct thread
+        _socket->disconnectFromHost(); // Disconnect tcp
+        _socket->waitForDisconnected();        
         _socket = NULL;
         emit disconnected();
     }
@@ -158,7 +160,7 @@ bool TCPLink::_hardwareConnect()
         // Whether a failed connection emits an error signal or not is platform specific.
         // So in cases where it is not emitted, we emit one ourselves.
         if (errorSpy.count() == 0) {
-            emit communicationError(tr("Link Error"), QString("Error on link %1. Connection failed").arg(getName()));
+            emit communicationError(tr("Link Error"), tr("Error on link %1. Connection failed").arg(getName()));
         }
         delete _socket;
         _socket = NULL;
@@ -172,7 +174,7 @@ bool TCPLink::_hardwareConnect()
 void TCPLink::_socketError(QAbstractSocket::SocketError socketError)
 {
     Q_UNUSED(socketError);
-    emit communicationError(tr("Link Error"), QString("Error on link %1. Error on socket: %2.").arg(getName()).arg(_socket->errorString()));
+    emit communicationError(tr("Link Error"), tr("Error on link %1. Error on socket: %2.").arg(getName()).arg(_socket->errorString()));
 }
 
 /**

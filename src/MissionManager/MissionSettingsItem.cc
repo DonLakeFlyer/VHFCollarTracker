@@ -63,8 +63,8 @@ MissionSettingsItem::MissionSettingsItem(Vehicle* vehicle, QObject* parent)
     connect(&_cameraSection,    &CameraSection::dirtyChanged,   this, &MissionSettingsItem::_sectionDirtyChanged);
     connect(&_speedSection,     &SpeedSection::dirtyChanged,    this, &MissionSettingsItem::_sectionDirtyChanged);
 
-    connect(&_cameraSection,    &CameraSection::specifyGimbalChanged,       this, &MissionSettingsItem::specifiedGimbalYawChanged);
     connect(&_cameraSection,    &CameraSection::specifiedGimbalYawChanged,  this, &MissionSettingsItem::specifiedGimbalYawChanged);
+    connect(&_speedSection,     &SpeedSection::specifiedFlightSpeedChanged, this, &MissionSettingsItem::specifiedFlightSpeedChanged);
 }
 
 int MissionSettingsItem::lastSequenceNumber(void) const
@@ -233,7 +233,6 @@ void MissionSettingsItem::setCoordinate(const QGeoCoordinate& coordinate)
     if (_plannedHomePositionCoordinate != coordinate) {
         // ArduPilot tends to send crap home positions at initial vehicel boot, discard them
         if (coordinate.isValid() && (coordinate.latitude() != 0 || coordinate.longitude() != 0)) {
-            qDebug() << "Setting home position" << coordinate;
             _plannedHomePositionCoordinate = coordinate;
             emit coordinateChanged(coordinate);
             emit exitCoordinateChanged(coordinate);

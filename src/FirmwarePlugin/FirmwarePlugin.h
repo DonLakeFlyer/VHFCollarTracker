@@ -25,6 +25,8 @@
 #include <QVariantList>
 
 class Vehicle;
+class QGCCameraControl;
+class QGCCameraManager;
 
 /// This is the base class for Firmware specific plugins
 ///
@@ -45,6 +47,7 @@ public:
         PauseVehicleCapability =            1 << 2, ///< Vehicle supports pausing at current location
         GuidedModeCapability =              1 << 3, ///< Vehicle supports guided mode commands
         OrbitModeCapability =               1 << 4, ///< Vehicle supports orbit mode
+        TakeoffVehicleCapability =          1 << 5, ///< Vehicle supports guided takeoff
     } FirmwareCapabilities;
 
     /// Maps from on parameter name to another
@@ -125,7 +128,7 @@ public:
     virtual void guidedModeLand(Vehicle* vehicle);
 
     /// Command vehicle to takeoff from current location to a firmware specific height.
-    virtual void guidedModeTakeoff(Vehicle* vehicle);
+    virtual void guidedModeTakeoff(Vehicle* vehicle, double takeoffAltRel);
 
     /// Command the vehicle to start the mission
     virtual void startMission(Vehicle* vehicle);
@@ -158,9 +161,9 @@ public:
     /// throttle.
     virtual bool supportsThrottleModeCenterZero(void);
 
-    /// Returns true if the firmware supports the use of the MAVlink "MANUAL_CONTROL" message.
-    /// By default, this returns false unless overridden in the firmware plugin.
-    virtual bool supportsManualControl(void);
+    /// Returns true if the vehicle and firmware supports the use of negative thrust
+    /// Typically supported rover.
+    virtual bool supportsNegativeThrust(void);
 
     /// Returns true if the firmware supports the use of the RC radio and requires the RC radio
     /// setup page. Returns true by default.
@@ -258,7 +261,14 @@ public:
     virtual const QVariantList& toolBarIndicators(const Vehicle* vehicle);
 
     /// Returns a list of CameraMetaData objects for available cameras on the vehicle.
+    /// TODO: This should go into QGCCameraManager
     virtual const QVariantList& cameraList(const Vehicle* vehicle);
+
+    /// Creates vehicle camera manager. Returns NULL if not supported.
+    virtual QGCCameraManager* createCameraManager(Vehicle *vehicle);
+
+    /// Camera control. Returns NULL if not supported.
+    virtual QGCCameraControl* createCameraControl(const mavlink_camera_information_t* info, Vehicle* vehicle, int compID, QObject* parent = NULL);
 
     /// Returns a pointer to a dictionary of firmware-specific FactGroups
     virtual QMap<QString, FactGroup*>* factGroups(void);
@@ -282,8 +292,11 @@ public:
     /// @return true: vehicle has gimbal, false: gimbal support unknown
     virtual bool hasGimbal(Vehicle* vehicle, bool& rollSupported, bool& pitchSupported, bool& yawSupported);
 
+    /// Returns true if the vehicle is a VTOL
+    virtual bool isVtol(const Vehicle* vehicle) const;
+
     // FIXME: Hack workaround for non pluginize FollowMe support
-    static const char* px4FollowMeFlightMode;
+    static const QString px4FollowMeFlightMode;
 
 protected:
     // Arms the vehicle with validation and retries

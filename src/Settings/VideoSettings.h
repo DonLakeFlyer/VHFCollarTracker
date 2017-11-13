@@ -28,6 +28,8 @@ public:
     Q_PROPERTY(Fact* showRecControl     READ showRecControl     CONSTANT)
     Q_PROPERTY(Fact* recordingFormat    READ recordingFormat    CONSTANT)
     Q_PROPERTY(Fact* maxVideoSize       READ maxVideoSize       CONSTANT)
+    Q_PROPERTY(Fact* enableStorageLimit READ enableStorageLimit CONSTANT)
+    Q_PROPERTY(Fact* rtspTimeout        READ rtspTimeout        CONSTANT)
 
     Fact* videoSource       (void);
     Fact* udpPort           (void);
@@ -38,6 +40,8 @@ public:
     Fact* showRecControl    (void);
     Fact* recordingFormat   (void);
     Fact* maxVideoSize      (void);
+    Fact* enableStorageLimit(void);
+    Fact* rtspTimeout      (void);
 
     static const char* videoSettingsGroupName;
 
@@ -50,6 +54,8 @@ public:
     static const char* showRecControlName;
     static const char* recordingFormatName;
     static const char* maxVideoSizeName;
+    static const char* enableStorageLimitName;
+    static const char* rtspTimeoutName;
 
     static const char* videoSourceNoVideo;
     static const char* videoDisabled;
@@ -67,6 +73,8 @@ private:
     SettingsFact* _showRecControlFact;
     SettingsFact* _recordingFormatFact;
     SettingsFact* _maxVideoSizeFact;
+    SettingsFact* _enableStorageLimitFact;
+    SettingsFact* _rtspTimeoutFact;
 };
 
 #endif

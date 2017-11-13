@@ -116,7 +116,7 @@ void MultiVehicleManager::_vehicleHeartbeatInfo(LinkInterface* link, int vehicle
                                       << vehicleType;
 
     if (vehicleId == _mavlinkProtocol->getSystemId()) {
-        _app->showMessage(QString("Warning: A vehicle is using the same system id as %1: %2").arg(qgcApp()->applicationName()).arg(vehicleId));
+        _app->showMessage(tr("Warning: A vehicle is using the same system id as %1: %2").arg(qgcApp()->applicationName()).arg(vehicleId));
     }
 
 //    QSettings settings;
@@ -216,6 +216,7 @@ void MultiVehicleManager::_deleteVehiclePhase1(Vehicle* vehicle)
     emit activeVehicleAvailableChanged(false);
     emit parameterReadyVehicleAvailableChanged(false);
     emit vehicleRemoved(vehicle);
+    vehicle->prepareDelete();
 
 #if defined (__ios__) || defined(__android__)
     if(_vehicles.count() == 0) {
