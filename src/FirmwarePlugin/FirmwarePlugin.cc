@@ -18,11 +18,11 @@
 
 static FirmwarePluginFactoryRegister* _instance = NULL;
 
-const char* guided_mode_not_supported_by_vehicle = "Guided mode not supported by Vehicle.";
+const QString guided_mode_not_supported_by_vehicle = QObject::tr("Guided mode not supported by Vehicle.");
 
 QVariantList FirmwarePlugin::_cameraList;
 
-const char* FirmwarePlugin::px4FollowMeFlightMode = "Follow Me";
+const QString FirmwarePlugin::px4FollowMeFlightMode(QObject::tr("Follow Me"));
 
 FirmwarePluginFactory::FirmwarePluginFactory(void)
 {
@@ -129,8 +129,9 @@ bool FirmwarePlugin::supportsThrottleModeCenterZero(void)
     return true;
 }
 
-bool FirmwarePlugin::supportsManualControl(void)
+bool FirmwarePlugin::supportsNegativeThrust(void)
 {
+    // By default, this is not supported
     return false;
 }
 
@@ -255,10 +256,11 @@ void FirmwarePlugin::guidedModeLand(Vehicle* vehicle)
     qgcApp()->showMessage(guided_mode_not_supported_by_vehicle);
 }
 
-void FirmwarePlugin::guidedModeTakeoff(Vehicle* vehicle)
+void FirmwarePlugin::guidedModeTakeoff(Vehicle* vehicle, double takeoffAltRel)
 {
     // Not supported by generic vehicle
     Q_UNUSED(vehicle);
+    Q_UNUSED(takeoffAltRel);
     qgcApp()->showMessage(guided_mode_not_supported_by_vehicle);
 }
 
@@ -392,6 +394,7 @@ const QVariantList& FirmwarePlugin::cameraList(const Vehicle* vehicle)
                                       false,
                                       0,
                                       this);
+        _cameraList.append(QVariant::fromValue(metaData));
 
         metaData = new CameraMetaData(tr("Canon EOS-M 22mm"),
                                       22.3,
@@ -426,6 +429,30 @@ const QVariantList& FirmwarePlugin::cameraList(const Vehicle* vehicle)
                                       true,
                                       false,
                                       0,
+                                      this);
+        _cameraList.append(QVariant::fromValue(metaData));
+
+        metaData = new CameraMetaData(tr("Ricoh GR II"),
+                                      23.7,     // sensorWidth
+                                      15.7,     // sendsorHeight
+                                      4928,     // imageWidth
+                                      3264,     // imageHeight
+                                      18.3,     // focalLength
+                                      true,     // landscape
+                                      false,    // fixedOrientation
+                                      0,        // minTriggerInterval
+                                      this);
+        _cameraList.append(QVariant::fromValue(metaData));
+
+        metaData = new CameraMetaData(tr("RedEdge"),
+                                      4.8,      // sensorWidth
+                                      3.6,      // sendsorHeight
+                                      1280,     // imageWidth
+                                      960,      // imageHeight
+                                      5.5,      // focalLength
+                                      true,     // landscape
+                                      false,    // fixedOrientation
+                                      0,        // minTriggerInterval
                                       this);
         _cameraList.append(QVariant::fromValue(metaData));
     }
@@ -524,3 +551,36 @@ bool FirmwarePlugin::hasGimbal(Vehicle* vehicle, bool& rollSupported, bool& pitc
     yawSupported = false;
     return false;
 }
+
+bool FirmwarePlugin::isVtol(const Vehicle* vehicle) const
+{
+    switch (vehicle->vehicleType()) {
+    case MAV_TYPE_VTOL_DUOROTOR:
+    case MAV_TYPE_VTOL_QUADROTOR:
+    case MAV_TYPE_VTOL_TILTROTOR:
+    case MAV_TYPE_VTOL_RESERVED2:
+    case MAV_TYPE_VTOL_RESERVED3:
+    case MAV_TYPE_VTOL_RESERVED4:
+    case MAV_TYPE_VTOL_RESERVED5:
+        return true;
+    default:
+        return false;
+    }
+}
+
+QGCCameraManager* FirmwarePlugin::createCameraManager(Vehicle* vehicle)
+{
+    Q_UNUSED(vehicle);
+    return NULL;
+}
+
+QGCCameraControl* FirmwarePlugin::createCameraControl(const mavlink_camera_information_t *info, Vehicle *vehicle, int compID, QObject* parent)
+{
+    Q_UNUSED(info);
+    Q_UNUSED(vehicle);
+    Q_UNUSED(compID);
+    Q_UNUSED(parent);
+    return NULL;
+}
+
+

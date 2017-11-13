@@ -52,8 +52,18 @@ public:
     /// Returns true if the specified coordinate is within the polygon
     Q_INVOKABLE bool containsCoordinate(const QGeoCoordinate& coordinate) const;
 
+    /// Offsets the current polygon edges by the specified distance in meters
+    Q_INVOKABLE void offset(double distance);
+
+    /// Loads a polygon from a KML file
+    /// @return true: success
+    Q_INVOKABLE bool loadKMLFile(const QString& kmlFile);
+
     /// Returns the path in a list of QGeoCoordinate's format
     QList<QGeoCoordinate> coordinateList(void) const;
+
+    /// Returns the QGeoCoordinate for the vertex specified
+    QGeoCoordinate vertexCoordinate(int vertex) const;
 
     /// Saves the polygon to the json object.
     ///     @param json Json object to save to
@@ -65,6 +75,9 @@ public:
     ///     @param errorString Error string if return is false
     /// @return true: success, false: failure (errorString set)
     bool loadFromJson(const QJsonObject& json, bool required, QString& errorString);
+
+    /// Convert polygon to NED and return (D is ignored)
+    QList<QPointF> nedPolygon(void);
 
     // Property methods
 

@@ -126,7 +126,7 @@ newPadCB(GstElement* element, GstPad* pad, gpointer data)
 {
     gchar* name;
     name = gst_pad_get_name(pad);
-    g_print("A new pad %s was created\n", name);
+    //g_print("A new pad %s was created\n", name);
     GstCaps* p_caps = gst_pad_get_pad_template_caps (pad);
     gchar* description = gst_caps_to_string(p_caps);
     qCDebug(VideoReceiverLog) << p_caps << ", " << description;
@@ -181,6 +181,7 @@ VideoReceiver::_timeout()
     //   found to be working, only then we actually start the stream.
     QUrl url(_uri);
     _socket = new QTcpSocket;
+    _socket->setProxy(QNetworkProxy::NoProxy);
     connect(_socket, static_cast<void (QTcpSocket::*)(QAbstractSocket::SocketError)>(&QTcpSocket::error), this, &VideoReceiver::_socketError);
     connect(_socket, &QTcpSocket::connected, this, &VideoReceiver::_connected);
     //qCDebug(VideoReceiverLog) << "Trying to connect to:" << url.host() << url.port();
@@ -492,7 +493,7 @@ VideoReceiver::_handleEOS() {
     } else if(_recording && _sink->removing) {
         _shutdownRecordingBranch();
     } else {
-        qCritical() << "VideoReceiver: Unexpected EOS!";
+        qWarning() << "VideoReceiver: Unexpected EOS!";
         _shutdownPipeline();
     }
 }
@@ -548,33 +549,36 @@ VideoReceiver::_onBusMessage(GstBus* bus, GstMessage* msg, gpointer data)
 void
 VideoReceiver::_cleanupOldVideos()
 {
-    QString savePath = qgcApp()->toolbox()->settingsManager()->appSettings()->videoSavePath();
-    QDir videoDir = QDir(savePath);
-    videoDir.setFilter(QDir::Files | QDir::Readable | QDir::NoSymLinks | QDir::Writable);
-    videoDir.setSorting(QDir::Time);
-    //-- All the movie extensions we support
-    QStringList nameFilters;
-    for(uint32_t i = 0; i < NUM_MUXES; i++) {
-        nameFilters << QString("*.") + QString(kVideoExtensions[i]);
-    }
-    videoDir.setNameFilters(nameFilters);
-    //-- get the list of videos stored
-    QFileInfoList vidList = videoDir.entryInfoList();
-    if(!vidList.isEmpty()) {
-        uint64_t total   = 0;
-        //-- Settings are stored using MB
-        uint64_t maxSize = (qgcApp()->toolbox()->settingsManager()->videoSettings()->maxVideoSize()->rawValue().toUInt() * 1024 * 1024);
-        //-- Compute total used storage
-        for(int i = 0; i < vidList.size(); i++) {
-            total += vidList[i].size();
+    //-- Only perform cleanup if storage limit is enabled
+    if(qgcApp()->toolbox()->settingsManager()->videoSettings()->enableStorageLimit()->rawValue().toBool()) {
+        QString savePath = qgcApp()->toolbox()->settingsManager()->appSettings()->videoSavePath();
+        QDir videoDir = QDir(savePath);
+        videoDir.setFilter(QDir::Files | QDir::Readable | QDir::NoSymLinks | QDir::Writable);
+        videoDir.setSorting(QDir::Time);
+        //-- All the movie extensions we support
+        QStringList nameFilters;
+        for(uint32_t i = 0; i < NUM_MUXES; i++) {
+            nameFilters << QString("*.") + QString(kVideoExtensions[i]);
         }
-        //-- Remove old movies until max size is satisfied.
-        while(total >= maxSize && !vidList.isEmpty()) {
-            total -= vidList.last().size();
-            qCDebug(VideoReceiverLog) << "Removing old video file:" << vidList.last().filePath();
-            QFile file (vidList.last().filePath());
-            file.remove();
-            vidList.removeLast();
+        videoDir.setNameFilters(nameFilters);
+        //-- get the list of videos stored
+        QFileInfoList vidList = videoDir.entryInfoList();
+        if(!vidList.isEmpty()) {
+            uint64_t total   = 0;
+            //-- Settings are stored using MB
+            uint64_t maxSize = (qgcApp()->toolbox()->settingsManager()->videoSettings()->maxVideoSize()->rawValue().toUInt() * 1024 * 1024);
+            //-- Compute total used storage
+            for(int i = 0; i < vidList.size(); i++) {
+                total += vidList[i].size();
+            }
+            //-- Remove old movies until max size is satisfied.
+            while(total >= maxSize && !vidList.isEmpty()) {
+                total -= vidList.last().size();
+                qCDebug(VideoReceiverLog) << "Removing old video file:" << vidList.last().filePath();
+                QFile file (vidList.last().filePath());
+                file.remove();
+                vidList.removeLast();
+            }
         }
     }
 }
@@ -797,12 +801,16 @@ VideoReceiver::_updateTimer()
             }
         }
         if(_videoRunning) {
+            uint32_t timeout = 1;
+            if(qgcApp()->toolbox() && qgcApp()->toolbox()->settingsManager()) {
+                timeout = qgcApp()->toolbox()->settingsManager()->videoSettings()->rtspTimeout()->rawValue().toUInt();
+            }
             time_t elapsed = 0;
             time_t lastFrame = _videoSurface->lastFrame();
             if(lastFrame != 0) {
                 elapsed = time(0) - _videoSurface->lastFrame();
             }
-            if(elapsed > 2 && _videoSurface) {
+            if(elapsed > (time_t)timeout && _videoSurface) {
                 stop();
             }
         } else {

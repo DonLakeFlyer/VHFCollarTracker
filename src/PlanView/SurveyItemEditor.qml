@@ -30,15 +30,15 @@ Rectangle {
     property real   _fieldWidth:        ScreenTools.defaultFontPixelWidth * 10.5
     property var    _cameraList:        [ qsTr("Manual Grid (no camera specs)"), qsTr("Custom Camera Grid") ]
     property var    _vehicle:           QGroundControl.multiVehicleManager.activeVehicle ? QGroundControl.multiVehicleManager.activeVehicle : QGroundControl.multiVehicleManager.offlineEditingVehicle
-    property var    _vehicleCameraList: _vehicle.cameraList
+    property var    _vehicleCameraList: _vehicle ? _vehicle.staticCameraList : []
 
     readonly property int _gridTypeManual:          0
     readonly property int _gridTypeCustomCamera:    1
     readonly property int _gridTypeCamera:          2
 
     Component.onCompleted: {
-        for (var i=0; i<_vehicle.cameraList.length; i++) {
-            _cameraList.push(_vehicle.cameraList[i].name)
+        for (var i=0; i<_vehicle.staticCameraList.length; i++) {
+            _cameraList.push(_vehicle.staticCameraList[i].name)
         }
         gridTypeCombo.model = _cameraList
         if (missionItem.manualGrid.value) {
@@ -590,6 +590,24 @@ Rectangle {
                 Layout.fillWidth:       true
             }
 
+            FactCheckBox {
+                text:               qsTr("Hover and capture image")
+                fact:               missionItem.hoverAndCapture
+                visible:            missionItem.hoverAndCaptureAllowed
+                Layout.columnSpan:  2
+                onClicked: {
+                    if (checked) {
+                        missionItem.cameraTriggerInTurnaround.rawValue = false
+                    }
+                }
+            }
+
+            FactCheckBox {
+                text:               qsTr("Take images in turnarounds")
+                fact:               missionItem.cameraTriggerInTurnaround
+                enabled:            !missionItem.hoverAndCapture.rawValue
+                Layout.columnSpan:  2
+            }
 
             QGCCheckBox {
                 text:               qsTr("Refly at 90 degree offset")

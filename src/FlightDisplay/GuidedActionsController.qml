@@ -92,7 +92,7 @@ Item {
     property bool showArm:              _activeVehicle && !_vehicleArmed
     property bool showDisarm:           _activeVehicle && _vehicleArmed && !_vehicleFlying
     property bool showRTL:              _activeVehicle && _vehicleArmed && _activeVehicle.guidedModeSupported && _vehicleFlying && !_vehicleInRTLMode
-    property bool showTakeoff:          _activeVehicle && _activeVehicle.guidedModeSupported && !_vehicleFlying  && !_activeVehicle.fixedWing
+    property bool showTakeoff:          _activeVehicle && _activeVehicle.takeoffVehicleSupported && !_vehicleFlying
     property bool showLand:             _activeVehicle && _activeVehicle.guidedModeSupported && _vehicleArmed && !_activeVehicle.fixedWing && !_vehicleInLandMode
     property bool showStartMission:     _activeVehicle && _missionAvailable && !_missionActive && !_vehicleFlying
     property bool showContinueMission:  _activeVehicle && _missionAvailable && !_missionActive && _vehicleFlying && (_currentMissionIndex < missionController.visualItems.count - 1)
@@ -101,7 +101,7 @@ Item {
     property bool showChangeAlt:        (_activeVehicle && _vehicleFlying) && _activeVehicle.guidedModeSupported && _vehicleArmed && !_missionActive
     property bool showOrbit:            !_hideOrbit && _activeVehicle && _vehicleFlying && _activeVehicle.orbitModeSupported && _vehicleArmed && !_missionActive
     property bool showLandAbort:        _activeVehicle && _vehicleFlying && _activeVehicle.fixedWing && _vehicleLanding
-    property bool showGotoLocation:     _activeVehicle && _activeVehicle.guidedMode && _vehicleFlying
+    property bool showGotoLocation:     _activeVehicle && _vehicleFlying
 
     property bool guidedUIVisible:      guidedActionConfirm.visible || guidedActionList.visible
 
@@ -122,14 +122,14 @@ Item {
     property bool   _hideOrbit:             !QGroundControl.corePlugin.options.guidedBarShowOrbit
     property bool   _vehicleWasFlying:      false
 
-    //Handy code for debugging state problems
     /*
+    //Handy code for debugging state problems
     property bool __guidedModeSupported: _activeVehicle ? _activeVehicle.guidedModeSupported : false
     property bool __pauseVehicleSupported: _activeVehicle ? _activeVehicle.pauseVehicleSupported : false
     property bool __flightMode: _flightMode
 
     function _outputState() {
-        console.log(qsTr("_activeVehicle(%1) _vehicleArmed(%2) guidedModeSupported(%3) _vehicleFlying(%4) _vehicleInRTLMode(%5) pauseVehicleSupported(%6) _vehiclePaused(%7) _flightMode(%8)").arg(_activeVehicle ? 1 : 0).arg(_vehicleArmed ? 1 : 0).arg(__guidedModeSupported ? 1 : 0).arg(_vehicleFlying ? 1 : 0).arg(_vehicleInRTLMode ? 1 : 0).arg(__pauseVehicleSupported ? 1 : 0).arg(_vehiclePaused ? 1 : 0).arg(_flightMode))
+        //console.log(qsTr("_activeVehicle(%1) _vehicleArmed(%2) guidedModeSupported(%3) _vehicleFlying(%4) _vehicleInRTLMode(%5) pauseVehicleSupported(%6) _vehiclePaused(%7) _flightMode(%8)").arg(_activeVehicle ? 1 : 0).arg(_vehicleArmed ? 1 : 0).arg(__guidedModeSupported ? 1 : 0).arg(_vehicleFlying ? 1 : 0).arg(_vehicleInRTLMode ? 1 : 0).arg(__pauseVehicleSupported ? 1 : 0).arg(_vehiclePaused ? 1 : 0).arg(_flightMode))
     }
 
     Component.onCompleted: _outputState()
@@ -140,6 +140,23 @@ Item {
     on__FlightModeChanged: _outputState()
     on__GuidedModeSupportedChanged: _outputState()
     on__PauseVehicleSupportedChanged: _outputState()
+
+    on_CurrentMissionIndexChanged: console.log("_currentMissionIndex", _currentMissionIndex)
+    on_ResumeMissionIndexChanged: console.log("_resumeMissionIndex", _resumeMissionIndex)
+    onShowResumeMissionChanged: {
+        console.log("showResumeMission", showResumeMission)
+        _outputState()
+    }
+    onShowStartMissionChanged: {
+        console.log("showStartMission", showStartMission)
+        _outputState()
+    }
+    onShowContinueMissionChanged: {
+        console.log("showContinueMission", showContinueMission)
+        _outputState()
+    }
+
+    // End of hack
     */
 
     on_VehicleFlyingChanged: {
@@ -150,16 +167,13 @@ Item {
             _vehicleWasFlying = true
         }
     }
-
     property var    _actionData
 
-    on_CurrentMissionIndexChanged: console.log("_currentMissionIndex", _currentMissionIndex)
-
     on_FlightModeChanged: {
-        _vehiclePaused =        _flightMode === _activeVehicle.pauseFlightMode
-        _vehicleInRTLMode =     _flightMode === _activeVehicle.rtlFlightMode
-        _vehicleInLandMode =    _flightMode === _activeVehicle.landFlightMode
-        _vehicleInMissionMode = _flightMode === _activeVehicle.missionFlightMode // Must be last to get correct signalling for showStartMission popups
+        _vehiclePaused =        _activeVehicle ? _flightMode === _activeVehicle.pauseFlightMode : false
+        _vehicleInRTLMode =     _activeVehicle ? _flightMode === _activeVehicle.rtlFlightMode : false
+        _vehicleInLandMode =    _activeVehicle ? _flightMode === _activeVehicle.landFlightMode : false
+        _vehicleInMissionMode = _activeVehicle ? _flightMode === _activeVehicle.missionFlightMode : false // Must be last to get correct signalling for showStartMission popups
     }
 
     // Called when an action is about to be executed in order to confirm
@@ -194,6 +208,8 @@ Item {
             confirmDialog.title = takeoffTitle
             confirmDialog.message = takeoffMessage
             confirmDialog.hideTrigger = Qt.binding(function() { return !showTakeoff })
+            altitudeSlider.reset()
+            altitudeSlider.visible = true
             break;
         case actionStartMission:
             confirmDialog.title = startMissionTitle
@@ -288,7 +304,7 @@ Item {
             _activeVehicle.guidedModeLand()
             break
         case actionTakeoff:
-            _activeVehicle.guidedModeTakeoff()
+            _activeVehicle.guidedModeTakeoff(actionData)
             break
         case actionResumeMission:
         case actionResumeMissionUploadFail:

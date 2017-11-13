@@ -11,10 +11,14 @@
 #include "QGCGeo.h"
 #include "JsonHelper.h"
 #include "QGCQGeoCoordinate.h"
+#include "QGCApplication.h"
 
 #include <QGeoRectangle>
 #include <QDebug>
 #include <QJsonArray>
+#include <QLineF>
+#include <QFile>
+#include <QDomDocument>
 
 const char* QGCMapPolygon::jsonPolygonKey = "polygon";
 
@@ -44,7 +48,7 @@ void QGCMapPolygon::_init(void)
 {
     connect(&_polygonModel, &QmlObjectListModel::dirtyChanged, this, &QGCMapPolygon::_polygonModelDirtyChanged);
     connect(&_polygonModel, &QmlObjectListModel::countChanged, this, &QGCMapPolygon::_polygonModelCountChanged);
-    connect(&_polygonModel, &QmlObjectListModel::countChanged, this, &QGCMapPolygon::_updateCenter);
+    connect(this, &QGCMapPolygon::pathChanged, this, &QGCMapPolygon::_updateCenter);
 }
 
 const QGCMapPolygon& QGCMapPolygon::operator=(const QGCMapPolygon& other)
@@ -89,13 +93,7 @@ void QGCMapPolygon::adjustVertex(int vertexIndex, const QGeoCoordinate coordinat
         // When dragging center we don't signal path changed until add vertices are updated
         emit pathChanged();
     }
-
     _polygonModel.value<QGCQGeoCoordinate*>(vertexIndex)->setCoordinate(coordinate);
-
-    if (!_ignoreCenterUpdates) {
-        _updateCenter();
-    }
-
     setDirty(true);
 }
 
@@ -284,8 +282,6 @@ void QGCMapPolygon::removeVertex(int vertexIndex)
 
     _polygonPath.removeAt(vertexIndex);
     emit pathChanged();
-
-    _updateCenter();
 }
 
 void QGCMapPolygon::_polygonModelCountChanged(int count)
@@ -298,7 +294,7 @@ void QGCMapPolygon::_updateCenter(void)
     if (!_ignoreCenterUpdates) {
         QGeoCoordinate center;
 
-        if (_polygonPath.count() > 2) {            
+        if (_polygonPath.count() > 2) {
             QPointF centroid(0, 0);
             QPolygonF polygonF = _toPolygonF();
             for (int i=0; i<polygonF.count(); i++) {
@@ -353,4 +349,168 @@ void QGCMapPolygon::setInteractive(bool interactive)
         _interactive = interactive;
         emit interactiveChanged(interactive);
     }
+}
+
+QGeoCoordinate QGCMapPolygon::vertexCoordinate(int vertex) const
+{
+    if (vertex >= 0 && vertex < _polygonPath.count()) {
+        return _polygonPath[vertex].value<QGeoCoordinate>();
+    } else {
+        qWarning() << "QGCMapPolygon::vertexCoordinate bad vertex requested";
+        return QGeoCoordinate();
+    }
+}
+
+QList<QPointF> QGCMapPolygon::nedPolygon(void)
+{
+    QList<QPointF>  nedPolygon;
+
+    if (count() > 0) {
+        QGeoCoordinate  tangentOrigin = vertexCoordinate(0);
+
+        for (int i=0; i<_polygonModel.count(); i++) {
+            double y, x, down;
+            QGeoCoordinate vertex = vertexCoordinate(i);
+            if (i == 0) {
+                // This avoids a nan calculation that comes out of convertGeoToNed
+                x = y = 0;
+            } else {
+                convertGeoToNed(vertex, tangentOrigin, &y, &x, &down);
+            }
+            nedPolygon += QPointF(x, y);
+        }
+    }
+
+    return nedPolygon;
+}
+
+
+void QGCMapPolygon::offset(double distance)
+{
+    QList<QGeoCoordinate> rgNewPolygon;
+
+    // I'm sure there is some beautiful famous algorithm to do this, but here is a brute force method
+
+    if (count() > 2) {
+        // Convert the polygon to NED
+        QList<QPointF> rgNedVertices = nedPolygon();
+
+        // Walk the edges, offsetting by the specified distance
+        QList<QLineF> rgOffsetEdges;
+        for (int i=0; i<rgNedVertices.count(); i++) {
+            int     lastIndex = i == rgNedVertices.count() - 1 ? 0 : i + 1;
+            QLineF  offsetEdge;
+            QLineF  originalEdge(rgNedVertices[i], rgNedVertices[lastIndex]);
+
+            QLineF workerLine = originalEdge;
+            workerLine.setLength(distance);
+            workerLine.setAngle(workerLine.angle() - 90.0);
+            offsetEdge.setP1(workerLine.p2());
+
+            workerLine.setPoints(originalEdge.p2(), originalEdge.p1());
+            workerLine.setLength(distance);
+            workerLine.setAngle(workerLine.angle() + 90.0);
+            offsetEdge.setP2(workerLine.p2());
+
+            rgOffsetEdges.append(offsetEdge);
+        }
+
+        // Intersect the offset edges to generate new vertices
+        QPointF         newVertex;
+        QGeoCoordinate  tangentOrigin = vertexCoordinate(0);
+        for (int i=0; i<rgOffsetEdges.count(); i++) {
+            int prevIndex = i == 0 ? rgOffsetEdges.count() - 1 : i - 1;
+            if (rgOffsetEdges[prevIndex].intersect(rgOffsetEdges[i], &newVertex) == QLineF::NoIntersection) {
+                // FIXME: Better error handling?
+                qWarning("Intersection failed");
+                return;
+            }
+            QGeoCoordinate coord;
+            convertNedToGeo(newVertex.y(), newVertex.x(), 0, tangentOrigin, &coord);
+            rgNewPolygon.append(coord);
+        }
+    }
+
+    // Update internals
+    clear();
+    for (int i=0; i<rgNewPolygon.count(); i++) {
+        appendVertex(rgNewPolygon[i]);
+    }
+}
+
+bool QGCMapPolygon::loadKMLFile(const QString& kmlFile)
+{
+    QFile file(kmlFile);
+
+    if (!file.exists()) {
+        qgcApp()->showMessage(tr("File not found: %1").arg(kmlFile));
+        return false;
+    }
+
+    if (!file.open(QIODevice::ReadOnly)) {
+        qgcApp()->showMessage(tr("Unable to open file: %1 error: $%2").arg(kmlFile).arg(file.errorString()));
+        return false;
+    }
+
+    QDomDocument doc;
+    QString errorMessage;
+    int errorLine;
+    if (!doc.setContent(&file, &errorMessage, &errorLine)) {
+        qgcApp()->showMessage(tr("Unable to parse KML file: %1 error: %2 line: %3").arg(kmlFile).arg(errorMessage).arg(errorLine));
+        return false;
+    }
+
+    QDomNodeList rgNodes = doc.elementsByTagName("Polygon");
+    if (rgNodes.count() == 0) {
+        qgcApp()->showMessage(tr("Unable to find Polygon node in KML"));
+        return false;
+    }
+
+    QDomNode coordinatesNode = rgNodes.item(0).namedItem("outerBoundaryIs").namedItem("LinearRing").namedItem("coordinates");
+    if (coordinatesNode.isNull()) {
+        qgcApp()->showMessage(tr("Internal error: Unable to find coordinates node in KML"));
+        return false;
+    }
+
+    QString coordinatesString = coordinatesNode.toElement().text().simplified();
+    QStringList rgCoordinateStrings = coordinatesString.split(" ");
+
+    QList<QGeoCoordinate> rgCoords;
+    for (int i=0; i<rgCoordinateStrings.count()-1; i++) {
+        QString coordinateString = rgCoordinateStrings[i];
+
+        QStringList rgValueStrings = coordinateString.split(",");
+
+        QGeoCoordinate coord;
+        coord.setLongitude(rgValueStrings[0].toDouble());
+        coord.setLatitude(rgValueStrings[1].toDouble());
+
+        rgCoords.append(coord);
+    }
+
+    // Determine winding, reverse if needed
+    double sum = 0;
+    for (int i=0; i<rgCoords.count(); i++) {
+        QGeoCoordinate coord1 = rgCoords[i];
+        QGeoCoordinate coord2 = (i == rgCoords.count() - 1) ? rgCoords[0] : rgCoords[i+1];
+
+        sum += (coord2.longitude() - coord1.longitude()) * (coord2.latitude() + coord1.latitude());
+    }
+    bool reverse = sum < 0.0;
+
+    if (reverse) {
+        QList<QGeoCoordinate> rgReversed;
+
+        for (int i=0; i<rgCoords.count(); i++) {
+            rgReversed.prepend(rgCoords[i]);
+        }
+        rgCoords = rgReversed;
+    }
+
+    clear();
+    for (int i=0; i<rgCoords.count(); i++) {
+        appendVertex(rgCoords[i]);
+    }
+
+    return true;
 }

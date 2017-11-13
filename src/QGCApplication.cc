@@ -35,7 +35,7 @@
 
 #include "QGC.h"
 #include "QGCApplication.h"
-#include "GAudioOutput.h"
+#include "AudioOutput.h"
 #include "CmdLineOptParser.h"
 #include "UDPLink.h"
 #include "LinkManager.h"
@@ -80,6 +80,9 @@
 #include "ParameterManager.h"
 #include "SettingsManager.h"
 #include "QGCCorePlugin.h"
+#include "QGCCameraManager.h"
+#include "CameraCalc.h"
+#include "VisualMissionItem.h"
 
 #ifndef NO_SERIAL_LINK
 #include "SerialLink.h"
@@ -344,9 +347,10 @@ void QGCApplication::_initCommon(void)
     qmlRegisterType<QGCPalette>     ("QGroundControl.Palette", 1, 0, "QGCPalette");
     qmlRegisterType<QGCMapPalette>  ("QGroundControl.Palette", 1, 0, "QGCMapPalette");
 
-    qmlRegisterUncreatableType<CoordinateVector>    ("QGroundControl",                  1, 0, "CoordinateVector",       "Reference only");
-    qmlRegisterUncreatableType<QmlObjectListModel>  ("QGroundControl",                  1, 0, "QmlObjectListModel",     "Reference only");
-    qmlRegisterUncreatableType<MissionCommandTree>  ("QGroundControl",                  1, 0, "MissionCommandTree",     "Reference only");
+    qmlRegisterUncreatableType<CoordinateVector>    ("QGroundControl",                      1, 0, "CoordinateVector",       "Reference only");
+    qmlRegisterUncreatableType<QmlObjectListModel>  ("QGroundControl",                      1, 0, "QmlObjectListModel",     "Reference only");
+    qmlRegisterUncreatableType<MissionCommandTree>  ("QGroundControl",                      1, 0, "MissionCommandTree",     "Reference only");
+    qmlRegisterUncreatableType<CameraCalc>          ("QGroundControl",                      1, 0, "CameraCalc",             "Reference only");
 
     qmlRegisterUncreatableType<AutoPilotPlugin>     ("QGroundControl.AutoPilotPlugin",      1, 0, "AutoPilotPlugin",        "Reference only");
     qmlRegisterUncreatableType<VehicleComponent>    ("QGroundControl.AutoPilotPlugin",      1, 0, "VehicleComponent",       "Reference only");
@@ -354,13 +358,16 @@ void QGCApplication::_initCommon(void)
     qmlRegisterUncreatableType<MissionItem>         ("QGroundControl.Vehicle",              1, 0, "MissionItem",            "Reference only");
     qmlRegisterUncreatableType<MissionManager>      ("QGroundControl.Vehicle",              1, 0, "MissionManager",         "Reference only");
     qmlRegisterUncreatableType<ParameterManager>    ("QGroundControl.Vehicle",              1, 0, "ParameterManager",       "Reference only");
+    qmlRegisterUncreatableType<QGCCameraManager>    ("QGroundControl.Vehicle",              1, 0, "QGCCameraManager",       "Reference only");
+    qmlRegisterUncreatableType<QGCCameraControl>    ("QGroundControl.Vehicle",              1, 0, "QGCCameraControl",       "Reference only");
     qmlRegisterUncreatableType<JoystickManager>     ("QGroundControl.JoystickManager",      1, 0, "JoystickManager",        "Reference only");
     qmlRegisterUncreatableType<Joystick>            ("QGroundControl.JoystickManager",      1, 0, "Joystick",               "Reference only");
     qmlRegisterUncreatableType<QGCPositionManager>  ("QGroundControl.QGCPositionManager",   1, 0, "QGCPositionManager",     "Reference only");
     qmlRegisterUncreatableType<QGCMapPolygon>       ("QGroundControl.FlightMap",            1, 0, "QGCMapPolygon",          "Reference only");
     qmlRegisterUncreatableType<MissionController>   ("QGroundControl.Controllers",          1, 0, "MissionController",      "Reference only");
     qmlRegisterUncreatableType<GeoFenceController>  ("QGroundControl.Controllers",          1, 0, "GeoFenceController",     "Reference only");
-    qmlRegisterUncreatableType<RallyPointController>("QGroundControl.Controllers",          1, 0, "RallyPointController",    "Reference only");
+    qmlRegisterUncreatableType<RallyPointController>("QGroundControl.Controllers",          1, 0, "RallyPointController",   "Reference only");
+    qmlRegisterUncreatableType<VisualMissionItem>   ("QGroundControl.Controllers",          1, 0, "VisualMissionItem",      "Reference only");
 
     qmlRegisterType<ParameterEditorController>      ("QGroundControl.Controllers", 1, 0, "ParameterEditorController");
     qmlRegisterType<ESP8266ComponentController>     ("QGroundControl.Controllers", 1, 0, "ESP8266ComponentController");
@@ -401,11 +408,11 @@ bool QGCApplication::_initForNormalAppBoot(void)
     // Start the user interface
     MainWindow* mainWindow = MainWindow::_create();
     Q_CHECK_PTR(mainWindow);
+#endif
 
     // Now that main window is up check for lost log files
     connect(this, &QGCApplication::checkForLostLogFiles, toolbox()->mavlinkProtocol(), &MAVLinkProtocol::checkForLostLogFiles);
     emit checkForLostLogFiles();
-#endif
 
     // Load known link configurations
     toolbox()->linkManager()->loadLinkConfigurationList();
@@ -414,16 +421,16 @@ bool QGCApplication::_initForNormalAppBoot(void)
     toolbox()->joystickManager()->init();
 
     if (_settingsUpgraded) {
-        showMessage("The format for QGroundControl saved settings has been modified. "
-                    "Your saved settings have been reset to defaults.");
+        showMessage(tr("The format for QGroundControl saved settings has been modified. "
+                    "Your saved settings have been reset to defaults."));
     }
 
     // Connect links with flag AutoconnectLink
     toolbox()->linkManager()->startAutoConnectedLinks();
 
     if (getQGCMapEngine()->wasCacheReset()) {
-        showMessage("The Offline Map Cache database has been upgraded. "
-                    "Your old map cache sets have been reset.");
+        showMessage(tr("The Offline Map Cache database has been upgraded. "
+                    "Your old map cache sets have been reset."));
     }
 
     settings.sync();
@@ -612,7 +619,7 @@ void QGCApplication::_missingParamsDisplay(void)
         }
         _missingParams.clear();
 
-        showMessage(QString("Parameters are missing from firmware. You may be running a version of firmware QGC does not work correctly with or your firmware has a bug in it. Missing params: %1").arg(params));
+        showMessage(tr("Parameters are missing from firmware. You may be running a version of firmware QGC does not work correctly with or your firmware has a bug in it. Missing params: %1").arg(params));
     }
 }
 

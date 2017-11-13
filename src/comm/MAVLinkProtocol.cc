@@ -382,8 +382,6 @@ void MAVLinkProtocol::_vehicleCountChanged(void)
     if (count == 0) {
         // Last vehicle is gone, close out logging
         _stopLogging();
-        // Reset protocol version handling
-        _current_version = 0;
         _radio_version_mismatch_count = 0;
     }
 }
@@ -461,10 +459,10 @@ void MAVLinkProtocol::checkForLostLogFiles(void)
 
     QString filter(QString("*.%1").arg(_logFileExtension));
     QFileInfoList fileInfoList = tempDir.entryInfoList(QStringList(filter), QDir::Files);
-    qDebug() << "Orphaned log file count" << fileInfoList.count();
+    //qDebug() << "Orphaned log file count" << fileInfoList.count();
 
     foreach(const QFileInfo fileInfo, fileInfoList) {
-        qDebug() << "Orphaned log file" << fileInfo.filePath();
+        //qDebug() << "Orphaned log file" << fileInfo.filePath();
         if (fileInfo.size() == 0) {
             // Delete all zero length files
             QFile::remove(fileInfo.filePath());
