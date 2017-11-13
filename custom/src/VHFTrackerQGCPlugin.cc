@@ -98,7 +98,6 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
 
     mavlink_msg_debug_decode(&message, &debugMsg);
 
-    //qDebug() << "debugMsg" << debugMsg.time_boot_ms << debugMsg.ind;
     if (debugMsg.ind == 1) {
         _beepStrength = debugMsg.value;
         emit beepStrengthChanged(_beepStrength);
@@ -107,13 +106,15 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
             _elapsedTimer.invalidate();
         } else {
             if (_elapsedTimer.isValid()) {
-                _bpm = (60 * 1000) / _elapsedTimer.elapsed();
-                emit bpmChanged(_bpm);
+                qint64 elapsed = _elapsedTimer.elapsed();
+                if (elapsed > 0) {
+                    _bpm = (60 * 1000) / _elapsedTimer.elapsed();
+                    emit bpmChanged(_bpm);
+                }
             }
             _elapsedTimer.restart();
         }
     } else if (debugMsg.ind == 0) {
-        qDebug() << "Heading found";
         _mapItems.append(new DirectionMapItem(vehicle->coordinate(), debugMsg.time_boot_ms, debugMsg.value, this));
         _mapItems.append(new LineMapItem(vehicle->coordinate(), debugMsg.time_boot_ms, debugMsg.value, this));
     }
