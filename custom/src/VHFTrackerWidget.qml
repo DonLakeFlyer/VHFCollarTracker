@@ -28,6 +28,7 @@ Column {
 
     property var _activeVehicle:    QGroundControl.multiVehicleManager.activeVehicle
     property var _margins:          ScreenTools.defaultFontPixelWidth
+    property var _corePlugin:       QGroundControl.corePlugin
 
     QGCButton {
         text:       qsTr("Detect Animal")
@@ -78,6 +79,18 @@ Column {
                                                31014,                       // MAV_CMD_USER_4
                                                false,                       // showError
                                                checked ? 1 : 0)
+    }
+
+    GridLayout {
+        rowSpacing:     _margins
+        columnSpacing:  _margins
+        columns:        2
+
+        QGCLabel { text: qsTr("Lat:") }
+        QGCLabel { text: _corePlugin.latitude }
+
+        QGCLabel { text: qsTr("Lon:") }
+        QGCLabel { text: _corePlugin.longitude }
     }
 
     Item { width: 1; height: 1 }

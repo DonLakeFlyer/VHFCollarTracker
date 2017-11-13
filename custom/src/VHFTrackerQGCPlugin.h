@@ -6,6 +6,7 @@
 #include "VHFTrackerQGCOptions.h"
 
 #include <QElapsedTimer>
+#include <QGeoCoordinate>
 
 class VHFTrackerSettings;
 
@@ -20,6 +21,8 @@ public:
     Q_PROPERTY(VHFTrackerSettings*  vhfSettings     MEMBER _vhfSettings     CONSTANT)
     Q_PROPERTY(int                  beepStrength    MEMBER _beepStrength    NOTIFY beepStrengthChanged)
     Q_PROPERTY(int                  bpm             MEMBER _bpm             NOTIFY bpmChanged)
+    Q_PROPERTY(double               latitude        MEMBER _latitude        NOTIFY latitudeChanged)
+    Q_PROPERTY(double               longitude       MEMBER _longitude       NOTIFY longitudeChanged)
 
     // Overrides from QGCCorePlugin
     QString             brandImageIndoor    (void) const final;
@@ -36,6 +39,8 @@ public:
 signals:
     void beepStrengthChanged(int beepStrength);
     void bpmChanged         (int bpm);
+    void latitudeChanged    (double latitude);
+    void longitudeChanged   (double longitude);
 
 private:
     //bool _handleMemoryVect  (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
@@ -46,7 +51,10 @@ private:
     QmlObjectListModel      _mapItems;
     int                     _beepStrength;
     int                     _bpm;
+    double                  _latitude;
+    double                  _longitude;
     QElapsedTimer           _elapsedTimer;
     VHFTrackerQGCOptions*   _vhfQGCOptions;
     VHFTrackerSettings*     _vhfSettings;
+    QList<QPair<QGeoCoordinate, QGeoCoordinate>> _rgStrongLines;
 };
