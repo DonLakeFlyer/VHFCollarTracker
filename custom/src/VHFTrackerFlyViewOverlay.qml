@@ -98,7 +98,7 @@ Item {
                 anchors.fill:           parent
                 color:                  "green"
 
-                property real   _maximumPulse:   600
+                property real   _maximumPulse:   100
                 property real   _value:         _pulseStrength
                 property real   _rightMargin:   (parent.width - 2) - ((parent.width - 2) * (Math.min(_pulseStrength, _maximumPulse) / _maximumPulse))
 
