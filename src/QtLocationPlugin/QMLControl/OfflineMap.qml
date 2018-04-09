@@ -433,7 +433,7 @@ QGCView {
                     Row {
                         spacing:    ScreenTools.defaultFontPixelWidth
                         anchors.horizontalCenter: parent.horizontalCenter
-                        visible:    !_defaultSet
+                        visible:    !_defaultSet && mapType !== "Airmap Elevation Data"
                         QGCLabel {  text: qsTr("Zoom Levels:"); width: infoView._labelWidth; }
                         QGCLabel {  text: offlineMapView._currentSelection ? (offlineMapView._currentSelection.minZoom + " - " + offlineMapView._currentSelection.maxZoom) : ""; horizontalAlignment: Text.AlignRight; width: infoView._valueWidth; }
                     }
@@ -654,11 +654,9 @@ QGCView {
             color:              Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.85)
             radius:             ScreenTools.defaultFontPixelWidth * 0.5
 
-            MouseArea {
-                anchors.fill:   parent
-                onWheel:        { wheel.accepted = true; }
-                onPressed:      { mouse.accepted = true; }
-                onReleased:     { mouse.accepted = true; }
+            //-- Eat mouse events
+            DeadMouseArea {
+                anchors.fill: parent
             }
 
             QGCLabel {
@@ -730,6 +728,16 @@ QGCView {
                                 } else {
                                     mapCombo.currentIndex = index
                                 }
+                            }
+                        }
+                        QGCCheckBox {
+                            anchors.left:   parent.left
+                            anchors.right:  parent.right
+                            text:           qsTr("Fetch elevation data")
+                            checked:        QGroundControl.mapEngineManager.fetchElevation
+                            onClicked: {
+                                QGroundControl.mapEngineManager.fetchElevation = checked
+                                handleChanges()
                             }
                         }
                     }
@@ -918,11 +926,14 @@ QGCView {
                 width:      Math.min(_tileSetList.width, (ScreenTools.defaultFontPixelWidth  * 50).toFixed(0))
                 spacing:    ScreenTools.defaultFontPixelHeight * 0.5
                 anchors.horizontalCenter: parent.horizontalCenter
+                ExclusiveGroup { id: selectionGroup }
                 OfflineMapButton {
                     id:             firstButton
                     text:           qsTr("Add New Set")
                     width:          _cacheList.width
-                    height:         ScreenTools.defaultFontPixelHeight * 2
+                    height:         ScreenTools.defaultFontPixelHeight * (ScreenTools.isMobile ? 3 : 2)
+                    currentSet:     _currentSelection
+                    exclusiveGroup: selectionGroup
                     onClicked: {
                         offlineMapView._currentSelection = null
                         addNewSet()
@@ -936,7 +947,10 @@ QGCView {
                         tiles:          object.totalTileCount
                         complete:       object.complete
                         width:          firstButton.width
-                        height:         ScreenTools.defaultFontPixelHeight * 2
+                        height:         ScreenTools.defaultFontPixelHeight * (ScreenTools.isMobile ? 3 : 2)
+                        exclusiveGroup: selectionGroup
+                        currentSet:     _currentSelection
+                        tileSet:        object
                         onClicked: {
                             offlineMapView._currentSelection = object
                             showInfo()

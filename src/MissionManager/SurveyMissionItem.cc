@@ -159,7 +159,7 @@ void SurveyMissionItem::_setSurveyDistance(double surveyDistance)
 {
     if (!qFuzzyCompare(_surveyDistance, surveyDistance)) {
         _surveyDistance = surveyDistance;
-        emit complexDistanceChanged(_surveyDistance);
+        emit complexDistanceChanged();
     }
 }
 
@@ -554,53 +554,6 @@ void SurveyMissionItem::_swapPoints(QList<QPointF>& points, int index1, int inde
     points[index2] = temp;
 }
 
-QList<QPointF> SurveyMissionItem::_convexPolygon(const QList<QPointF>& polygon)
-{
-    // We use the Graham scan algorithem to convert the possibly concave polygon to a convex polygon
-    // https://en.wikipedia.org/wiki/Graham_scan
-
-    QList<QPointF> workPolygon(polygon);
-
-    // First point must be lowest y-coordinate point
-    for (int i=1; i<workPolygon.count(); i++) {
-        if (workPolygon[i].y() < workPolygon[0].y()) {
-            _swapPoints(workPolygon, i, 0);
-        }
-    }
-
-    // Sort the points by angle with first point
-    for (int i=1; i<workPolygon.count(); i++) {
-        qreal angle = _dp(workPolygon[0], workPolygon[i]);
-        for (int j=i+1; j<workPolygon.count(); j++) {
-            if (_dp(workPolygon[0], workPolygon[j]) > angle) {
-                _swapPoints(workPolygon, i, j);
-                angle = _dp(workPolygon[0], workPolygon[j]);
-            }
-        }
-    }
-
-    // Perform the the Graham scan
-
-    workPolygon.insert(0, workPolygon.last());  // Sentinel for algo stop
-    int convexCount = 1;                        // Number of points on the convex hull.
-
-    for (int i=2; i<=polygon.count(); i++) {
-        while (_ccw(workPolygon[convexCount-1], workPolygon[convexCount], workPolygon[i]) <= 0) {
-            if (convexCount > 1) {
-                convexCount -= 1;
-            } else if (i == polygon.count()) {
-                break;
-            } else {
-                i++;
-            }
-        }
-        convexCount++;
-        _swapPoints(workPolygon, convexCount, i);
-    }
-
-    return workPolygon.mid(1, convexCount);
-}
-
 /// Returns true if the current grid angle generates north/south oriented transects
 bool SurveyMissionItem::_gridAngleIsNorthSouthTransects()
 {
@@ -638,6 +591,28 @@ void SurveyMissionItem::_adjustTransectsToEntryPointLocation(QList<QList<QGeoCoo
     qCDebug(SurveyMissionItemLog) << "Modified entry point" << transects.first().first();
 }
 
+int SurveyMissionItem::_calcMissionCommandCount(QList<QList<QGeoCoordinate>>& transectSegments)
+{
+    int missionCommandCount= 0;
+    for (int i=0; i<transectSegments.count(); i++) {
+        const QList<QGeoCoordinate>& transectSegment = transectSegments[i];
+
+        missionCommandCount += transectSegment.count();    // This accounts for all waypoints
+        if (_hoverAndCaptureEnabled()) {
+            // Internal camera trigger points are entry point, plus all points before exit point
+            missionCommandCount += transectSegment.count() - (_hasTurnaround() ? 2 : 0) - 1;
+        } else if (_triggerCamera() && !_imagesEverywhere()) {
+            // Camera on/off at entry/exit of each transect
+            missionCommandCount += 2;
+        }
+    }
+    if (transectSegments.count() && _triggerCamera() && _imagesEverywhere()) {
+         // Camera on/off for entire survey
+        missionCommandCount += 2;
+    }
+
+    return missionCommandCount;
+}
 void SurveyMissionItem::_generateGrid(void)
 {
     if (_ignoreRecalc) {
@@ -673,8 +648,6 @@ void SurveyMissionItem::_generateGrid(void)
         qCDebug(SurveyMissionItemLog) << "vertex:x:y" << vertex << polygonPoints.last().x() << polygonPoints.last().y();
     }
 
-    polygonPoints = _convexPolygon(polygonPoints);
-
     double coveredArea = 0.0;
     for (int i=0; i<polygonPoints.count(); i++) {
         if (i != 0) {
@@ -692,8 +665,6 @@ void SurveyMissionItem::_generateGrid(void)
     _adjustTransectsToEntryPointLocation(_transectSegments);
     _appendGridPointsFromTransects(_transectSegments);
     if (_refly90Degrees) {
-        QVariantList reflyPointsGeo;
-
         transectSegments.clear();
         cameraShots += _gridGenerator(polygonPoints, transectSegments, true /* refly */);
         _convertTransectToGeo(transectSegments, tangentOrigin, _reflyTransectSegments);
@@ -720,24 +691,13 @@ void SurveyMissionItem::_generateGrid(void)
     if (_hoverAndCaptureEnabled()) {
         _additionalFlightDelaySeconds = cameraShots * _hoverAndCaptureDelaySeconds;
     }
-    emit additionalTimeDelayChanged(_additionalFlightDelaySeconds);
+    emit additionalTimeDelayChanged();
 
     emit gridPointsChanged();
 
     // Determine command count for lastSequenceNumber
-
-    _missionCommandCount= 0;
-    for (int i=0; i<_transectSegments.count(); i++) {
-        const QList<QGeoCoordinate>& transectSegment = _transectSegments[i];
-
-        _missionCommandCount += transectSegment.count();    // This accounts for all waypoints
-        if (_hoverAndCaptureEnabled()) {
-            // Internal camera trigger points are entry point, plus all points before exit point
-            _missionCommandCount += transectSegment.count() - (_hasTurnaround() ? 2 : 0) - 1;
-        } else if (_triggerCamera()) {
-            _missionCommandCount += 2;                          // Camera on/off at entry/exit
-        }
-    }
+    _missionCommandCount = _calcMissionCommandCount(_transectSegments);
+    _missionCommandCount += _calcMissionCommandCount(_reflyTransectSegments);
     emit lastSequenceNumberChanged(lastSequenceNumber());
 
     // Set exit coordinate
@@ -833,28 +793,41 @@ void SurveyMissionItem::_intersectLinesWithRect(const QList<QLineF>& lineList, c
 void SurveyMissionItem::_intersectLinesWithPolygon(const QList<QLineF>& lineList, const QPolygonF& polygon, QList<QLineF>& resultLines)
 {
     resultLines.clear();
-    for (int i=0; i<lineList.count(); i++) {
-        int foundCount = 0;
-        QLineF intersectLine;
-        const QLineF& line = lineList[i];
 
+    for (int i=0; i<lineList.count(); i++) {
+        const QLineF& line = lineList[i];
+        QList<QPointF> intersections;
+
+        // Intersect the line with all the polygon edges
         for (int j=0; j<polygon.count()-1; j++) {
             QPointF intersectPoint;
             QLineF polygonLine = QLineF(polygon[j], polygon[j+1]);
             if (line.intersect(polygonLine, &intersectPoint) == QLineF::BoundedIntersection) {
-                if (foundCount == 0) {
-                    foundCount++;
-                    intersectLine.setP1(intersectPoint);
-                } else {
-                    foundCount++;
-                    intersectLine.setP2(intersectPoint);
-                    break;
-                }
+                intersections.append(intersectPoint);
             }
         }
 
-        if (foundCount == 2) {
-            resultLines += intersectLine;
+        // We now have one or more intersection points all along the same line. Find the two
+        // which are furthest away from each other to form the transect.
+        if (intersections.count() > 1) {
+            QPointF firstPoint;
+            QPointF secondPoint;
+            double currentMaxDistance = 0;
+
+            for (int i=0; i<intersections.count(); i++) {
+                for (int j=0; j<intersections.count(); j++) {
+                    QLineF lineTest(intersections[i], intersections[j]);
+\
+                    double newMaxDistance = lineTest.length();
+                    if (newMaxDistance > currentMaxDistance) {
+                        firstPoint = intersections[i];
+                        secondPoint = intersections[j];
+                        currentMaxDistance = newMaxDistance;
+                    }
+                }
+            }
+
+            resultLines += QLineF(firstPoint, secondPoint);
         }
     }
 }
@@ -929,7 +902,7 @@ int SurveyMissionItem::_gridGenerator(const QList<QPointF>& polygonPoints,  QLis
     // Transects are generated to be as long as the largest width/height of the bounding rect plus some fudge factor.
     // This way they will always be guaranteed to intersect with a polygon edge no matter what angle they are rotated to.
     // They are initially generated with the transects flowing from west to east and then points within the transect north to south.
-    double maxWidth = qMax(boundingRect.width(), boundingRect.height()) + 100.0;
+    double maxWidth = qMax(boundingRect.width(), boundingRect.height()) + 2000.0;
     double halfWidth = maxWidth / 2.0;
     double transectX = boundingCenter.x() - halfWidth;
     double transectXMax = transectX + maxWidth;
@@ -1117,7 +1090,7 @@ bool SurveyMissionItem::_appendMissionItemsWorker(QList<MissionItem*>& items, QO
 {
     bool firstWaypointTrigger = false;
 
-    qCDebug(SurveyMissionItemLog) << "hasTurnaround:triggerCamera:hoverAndCapture:imagesEverywhere:hasRefly:buildRefly" << _hasTurnaround() << _triggerCamera() << _hoverAndCaptureEnabled() << _imagesEverywhere() << hasRefly << buildRefly;
+    qCDebug(SurveyMissionItemLog) << QStringLiteral("hasTurnaround(%1) triggerCamera(%2) hoverAndCapture(%3) imagesEverywhere(%4) hasRefly(%5) buildRefly(%6) ").arg(_hasTurnaround()).arg(_triggerCamera()).arg(_hoverAndCaptureEnabled()).arg(_imagesEverywhere()).arg(hasRefly).arg(buildRefly);
 
     QList<QList<QGeoCoordinate>>& transectSegments = buildRefly ? _reflyTransectSegments : _transectSegments;
 

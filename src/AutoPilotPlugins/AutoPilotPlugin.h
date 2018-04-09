@@ -19,7 +19,6 @@
 #include "FactSystem.h"
 #include "Vehicle.h"
 
-class ParameterManager;
 class Vehicle;
 class FirmwarePlugin;
 
@@ -66,7 +65,7 @@ protected:
     FirmwarePlugin* _firmwarePlugin;
     bool            _setupComplete;
 
-private:
+private slots:
     void _recalcSetupComplete(void);
 };
 

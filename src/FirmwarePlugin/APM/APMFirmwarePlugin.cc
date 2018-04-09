@@ -911,6 +911,23 @@ void APMFirmwarePlugin::guidedModeTakeoff(Vehicle* vehicle, double altitudeRel)
     _guidedModeTakeoff(vehicle, altitudeRel);
 }
 
+double APMFirmwarePlugin::minimumTakeoffAltitude(Vehicle* vehicle)
+{
+    double minTakeoffAlt = 0;
+    QString takeoffAltParam(vehicle->vtol() ? QStringLiteral("Q_RTL_ALT") : QStringLiteral("PILOT_TKOFF_ALT"));
+    float paramDivisor = vehicle->vtol() ? 1.0 : 100.0; // PILOT_TAKEOFF_ALT is in centimeters
+
+    if (vehicle->parameterManager()->parameterExists(FactSystem::defaultComponentId, takeoffAltParam)) {
+        minTakeoffAlt = vehicle->parameterManager()->getParameter(FactSystem::defaultComponentId, takeoffAltParam)->rawValue().toDouble() / paramDivisor;
+    }
+
+    if (minTakeoffAlt == 0) {
+        minTakeoffAlt = FirmwarePlugin::minimumTakeoffAltitude(vehicle);
+    }
+
+    return minTakeoffAlt;
+}
+
 bool APMFirmwarePlugin::_guidedModeTakeoff(Vehicle* vehicle, double altitudeRel)
 {
     if (!vehicle->multiRotor() && !vehicle->vtol()) {
@@ -924,20 +941,7 @@ bool APMFirmwarePlugin::_guidedModeTakeoff(Vehicle* vehicle, double altitudeRel)
         return false;
     }
 
-    QString takeoffAltParam(vehicle->vtol() ? QStringLiteral("Q_RTL_ALT") : QStringLiteral("PILOT_TKOFF_ALT"));
-    float paramDivisor = vehicle->vtol() ? 1.0 : 100.0; // PILOT_TAKEOFF_ALT is in centimeters
-
-    float takeoffAltRel = 0;
-    if (vehicle->parameterManager()->parameterExists(FactSystem::defaultComponentId, takeoffAltParam)) {
-        Fact* takeoffAltFact = vehicle->parameterManager()->getParameter(FactSystem::defaultComponentId, takeoffAltParam);
-        takeoffAltRel = takeoffAltFact->rawValue().toDouble();
-    }
-    if (takeoffAltRel <= 0) {
-        takeoffAltRel = 2.5;
-    } else {
-        takeoffAltRel /= paramDivisor;   // centimeters -> meters
-    }
-
+    double takeoffAltRel = minimumTakeoffAltitude(vehicle);
     if (!qIsNaN(altitudeRel) && altitudeRel > takeoffAltRel) {
         takeoffAltRel = altitudeRel;
     }
@@ -947,7 +951,6 @@ bool APMFirmwarePlugin::_guidedModeTakeoff(Vehicle* vehicle, double altitudeRel)
         return false;
     }
 
-    // FIXME: Is this needed?
     if (!_armVehicleAndValidate(vehicle)) {
         qgcApp()->showMessage(tr("Unable to takeoff: Vehicle failed to arm."));
         return false;
@@ -962,36 +965,43 @@ bool APMFirmwarePlugin::_guidedModeTakeoff(Vehicle* vehicle, double altitudeRel)
     return true;
 }
 
-// FIXME: Review for a better way to do this
 void APMFirmwarePlugin::startMission(Vehicle* vehicle)
 {
-    double currentAlt = vehicle->altitudeRelative()->rawValue().toDouble();
-
-    if (!vehicle->flying()) {
-        if (_guidedModeTakeoff(vehicle, qQNaN())) {
-
-            // Wait for vehicle to get off ground before switching to auto (10 seconds)
-            bool didTakeoff = false;
-            for (int i=0; i<100; i++) {
-                if (vehicle->altitudeRelative()->rawValue().toDouble() >= currentAlt + 1.0) {
-                    didTakeoff = true;
-                    break;
-                }
-                QGC::SLEEP::msleep(100);
-                qgcApp()->processEvents(QEventLoop::ExcludeUserInputEvents);
-            }
-
-            if (!didTakeoff) {
-                qgcApp()->showMessage(tr("Unable to start mission. Vehicle takeoff failed."));
-                return;
-            }
-        } else {
-            return;
+    if (vehicle->flying()) {
+        // Vehicle already in the air, we just need to switch to auto
+        if (!_setFlightModeAndValidate(vehicle, "Auto")) {
+            qgcApp()->showMessage(tr("Unable to start mission: Vehicle failed to change to Auto mode."));
         }
+        return;
     }
 
-    if (!_setFlightModeAndValidate(vehicle, missionFlightMode())) {
-        qgcApp()->showMessage(tr("Unable to start mission. Vehicle failed to change to auto."));
+    if (vehicle->fixedWing()) {
+        // Fixed wing will automatically start a mission if you switch to Auto while armed
+        if (!vehicle->armed()) {
+            // First switch to flight mode we can arm from
+            if (!_setFlightModeAndValidate(vehicle, "Guided")) {
+                qgcApp()->showMessage(tr("Unable to start mission: Vehicle failed to change to Guided mode."));
+                return;
+            }
+
+            if (!_armVehicleAndValidate(vehicle)) {
+                qgcApp()->showMessage(tr("Unable to start mission: Vehicle failed to arm."));
+                return;
+            }
+        }
+    } else {
+        // Copter will automatically start a mission from the ground if you change to Auto and do a START+MIS
+        if (!_setFlightModeAndValidate(vehicle, "Auto")) {
+            qgcApp()->showMessage(tr("Unable to start mission: Vehicle failed to change to Guided mode."));
+            return;
+        }
+
+        vehicle->sendMavCommand(vehicle->defaultComponentId(), MAV_CMD_MISSION_START, true /*show error */);
+    }
+
+    // Final step is to go into Auto
+    if (!_setFlightModeAndValidate(vehicle, "Auto")) {
+        qgcApp()->showMessage(tr("Unable to start mission: Vehicle failed to change to Auto mode."));
         return;
     }
 }

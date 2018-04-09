@@ -45,6 +45,7 @@ public:
         OpenStreetMapSurferTerrain=35,
 
         StatkartTopo            = 100,
+        EniroTopo               = 110,
 
         BingMap                 = 444,
         BingSatellite           = 555,
@@ -72,7 +73,9 @@ public:
 
         EsriWorldStreet         = 7000,
         EsriWorldSatellite      = 7001,
-        EsriTerrain             = 7002
+        EsriTerrain             = 7002,
+
+        AirmapElevation         = 8000
     };
 
     UrlFactory      ();

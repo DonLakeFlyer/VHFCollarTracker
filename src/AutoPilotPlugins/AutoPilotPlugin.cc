@@ -13,8 +13,6 @@
 
 #include "AutoPilotPlugin.h"
 #include "QGCApplication.h"
-#include "ParameterManager.h"
-#include "UAS.h"
 #include "FirmwarePlugin.h"
 
 AutoPilotPlugin::AutoPilotPlugin(Vehicle* vehicle, QObject* parent)
@@ -28,7 +26,7 @@ AutoPilotPlugin::AutoPilotPlugin(Vehicle* vehicle, QObject* parent)
 
 AutoPilotPlugin::~AutoPilotPlugin()
 {
-    
+
 }
 
 void AutoPilotPlugin::_recalcSetupComplete(void)
@@ -61,6 +59,17 @@ bool AutoPilotPlugin::setupComplete(void)
 void AutoPilotPlugin::parametersReadyPreChecks(void)
 {
     _recalcSetupComplete();
+
+    // Connect signals in order to keep setupComplete up to date
+    foreach(const QVariant componentVariant, vehicleComponents()) {
+        VehicleComponent* component = qobject_cast<VehicleComponent*>(qvariant_cast<QObject *>(componentVariant));
+        if (component) {
+            connect(component, &VehicleComponent::setupCompleteChanged, this, &AutoPilotPlugin::_recalcSetupComplete);
+        } else {
+            qWarning() << "AutoPilotPlugin::_recalcSetupComplete Incorrectly typed VehicleComponent";
+        }
+    }
+
     if (!_setupComplete) {
         qgcApp()->showMessage(tr("One or more vehicle components require setup prior to flight."));
 
