@@ -123,7 +123,7 @@ public:
                            FirmwareVehicleType_t vehicleType = DefaultVehicleFirmware );
 
     /// Called to flash when upgrade is running in singleFirmwareMode
-    Q_INVOKABLE void flashSingleFirmwareMode(void);
+    Q_INVOKABLE void flashSingleFirmwareMode(FirmwareType_t firmwareType);
 
     Q_INVOKABLE FirmwareVehicleType_t vehicleTypeFromVersionIndex(int index);
     
@@ -206,7 +206,6 @@ private:
     QHash<FirmwareIdentifier, QString> _rgPX4FMUV3Firmware;
     QHash<FirmwareIdentifier, QString> _rgPX4FMUV2Firmware;
     QHash<FirmwareIdentifier, QString> _rgAeroCoreFirmware;
-    QHash<FirmwareIdentifier, QString> _rgPX4FMUV1Firmware;
     QHash<FirmwareIdentifier, QString> _rgAUAVX2_1Firmware;
     QHash<FirmwareIdentifier, QString> _rgMindPXFMUV2Firmware;
     QHash<FirmwareIdentifier, QString> _rgTAPV1Firmware;

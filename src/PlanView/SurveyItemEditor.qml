@@ -46,7 +46,7 @@ Rectangle {
         } else {
             var index = -1
             for (index=0; index<_cameraList.length; index++) {
-                if (_cameraList[index] == missionItem.camera.value) {
+                if (_cameraList[index] === missionItem.camera.value) {
                     break;
                 }
             }
@@ -63,6 +63,7 @@ Rectangle {
                 }
             }
         }
+        recalcFromCameraValues()
     }
 
     function recalcFromCameraValues() {
@@ -243,7 +244,7 @@ Rectangle {
                 anchors.left:   parent.left
                 anchors.right:  parent.right
                 spacing:        _margin
-                visible:        missionItem.manualGrid.value == true
+                visible:        missionItem.manualGrid.value
 
                 QGCCheckBox {
                     id:                 cameraTriggerDistanceCheckBox
@@ -273,7 +274,7 @@ Rectangle {
             anchors.left:   parent.left
             anchors.right:  parent.right
             spacing:        _margin
-            visible:        gridTypeCombo.currentIndex != _gridTypeManual
+            visible:        gridTypeCombo.currentIndex !== _gridTypeManual
 
             Row {
                 spacing:                    _margin
@@ -409,7 +410,7 @@ Rectangle {
             FactCheckBox {
                 text:       qsTr("Take images in turnarounds")
                 fact:       missionItem.cameraTriggerInTurnaround
-                enabled:    !missionItem.hoverAndCapture.rawValue
+                enabled:    missionItem.hoverAndCaptureAllowed ? !missionItem.hoverAndCapture.rawValue : true
             }
 
             SectionHeader {
@@ -439,16 +440,28 @@ Rectangle {
                         Layout.fillWidth:   true
                     }
 
-                    ToolButton {
-                        id:                     windRoseButton
-                        anchors.verticalCenter: angleText.verticalCenter
-                        iconSource:             qgcPal.globalTheme === QGCPalette.Light ? "/res/wind-roseBlack.svg" : "/res/wind-rose.svg"
-                        visible:                _vehicle.fixedWing
+                    Rectangle {
+                        id:         windRoseButton
+                        width:      ScreenTools.implicitTextFieldHeight
+                        height:     width
+                        color:      qgcPal.button
+                        visible:    _vehicle ? _vehicle.fixedWing : false
 
-                        onClicked: {
-                            windRosePie.angle = Number(gridAngleText.text)
-                            var cords = windRoseButton.mapToItem(_root, 0, 0)
-                            windRosePie.popup(cords.x + windRoseButton.width / 2, cords.y + windRoseButton.height / 2)
+                        QGCColoredImage {
+                            anchors.fill:   parent
+                            source:         "/res/wind-rose.svg"
+                            smooth:         true
+                            color:          qgcPal.buttonText
+                        }
+
+                        QGCMouseArea {
+                            fillItem: parent
+
+                            onClicked: {
+                                windRosePie.angle = Number(gridAngleText.text)
+                                var cords = windRoseButton.mapToItem(_root, 0, 0)
+                                windRosePie.popup(cords.x + windRoseButton.width / 2, cords.y + windRoseButton.height / 2)
+                            }
                         }
                     }
                 }
@@ -522,7 +535,7 @@ Rectangle {
         SectionHeader {
             id:         manualGridHeader
             text:       qsTr("Grid")
-            visible:    gridTypeCombo.currentIndex == _gridTypeManual
+            visible:    gridTypeCombo.currentIndex === _gridTypeManual
         }
 
         GridLayout {
@@ -542,16 +555,28 @@ Rectangle {
                     Layout.fillWidth:  true
                 }
 
-                ToolButton {
-                    id:                     manualWindRoseButton
-                    anchors.verticalCenter: manualAngleText.verticalCenter
-                    Layout.columnSpan:      1
-                    iconSource:             qgcPal.globalTheme === QGCPalette.Light ? "/res/wind-roseBlack.svg" : "/res/wind-rose.svg"
-                    visible:                _vehicle.fixedWing
+                Rectangle {
+                    id:         manualWindRoseButton
+                    width:      ScreenTools.implicitTextFieldHeight
+                    height:     width
+                    color:      qgcPal.button
+                    visible:    _vehicle ? _vehicle.fixedWing : false
 
-                    onClicked: {
-                        var cords = manualWindRoseButton.mapToItem(_root, 0, 0)
-                        windRosePie.popup(cords.x + manualWindRoseButton.width / 2, cords.y + manualWindRoseButton.height / 2)
+                    QGCColoredImage {
+                        anchors.fill:   parent
+                        source:         "/res/wind-rose.svg"
+                        smooth:         true
+                        color:          qgcPal.buttonText
+                    }
+
+                    QGCMouseArea {
+                        fillItem: parent
+
+                        onClicked: {
+                            windRosePie.angle = Number(gridAngleText.text)
+                            var cords = manualWindRoseButton.mapToItem(_root, 0, 0)
+                            windRosePie.popup(cords.x + manualWindRoseButton.width / 2, cords.y + manualWindRoseButton.height / 2)
+                        }
                     }
                 }
             }
@@ -605,7 +630,7 @@ Rectangle {
             FactCheckBox {
                 text:               qsTr("Take images in turnarounds")
                 fact:               missionItem.cameraTriggerInTurnaround
-                enabled:            !missionItem.hoverAndCapture.rawValue
+                enabled:            missionItem.hoverAndCaptureAllowed ? !missionItem.hoverAndCapture.rawValue : true
                 Layout.columnSpan:  2
             }
 
@@ -633,13 +658,13 @@ Rectangle {
             columnSpacing:  ScreenTools.defaultFontPixelWidth
             visible:        statsHeader.checked
 
-            QGCLabel { text: qsTr("Survey area") }
+            QGCLabel { text: qsTr("Survey Area") }
             QGCLabel { text: QGroundControl.squareMetersToAppSettingsAreaUnits(missionItem.coveredArea).toFixed(2) + " " + QGroundControl.appSettingsAreaUnitsString }
 
-            QGCLabel { text: qsTr("Photo count") }
+            QGCLabel { text: qsTr("Photo Count") }
             QGCLabel { text: missionItem.cameraShots }
 
-            QGCLabel { text: qsTr("Photo interval") }
+            QGCLabel { text: qsTr("Photo Interval") }
             QGCLabel {
                 text: {
                     var timeVal = missionItem.timeBetweenShots
@@ -649,6 +674,9 @@ Rectangle {
                     return timeVal.toFixed(1) + " " + qsTr("secs")
                 }
             }
+
+            QGCLabel { text: qsTr("Trigger Distance") }
+            QGCLabel { text: missionItem.cameraTriggerDistance.valueString  + " " + QGroundControl.appSettingsDistanceUnitsString }
         }
     }
 

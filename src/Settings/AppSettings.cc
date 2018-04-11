@@ -36,6 +36,7 @@ const char* AppSettings::autoLoadMissionsName =                         "AutoLoa
 const char* AppSettings::mapboxTokenName =                              "MapboxToken";
 const char* AppSettings::esriTokenName =                                "EsriToken";
 const char* AppSettings::defaultFirmwareTypeName =                      "DefaultFirmwareType";
+const char* AppSettings::gstDebugName =                                 "GstreamerDebugLevel";
 
 const char* AppSettings::parameterFileExtension =   "params";
 const char* AppSettings::planFileExtension =        "plan";
@@ -52,29 +53,31 @@ const char* AppSettings::telemetryDirectory =       "Telemetry";
 const char* AppSettings::missionDirectory =         "Missions";
 const char* AppSettings::logDirectory =             "Logs";
 const char* AppSettings::videoDirectory =           "Video";
+const char* AppSettings::crashDirectory =           "CrashLogs";
 
 AppSettings::AppSettings(QObject* parent)
-    : SettingsGroup(appSettingsGroupName, QString() /* root settings group */, parent)
-    , _offlineEditingFirmwareTypeFact(NULL)
-    , _offlineEditingVehicleTypeFact(NULL)
-    , _offlineEditingCruiseSpeedFact(NULL)
-    , _offlineEditingHoverSpeedFact(NULL)
-    , _offlineEditingAscentSpeedFact(NULL)
-    , _offlineEditingDescentSpeedFact(NULL)
-    , _batteryPercentRemainingAnnounceFact(NULL)
-    , _defaultMissionItemAltitudeFact(NULL)
-    , _telemetrySaveFact(NULL)
-    , _telemetrySaveNotArmedFact(NULL)
-    , _audioMutedFact(NULL)
-    , _virtualJoystickFact(NULL)
-    , _appFontPointSizeFact(NULL)
-    , _indoorPaletteFact(NULL)
-    , _showLargeCompassFact(NULL)
-    , _savePathFact(NULL)
-    , _autoLoadMissionsFact(NULL)
-    , _mapboxTokenFact(NULL)
-    , _esriTokenFact(NULL)
-    , _defaultFirmwareTypeFact(NULL)
+    : SettingsGroup                         (appSettingsGroupName, QString() /* root settings group */, parent)
+    , _offlineEditingFirmwareTypeFact       (NULL)
+    , _offlineEditingVehicleTypeFact        (NULL)
+    , _offlineEditingCruiseSpeedFact        (NULL)
+    , _offlineEditingHoverSpeedFact         (NULL)
+    , _offlineEditingAscentSpeedFact        (NULL)
+    , _offlineEditingDescentSpeedFact       (NULL)
+    , _batteryPercentRemainingAnnounceFact  (NULL)
+    , _defaultMissionItemAltitudeFact       (NULL)
+    , _telemetrySaveFact                    (NULL)
+    , _telemetrySaveNotArmedFact            (NULL)
+    , _audioMutedFact                       (NULL)
+    , _virtualJoystickFact                  (NULL)
+    , _appFontPointSizeFact                 (NULL)
+    , _indoorPaletteFact                    (NULL)
+    , _showLargeCompassFact                 (NULL)
+    , _savePathFact                         (NULL)
+    , _autoLoadMissionsFact                 (NULL)
+    , _mapboxTokenFact                      (NULL)
+    , _esriTokenFact                        (NULL)
+    , _defaultFirmwareTypeFact              (NULL)
+    , _gstDebugFact                         (NULL)
 {
     QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
     qmlRegisterUncreatableType<AppSettings>("QGroundControl.SettingsManager", 1, 0, "AppSettings", "Reference only");
@@ -116,6 +119,7 @@ void AppSettings::_checkSavePathDirectories(void)
         savePathDir.mkdir(missionDirectory);
         savePathDir.mkdir(logDirectory);
         savePathDir.mkdir(videoDirectory);
+        savePathDir.mkdir(crashDirectory);
     }
 }
 
@@ -232,6 +236,15 @@ Fact* AppSettings::virtualJoystick(void)
     return _virtualJoystickFact;
 }
 
+Fact* AppSettings::gstDebug(void)
+{
+    if (!_gstDebugFact) {
+        _gstDebugFact = _createSettingsFact(gstDebugName);
+    }
+
+    return _gstDebugFact;
+}
+
 Fact* AppSettings::indoorPalette(void)
 {
     if (!_indoorPaletteFact) {
@@ -268,67 +281,68 @@ Fact* AppSettings::savePath(void)
 
 QString AppSettings::missionSavePath(void)
 {
-    QString fullPath;
-
     QString path = savePath()->rawValue().toString();
     if (!path.isEmpty() && QDir(path).exists()) {
         QDir dir(path);
         return dir.filePath(missionDirectory);
     }
 
-    return fullPath;
+    return QString();
 }
 
 QString AppSettings::parameterSavePath(void)
 {
-    QString fullPath;
-
     QString path = savePath()->rawValue().toString();
     if (!path.isEmpty() && QDir(path).exists()) {
         QDir dir(path);
         return dir.filePath(parameterDirectory);
     }
 
-    return fullPath;
+    return QString();
 }
 
 QString AppSettings::telemetrySavePath(void)
 {
-    QString fullPath;
-
     QString path = savePath()->rawValue().toString();
     if (!path.isEmpty() && QDir(path).exists()) {
         QDir dir(path);
         return dir.filePath(telemetryDirectory);
     }
 
-    return fullPath;
+    return QString();
 }
 
 QString AppSettings::logSavePath(void)
 {
-    QString fullPath;
-
     QString path = savePath()->rawValue().toString();
     if (!path.isEmpty() && QDir(path).exists()) {
         QDir dir(path);
         return dir.filePath(logDirectory);
     }
 
-    return fullPath;
+    return QString();
 }
 
 QString AppSettings::videoSavePath(void)
 {
-    QString fullPath;
-
     QString path = savePath()->rawValue().toString();
     if (!path.isEmpty() && QDir(path).exists()) {
         QDir dir(path);
         return dir.filePath(videoDirectory);
     }
 
-    return fullPath;
+    return QString();
+}
+
+QString AppSettings::crashSavePath(void)
+{
+    QString path = savePath()->rawValue().toString();
+    if (!path.isEmpty() && QDir(path).exists()) {
+        QDir dir(path);
+        return dir.filePath(crashDirectory);
+    }
+
+    return QString();
 }
 
 Fact* AppSettings::autoLoadMissions(void)

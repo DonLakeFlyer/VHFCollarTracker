@@ -11,7 +11,6 @@
 
 #include <QObject>
 #include <QGeoCoordinate>
-#include <QElapsedTimer>
 
 #include "FactGroup.h"
 #include "LinkInterface.h"
@@ -39,6 +38,104 @@ class QGCCameraManager;
 Q_DECLARE_LOGGING_CATEGORY(VehicleLog)
 
 class Vehicle;
+
+class VehicleDistanceSensorFactGroup : public FactGroup
+{
+    Q_OBJECT
+
+public:
+    VehicleDistanceSensorFactGroup(QObject* parent = NULL);
+
+    Q_PROPERTY(Fact* rotationNone       READ rotationNone       CONSTANT)
+    Q_PROPERTY(Fact* rotationYaw45      READ rotationYaw45      CONSTANT)
+    Q_PROPERTY(Fact* rotationYaw90      READ rotationYaw90      CONSTANT)
+    Q_PROPERTY(Fact* rotationYaw135     READ rotationYaw135     CONSTANT)
+    Q_PROPERTY(Fact* rotationYaw180     READ rotationYaw180     CONSTANT)
+    Q_PROPERTY(Fact* rotationYaw225     READ rotationYaw225     CONSTANT)
+    Q_PROPERTY(Fact* rotationYaw270     READ rotationYaw270     CONSTANT)
+    Q_PROPERTY(Fact* rotationYaw315     READ rotationYaw315     CONSTANT)
+    Q_PROPERTY(Fact* rotationPitch90    READ rotationPitch90    CONSTANT)
+    Q_PROPERTY(Fact* rotationPitch270   READ rotationPitch270   CONSTANT)
+
+    Fact* rotationNone      (void) { return &_rotationNoneFact; }
+    Fact* rotationYaw45     (void) { return &_rotationYaw45Fact; }
+    Fact* rotationYaw90     (void) { return &_rotationYaw90Fact; }
+    Fact* rotationYaw135    (void) { return &_rotationYaw90Fact; }
+    Fact* rotationYaw180    (void) { return &_rotationYaw180Fact; }
+    Fact* rotationYaw225    (void) { return &_rotationYaw180Fact; }
+    Fact* rotationYaw270    (void) { return &_rotationYaw270Fact; }
+    Fact* rotationYaw315    (void) { return &_rotationYaw315Fact; }
+    Fact* rotationPitch90   (void) { return &_rotationPitch90Fact; }
+    Fact* rotationPitch270  (void) { return &_rotationPitch270Fact; }
+
+    bool idSet(void) { return _idSet; }
+    void setIdSet(bool idSet) { _idSet = idSet; }
+    uint8_t id(void) { return _id; }
+    void setId(uint8_t id) { _id = id; }
+
+    static const char* _rotationNoneFactName;
+    static const char* _rotationYaw45FactName;
+    static const char* _rotationYaw90FactName;
+    static const char* _rotationYaw135FactName;
+    static const char* _rotationYaw180FactName;
+    static const char* _rotationYaw225FactName;
+    static const char* _rotationYaw270FactName;
+    static const char* _rotationYaw315FactName;
+    static const char* _rotationPitch90FactName;
+    static const char* _rotationPitch270FactName;
+
+private:
+    Fact _rotationNoneFact;
+    Fact _rotationYaw45Fact;
+    Fact _rotationYaw90Fact;
+    Fact _rotationYaw135Fact;
+    Fact _rotationYaw180Fact;
+    Fact _rotationYaw225Fact;
+    Fact _rotationYaw270Fact;
+    Fact _rotationYaw315Fact;
+    Fact _rotationPitch90Fact;
+    Fact _rotationPitch270Fact;
+
+    bool    _idSet; // true: _id is set to seen sensor id
+    uint8_t _id;    // The id for the sensor being tracked. Current support for only a single sensor.
+};
+
+class VehicleSetpointFactGroup : public FactGroup
+{
+    Q_OBJECT
+
+public:
+    VehicleSetpointFactGroup(QObject* parent = NULL);
+
+    Q_PROPERTY(Fact* roll       READ roll       CONSTANT)
+    Q_PROPERTY(Fact* pitch      READ pitch      CONSTANT)
+    Q_PROPERTY(Fact* yaw        READ yaw        CONSTANT)
+    Q_PROPERTY(Fact* rollRate   READ rollRate   CONSTANT)
+    Q_PROPERTY(Fact* pitchRate  READ pitchRate  CONSTANT)
+    Q_PROPERTY(Fact* yawRate    READ yawRate    CONSTANT)
+
+    Fact* roll      (void) { return &_rollFact; }
+    Fact* pitch     (void) { return &_pitchFact; }
+    Fact* yaw       (void) { return &_yawFact; }
+    Fact* rollRate  (void) { return &_rollRateFact; }
+    Fact* pitchRate (void) { return &_pitchRateFact; }
+    Fact* yawRate   (void) { return &_yawRateFact; }
+
+    static const char* _rollFactName;
+    static const char* _pitchFactName;
+    static const char* _yawFactName;
+    static const char* _rollRateFactName;
+    static const char* _pitchRateFactName;
+    static const char* _yawRateFactName;
+
+private:
+    Fact _rollFact;
+    Fact _pitchFact;
+    Fact _yawFact;
+    Fact _rollRateFact;
+    Fact _pitchRateFact;
+    Fact _yawRateFact;
+};
 
 class VehicleVibrationFactGroup : public FactGroup
 {
@@ -156,6 +253,7 @@ public:
     Q_PROPERTY(Fact* current            READ current            CONSTANT)
     Q_PROPERTY(Fact* temperature        READ temperature        CONSTANT)
     Q_PROPERTY(Fact* cellCount          READ cellCount          CONSTANT)
+    Q_PROPERTY(Fact* instantPower       READ instantPower       CONSTANT)
 
     Fact* voltage                   (void) { return &_voltageFact; }
     Fact* percentRemaining          (void) { return &_percentRemainingFact; }
@@ -163,6 +261,7 @@ public:
     Fact* current                   (void) { return &_currentFact; }
     Fact* temperature               (void) { return &_temperatureFact; }
     Fact* cellCount                 (void) { return &_cellCountFact; }
+    Fact* instantPower              (void) { return &_instantPowerFact; }
 
 
     static const char* _voltageFactName;
@@ -171,6 +270,7 @@ public:
     static const char* _currentFactName;
     static const char* _temperatureFactName;
     static const char* _cellCountFactName;
+    static const char* _instantPowerFactName;
 
     static const char* _settingsGroup;
 
@@ -180,6 +280,7 @@ public:
     static const int    _currentUnavailable;
     static const double _temperatureUnavailable;
     static const int    _cellCountUnavailable;
+    static const double _instantPowerUnavailable;
 
 private:
     Fact            _voltageFact;
@@ -188,6 +289,7 @@ private:
     Fact            _currentFact;
     Fact            _temperatureFact;
     Fact            _cellCountFact;
+    Fact            _instantPowerFact;
 };
 
 class VehicleTemperatureFactGroup : public FactGroup
@@ -219,6 +321,32 @@ private:
     Fact            _temperature3Fact;
 };
 
+class VehicleClockFactGroup : public FactGroup
+{
+    Q_OBJECT
+
+public:
+    VehicleClockFactGroup(QObject* parent = NULL);
+
+    Q_PROPERTY(Fact* currentTime        READ currentTime        CONSTANT)
+    Q_PROPERTY(Fact* currentDate        READ currentDate        CONSTANT)
+
+    Fact* currentTime (void) { return &_currentTimeFact; }
+    Fact* currentDate (void) { return &_currentDateFact; }
+
+    static const char* _currentTimeFactName;
+    static const char* _currentDateFactName;
+
+    static const char* _settingsGroup;
+
+private slots:
+    void _updateAllValues(void) override;
+
+private:
+    Fact            _currentTimeFact;
+    Fact            _currentDateFact;
+};
+
 class Vehicle : public FactGroup
 {
     Q_OBJECT
@@ -247,7 +375,7 @@ public:
     Q_PROPERTY(bool                 armed                   READ armed                  WRITE setArmed                  NOTIFY armedChanged)
     Q_PROPERTY(bool                 autoDisarm              READ autoDisarm                                             NOTIFY autoDisarmChanged)
     Q_PROPERTY(bool                 flightModeSetAvailable  READ flightModeSetAvailable                                 CONSTANT)
-    Q_PROPERTY(QStringList          flightModes             READ flightModes                                            CONSTANT)
+    Q_PROPERTY(QStringList          flightModes             READ flightModes                                            NOTIFY flightModesChanged)
     Q_PROPERTY(QString              flightMode              READ flightMode             WRITE setFlightMode             NOTIFY flightModeChanged)
     Q_PROPERTY(bool                 hilMode                 READ hilMode                WRITE setHilMode                NOTIFY hilModeChanged)
     Q_PROPERTY(QmlObjectListModel*  trajectoryPoints        READ trajectoryPoints                                       CONSTANT)
@@ -314,12 +442,14 @@ public:
     Q_PROPERTY(unsigned int         telemetryTXBuffer       READ telemetryTXBuffer                                      NOTIFY telemetryTXBufferChanged)
     Q_PROPERTY(int                  telemetryLNoise         READ telemetryLNoise                                        NOTIFY telemetryLNoiseChanged)
     Q_PROPERTY(int                  telemetryRNoise         READ telemetryRNoise                                        NOTIFY telemetryRNoiseChanged)
-    Q_PROPERTY(QVariantList         toolBarIndicators       READ toolBarIndicators                                      CONSTANT)
+    Q_PROPERTY(QVariantList         toolBarIndicators       READ toolBarIndicators                                      NOTIFY toolBarIndicatorsChanged)
     Q_PROPERTY(QmlObjectListModel*  adsbVehicles            READ adsbVehicles                                           CONSTANT)
     Q_PROPERTY(bool              initialPlanRequestComplete READ initialPlanRequestComplete                             NOTIFY initialPlanRequestCompleteChanged)
     Q_PROPERTY(QVariantList         staticCameraList        READ staticCameraList                                       CONSTANT)
     Q_PROPERTY(QGCCameraManager*    dynamicCameras          READ dynamicCameras                                         NOTIFY dynamicCamerasChanged)
     Q_PROPERTY(QString              hobbsMeter              READ hobbsMeter                                             NOTIFY hobbsMeterChanged)
+    Q_PROPERTY(bool                 vtolInFwdFlight         READ vtolInFwdFlight        WRITE setVtolInFwdFlight        NOTIFY vtolInFwdFlightChanged)
+    Q_PROPERTY(bool                 highLatencyLink         READ highLatencyLink                                        NOTIFY highLatencyLinkChanged)
 
     // Vehicle state used for guided control
     Q_PROPERTY(bool flying                  READ flying NOTIFY flyingChanged)                               ///< Vehicle is flying
@@ -328,7 +458,7 @@ public:
     Q_PROPERTY(bool guidedModeSupported     READ guidedModeSupported CONSTANT)                              ///< Guided mode commands are supported by this vehicle
     Q_PROPERTY(bool pauseVehicleSupported   READ pauseVehicleSupported CONSTANT)                            ///< Pause vehicle command is supported
     Q_PROPERTY(bool orbitModeSupported      READ orbitModeSupported CONSTANT)                               ///< Orbit mode is supported by this vehicle
-    Q_PROPERTY(bool takeoffVehicleSupported READ takeoffVehicleSupported CONSTANT)                          ///< Guided takeoff supported
+    Q_PROPERTY(bool takeoffVehicleSupported READ takeoffVehicleSupported CONSTANT)                          ///< Guided takeoff supported    
 
     Q_PROPERTY(ParameterManager* parameterManager READ parameterManager CONSTANT)
 
@@ -337,6 +467,9 @@ public:
     Q_PROPERTY(Fact* roll               READ roll               CONSTANT)
     Q_PROPERTY(Fact* pitch              READ pitch              CONSTANT)
     Q_PROPERTY(Fact* heading            READ heading            CONSTANT)
+    Q_PROPERTY(Fact* rollRate           READ rollRate           CONSTANT)
+    Q_PROPERTY(Fact* pitchRate          READ pitchRate          CONSTANT)
+    Q_PROPERTY(Fact* yawRate            READ yawRate            CONSTANT)
     Q_PROPERTY(Fact* groundSpeed        READ groundSpeed        CONSTANT)
     Q_PROPERTY(Fact* airSpeed           READ airSpeed           CONSTANT)
     Q_PROPERTY(Fact* climbRate          READ climbRate          CONSTANT)
@@ -351,6 +484,8 @@ public:
     Q_PROPERTY(FactGroup* wind        READ windFactGroup        CONSTANT)
     Q_PROPERTY(FactGroup* vibration   READ vibrationFactGroup   CONSTANT)
     Q_PROPERTY(FactGroup* temperature READ temperatureFactGroup CONSTANT)
+    Q_PROPERTY(FactGroup* clock       READ clockFactGroup       CONSTANT)
+    Q_PROPERTY(FactGroup* setpoint    READ setpointFactGroup    CONSTANT)
 
     Q_PROPERTY(int      firmwareMajorVersion        READ firmwareMajorVersion       NOTIFY firmwareVersionChanged)
     Q_PROPERTY(int      firmwareMinorVersion        READ firmwareMinorVersion       NOTIFY firmwareVersionChanged)
@@ -389,6 +524,9 @@ public:
 
     /// Command vehicle to takeoff from current location
     Q_INVOKABLE void guidedModeTakeoff(double altitudeRelative);
+
+    /// @return The minimum takeoff altitude (relative) for guided takeoff.
+    Q_INVOKABLE double minimumTakeoffAltitude(void);
 
     /// Command vehicle to move to specified location (altitude is included and relative)
     Q_INVOKABLE void guidedModeGotoLocation(const QGeoCoordinate& gotoCoord);
@@ -578,6 +716,7 @@ public:
     bool            flying                  () const { return _flying; }
     bool            landing                 () const { return _landing; }
     bool            guidedMode              () const;
+    bool            vtolInFwdFlight         () const { return _vtolInFwdFlight; }
     uint8_t         baseMode                () const { return _base_mode; }
     uint32_t        customMode              () const { return _custom_mode; }
     bool            isOfflineEditingVehicle () const { return _offlineEditingVehicle; }
@@ -601,13 +740,17 @@ public:
     int             telemetryLNoise         () { return _telemetryLNoise; }
     int             telemetryRNoise         () { return _telemetryRNoise; }
     bool            autoDisarm              ();
+    bool            highLatencyLink         () const { return _highLatencyLink; }
     /// Get the maximum MAVLink protocol version supported
     /// @return the maximum version
     unsigned        maxProtoVersion         () const { return _maxProtoVersion; }
 
     Fact* roll              (void) { return &_rollFact; }
-    Fact* heading           (void) { return &_headingFact; }
     Fact* pitch             (void) { return &_pitchFact; }
+    Fact* heading           (void) { return &_headingFact; }
+    Fact* rollRate          (void) { return &_rollRateFact; }
+    Fact* pitchRate         (void) { return &_pitchRateFact; }
+    Fact* yawRate           (void) { return &_yawRateFact; }
     Fact* airSpeed          (void) { return &_airSpeedFact; }
     Fact* groundSpeed       (void) { return &_groundSpeedFact; }
     Fact* climbRate         (void) { return &_climbRateFact; }
@@ -617,11 +760,14 @@ public:
     Fact* distanceToHome    (void) { return &_distanceToHomeFact; }
     Fact* hobbs             (void) { return &_hobbsFact; }
 
-    FactGroup* gpsFactGroup         (void) { return &_gpsFactGroup; }
-    FactGroup* batteryFactGroup     (void) { return &_batteryFactGroup; }
-    FactGroup* windFactGroup        (void) { return &_windFactGroup; }
-    FactGroup* vibrationFactGroup   (void) { return &_vibrationFactGroup; }
-    FactGroup* temperatureFactGroup (void) { return &_temperatureFactGroup; }
+    FactGroup* gpsFactGroup             (void) { return &_gpsFactGroup; }
+    FactGroup* batteryFactGroup         (void) { return &_batteryFactGroup; }
+    FactGroup* windFactGroup            (void) { return &_windFactGroup; }
+    FactGroup* vibrationFactGroup       (void) { return &_vibrationFactGroup; }
+    FactGroup* temperatureFactGroup     (void) { return &_temperatureFactGroup; }
+    FactGroup* clockFactGroup           (void) { return &_clockFactGroup; }
+    FactGroup* setpointFactGroup        (void) { return &_setpointFactGroup; }
+    FactGroup* distanceSensorFactGroup  (void) { return &_distanceSensorFactGroup; }
 
     void setConnectionLostEnabled(bool connectionLostEnabled);
 
@@ -708,6 +854,7 @@ public:
 
     void _setFlying(bool flying);
     void _setLanding(bool landing);
+    void setVtolInFwdFlight(bool vtolInFwdFlight);
     void _setHomePosition(QGeoCoordinate& homeCoord);
     void _setMaxProtoVersion (unsigned version);
 
@@ -733,6 +880,7 @@ signals:
     void flyingChanged(bool flying);
     void landingChanged(bool landing);
     void guidedModeChanged(bool guidedMode);
+    void vtolInFwdFlightChanged(bool vtolInFwdFlight);
     void prearmErrorChanged(const QString& prearmError);
     void soloFirmwareChanged(bool soloFirmware);
     void unhealthySensorsChanged(void);
@@ -745,6 +893,8 @@ signals:
     void capabilitiesKnownChanged(bool capabilitiesKnown);
     void initialPlanRequestCompleteChanged(bool initialPlanRequestComplete);
     void capabilityBitsChanged(uint64_t capabilityBits);
+    void toolBarIndicatorsChanged(void);
+    void highLatencyLinkChanged(bool highLatencyLink);
 
     void messagesReceivedChanged    ();
     void messagesSentChanged        ();
@@ -771,6 +921,7 @@ signals:
     void telemetryLNoiseChanged     (int value);
     void telemetryRNoiseChanged     (int value);
     void autoDisarmChanged          (void);
+    void flightModesChanged         (void);
 
     void firmwareVersionChanged(void);
     void firmwareCustomVersionChanged(void);
@@ -821,6 +972,7 @@ private slots:
     void _offlineVehicleTypeSettingChanged(QVariant value);
     void _offlineCruiseSpeedSettingChanged(QVariant value);
     void _offlineHoverSpeedSettingChanged(QVariant value);
+    void _updateHighLatencyLink(void);
 
     void _handleTextMessage                 (int newCount);
     void _handletextMessageReceived         (UASMessage* message);
@@ -836,12 +988,12 @@ private slots:
     void _geoFenceLoadComplete(void);
     void _rallyPointLoadComplete(void);
     void _sendMavCommandAgain(void);
-    void _activeJoystickChanged(void);
     void _clearTrajectoryPoints(void);
     void _clearCameraTriggerPoints(void);
     void _updateDistanceToHome(void);
     void _updateHobbsMeter(void);
     void _vehicleParamLoaded(bool ready);
+    void _sendQGCTimeToVehicle(void);
 
 private:
     bool _containsLink(LinkInterface* link);
@@ -857,7 +1009,6 @@ private:
     void _handleBatteryStatus(mavlink_message_t& message);
     void _handleSysStatus(mavlink_message_t& message);
     void _handleWindCov(mavlink_message_t& message);
-    void _handleWind(mavlink_message_t& message);
     void _handleVibration(mavlink_message_t& message);
     void _handleExtendedSysState(mavlink_message_t& message);
     void _handleCommandAck(mavlink_message_t& message);
@@ -872,7 +1023,15 @@ private:
     void _handleScaledPressure(mavlink_message_t& message);
     void _handleScaledPressure2(mavlink_message_t& message);
     void _handleScaledPressure3(mavlink_message_t& message);
+    void _handleHighLatency2(mavlink_message_t& message);
+    void _handleAttitude(mavlink_message_t& message);
+    void _handleAttitudeTarget(mavlink_message_t& message);
+    void _handleDistanceSensor(mavlink_message_t& message);
+    // ArduPilot dialect messages
+#if !defined(NO_ARDUPILOT_DIALECT)
     void _handleCameraFeedback(const mavlink_message_t& message);
+    void _handleWind(mavlink_message_t& message);
+#endif
     void _handleCameraImageCaptured(const mavlink_message_t& message);
     void _handleADSBVehicle(const mavlink_message_t& message);
     void _missionManagerError(int errorCode, const QString& errorMsg);
@@ -892,6 +1051,8 @@ private:
     void _startPlanRequest(void);
     void _setupAutoDisarmSignalling(void);
     void _setCapabilities(uint64_t capabilityBits);
+    void _updateArmed(bool armed);
+    bool _apmArmingNotRequired(void);
 
     int     _id;                    ///< Mavlink system id
     int     _defaultComponentId;
@@ -933,6 +1094,7 @@ private:
     bool            _autoDisconnect;    ///< true: Automatically disconnect vehicle when last connection goes away or lost heartbeat
     bool            _flying;
     bool            _landing;
+    bool            _vtolInFwdFlight;
     uint32_t        _onboardControlSensorsPresent;
     uint32_t        _onboardControlSensorsEnabled;
     uint32_t        _onboardControlSensorsHealth;
@@ -951,6 +1113,7 @@ private:
     unsigned        _maxProtoVersion;
     bool            _vehicleCapabilitiesKnown;
     uint64_t        _capabilityBits;
+    bool            _highLatencyLink;
 
     QGCCameraManager* _cameras;
 
@@ -966,6 +1129,7 @@ private:
     int                             _mavCommandRetryCount;
     static const int                _mavCommandMaxRetryCount = 3;
     static const int                _mavCommandAckTimeoutMSecs = 3000;
+    static const int                _mavCommandAckTimeoutMSecsHighLatency = 120000;
 
     QString             _prearmError;
     QTimer              _prearmErrorTimer;
@@ -1055,6 +1219,9 @@ private:
     Fact _rollFact;
     Fact _pitchFact;
     Fact _headingFact;
+    Fact _rollRateFact;
+    Fact _pitchRateFact;
+    Fact _yawRateFact;
     Fact _groundSpeedFact;
     Fact _airSpeedFact;
     Fact _climbRateFact;
@@ -1065,15 +1232,21 @@ private:
     Fact _distanceToHomeFact;
     Fact _hobbsFact;
 
-    VehicleGPSFactGroup         _gpsFactGroup;
-    VehicleBatteryFactGroup     _batteryFactGroup;
-    VehicleWindFactGroup        _windFactGroup;
-    VehicleVibrationFactGroup   _vibrationFactGroup;
-    VehicleTemperatureFactGroup _temperatureFactGroup;
+    VehicleGPSFactGroup             _gpsFactGroup;
+    VehicleBatteryFactGroup         _batteryFactGroup;
+    VehicleWindFactGroup            _windFactGroup;
+    VehicleVibrationFactGroup       _vibrationFactGroup;
+    VehicleTemperatureFactGroup     _temperatureFactGroup;
+    VehicleClockFactGroup           _clockFactGroup;
+    VehicleSetpointFactGroup        _setpointFactGroup;
+    VehicleDistanceSensorFactGroup  _distanceSensorFactGroup;
 
     static const char* _rollFactName;
     static const char* _pitchFactName;
     static const char* _headingFactName;
+    static const char* _rollRateFactName;
+    static const char* _pitchRateFactName;
+    static const char* _yawRateFactName;
     static const char* _groundSpeedFactName;
     static const char* _airSpeedFactName;
     static const char* _climbRateFactName;
@@ -1089,6 +1262,8 @@ private:
     static const char* _windFactGroupName;
     static const char* _vibrationFactGroupName;
     static const char* _temperatureFactGroupName;
+    static const char* _clockFactGroupName;
+    static const char* _distanceSensorFactGroupName;
 
     static const int _vehicleUIUpdateRateMSecs = 100;
 

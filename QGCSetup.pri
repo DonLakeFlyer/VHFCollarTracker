@@ -40,7 +40,7 @@ WindowsBuild {
 # Perform platform specific setup
 #
 
-iOSBuild | MacBuild {
+MacBuild {
     # Update version info in bundle
     QMAKE_POST_LINK += && /usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $${MAC_VERSION}\" $$DESTDIR/$${TARGET}.app/Contents/Info.plist
     QMAKE_POST_LINK += && /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $${MAC_BUILD}\" $$DESTDIR/$${TARGET}.app/Contents/Info.plist
@@ -102,6 +102,7 @@ LinuxBuild {
 
     # QT_INSTALL_LIBS
     QT_LIB_LIST = \
+        libQt5Charts.so.5 \
         libQt5Core.so.5 \
         libQt5DBus.so.5 \
         libQt5Gui.so.5 \
@@ -146,7 +147,8 @@ LinuxBuild {
         platforminputcontexts \
         platforms \
         position \
-        sqldrivers
+        sqldrivers \
+        texttospeech
 
     !contains(DEFINES, __rasp_pi2__) {
         QT_PLUGIN_LIST += xcbglintegrations

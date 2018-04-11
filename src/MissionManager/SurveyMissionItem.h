@@ -117,6 +117,7 @@ public:
     int             sequenceNumber          (void) const final { return _sequenceNumber; }
     double          specifiedFlightSpeed    (void) final { return std::numeric_limits<double>::quiet_NaN(); }
     double          specifiedGimbalYaw      (void) final { return std::numeric_limits<double>::quiet_NaN(); }
+    double          specifiedGimbalPitch    (void) final { return std::numeric_limits<double>::quiet_NaN(); }
     void            appendMissionItems      (QList<MissionItem*>& items, QObject* missionItemParent) final;
     void            setMissionFlightStatus  (MissionController::MissionFlightStatus_t& missionFlightStatus) final;
     void            applyNewAltitude        (double newAltitude) final;
@@ -216,12 +217,12 @@ private:
     qreal _ccw(QPointF pt1, QPointF pt2, QPointF pt3);
     qreal _dp(QPointF pt1, QPointF pt2);
     void _swapPoints(QList<QPointF>& points, int index1, int index2);
-    QList<QPointF> _convexPolygon(const QList<QPointF>& polygon);
     void _reverseTransectOrder(QList<QList<QGeoCoordinate>>& transects);
     void _reverseInternalTransectPoints(QList<QList<QGeoCoordinate>>& transects);
     void _adjustTransectsToEntryPointLocation(QList<QList<QGeoCoordinate>>& transects);
     bool _gridAngleIsNorthSouthTransects();
     double _clampGridAngle90(double gridAngle);
+    int _calcMissionCommandCount(QList<QList<QGeoCoordinate>>& transectSegments);
 
     int                             _sequenceNumber;
     bool                            _dirty;
@@ -294,7 +295,7 @@ private:
     static const char* _jsonFixedValueIsAltitudeKey;
     static const char* _jsonRefly90DegreesKey;
 
-    static const int _hoverAndCaptureDelaySeconds = 1;
+    static const int _hoverAndCaptureDelaySeconds = 4;
 };
 
 #endif
