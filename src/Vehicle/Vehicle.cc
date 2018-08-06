@@ -2872,22 +2872,29 @@ void Vehicle::sendMavCommand(int component, MAV_CMD command, bool showError, flo
         mavlink_message_t       msg;
         mavlink_command_long_t  cmd;
 
-    entry.commandInt = false;
-    entry.component = component;
-    entry.command = command;
-    entry.showError = showError;
-    entry.rgParam[0] = param1;
-    entry.rgParam[1] = param2;
-    entry.rgParam[2] = param3;
-    entry.rgParam[3] = param4;
-    entry.rgParam[4] = param5;
-    entry.rgParam[5] = param6;
-    entry.rgParam[6] = param7;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.command = command;
+        cmd.confirmation = 0;
+        cmd.param1 = param1;
+        cmd.param2 = param1;
+        cmd.param3 = param1;
+        cmd.param4 = param1;
+        cmd.param5 = param1;
+        cmd.param6 = param1;
+        cmd.param7 = param1;
+        cmd.target_system = _id;
+        cmd.target_component = component;
+        mavlink_msg_command_long_encode_chan(_mavlink->getSystemId(),
+                                             _mavlink->getComponentId(),
+                                             priorityLink()->mavlinkChannel(),
+                                             &msg,
+                                             &cmd);
 
         sendMessageOnLink(priorityLink(), msg);
     } else {
         MavCommandQueueEntry_t entry;
 
+        entry.commandInt = false;
         entry.component = component;
         entry.command = command;
         entry.showError = showError;
