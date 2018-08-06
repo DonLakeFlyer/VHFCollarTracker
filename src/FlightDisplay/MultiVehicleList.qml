@@ -28,7 +28,7 @@ Item {
 
     QGCPalette { id: qgcPal }
 
-    NoMouseThroughRectangle {
+    Rectangle {
         id:             mvCommands
         anchors.left:   parent.left
         anchors.right:  parent.right
@@ -36,6 +36,10 @@ Item {
         color:          qgcPal.missionItemEditor
         opacity:        _rectOpacity
         radius:         _margin
+
+        DeadMouseArea {
+            anchors.fill: parent
+        }
 
         Column {
             id:                 mvCommandsColumn
@@ -103,8 +107,7 @@ Item {
                 spacing:            _margin
 
                 RowLayout {
-                    anchors.left:   parent.left
-                    anchors.right:  parent.left
+                    Layout.fillWidth:       true
 
                     QGCLabel {
                         Layout.alignment:   Qt.AlignTop
@@ -117,14 +120,14 @@ Item {
                         spacing:            _margin
 
                         FlightModeMenu {
-                            anchors.horizontalCenter:   parent.horizontalCenter
+                            Layout.alignment:           Qt.AlignHCenter
                             font.pointSize:             ScreenTools.largeFontPointSize
                             color:                      _textColor
                             activeVehicle:              _vehicle
                         }
 
                         QGCLabel {
-                            anchors.horizontalCenter:   parent.horizontalCenter
+                            Layout.alignment:           Qt.AlignHCenter
                             text:                       _vehicle.armed ? qsTr("Armed") : qsTr("Disarmed")
                             color:                      _textColor
                         }
@@ -152,7 +155,7 @@ Item {
 
                     QGCButton {
                         text:       "Start Mission"
-                        visible:    _vehicle.armed && _vehicle.flightMode != _vehicle.missionFlightMode
+                        visible:    _vehicle.armed && _vehicle.flightMode !== _vehicle.missionFlightMode
                         onClicked:  _vehicle.startMission()
                     }
 
@@ -164,13 +167,13 @@ Item {
 
                     QGCButton {
                         text:       "RTL"
-                        visible:    _vehicle.armed && _vehicle.flightMode != _vehicle.rtlFlightMode
+                        visible:    _vehicle.armed && _vehicle.flightMode !== _vehicle.rtlFlightMode
                         onClicked:  _vehicle.flightMode = _vehicle.rtlFlightMode
                     }
 
                     QGCButton {
                         text:       "Take control"
-                        visible:    _vehicle.armed && _vehicle.flightMode != _vehicle.takeControlFlightMode
+                        visible:    _vehicle.armed && _vehicle.flightMode !== _vehicle.takeControlFlightMode
                         onClicked:  _vehicle.flightMode = _vehicle.takeControlFlightMode
                     }
                 } // Row

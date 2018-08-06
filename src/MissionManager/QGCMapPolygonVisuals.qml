@@ -11,6 +11,7 @@ import QtQuick          2.3
 import QtQuick.Controls 1.2
 import QtLocation       5.3
 import QtPositioning    5.3
+import QtQuick.Dialogs  1.2
 
 import QGroundControl               1.0
 import QGroundControl.ScreenTools   1.0
@@ -37,6 +38,7 @@ Item {
     property var    _centerDragHandleComponent
     property bool   _circle:                    false
     property real   _circleRadius
+    property bool   _editCircleRadius:          false
 
     property real _zorderDragHandle:    QGroundControl.zOrderMapItems + 3   // Highest to prevent splitting when items overlap
     property real _zorderSplitHandle:   QGroundControl.zOrderMapItems + 2
@@ -147,10 +149,6 @@ Item {
         setCircleRadius(center, radius)
     }
 
-    function loadKMLFile() {
-        mapPolygon.loadKMLFile("/Users/Don/Downloads/polygon.kml")
-    }
-
     onInteractiveChanged: {
         if (interactive) {
             addHandles()
@@ -180,11 +178,65 @@ Item {
         title:          qsTr("Select KML File")
         selectExisting: true
         nameFilters:    [ qsTr("KML files (*.kml)") ]
-
+        fileExtension:  QGroundControl.settingsManager.appSettings.kmlFileExtension
 
         onAcceptedForLoad: {
             mapPolygon.loadKMLFile(file)
+            mapFitFunctions.fitMapViewportToMissionItems()
             close()
+        }
+    }
+
+    Menu {
+        id: menu
+
+        property int _removeVertexIndex
+
+        function popUpWithIndex(curIndex) {
+            _removeVertexIndex = curIndex
+            removeVertexItem.visible = (mapPolygon.count > 3 && _removeVertexIndex >= 0)
+            menu.popup()
+        }
+
+        MenuItem {
+            id:             removeVertexItem
+            text:           qsTr("Remove vertex")
+            onTriggered: {
+                if(menu._removeVertexIndex >= 0) {
+                    mapPolygon.removeVertex(menu._removeVertexIndex)
+                }
+            }
+        }
+
+        MenuSeparator {
+            visible:        removeVertexItem.visible
+        }
+
+        MenuItem {
+            text:           qsTr("Circle" )
+            onTriggered:    resetCircle()
+        }
+
+        MenuItem {
+            text:           qsTr("Polygon")
+            onTriggered:    resetPolygon()
+        }
+
+        MenuItem {
+            text:           qsTr("Set radius..." )
+            visible:        _circle
+            onTriggered:    _editCircleRadius = true
+        }
+
+        MenuItem {
+            text:           qsTr("Edit position..." )
+            enabled:        _circle
+            onTriggered:    qgcView.showDialog(editPositionDialog, qsTr("Edit Position"), qgcView.showDialogDefaultWidth, StandardButton.Close)
+        }
+
+        MenuItem {
+            text:           qsTr("Load KML...")
+            onTriggered:    kmlLoadDialog.openForLoad()
         }
     }
 
@@ -277,6 +329,7 @@ Item {
 
         MissionItemIndicatorDrag {
             id:         dragArea
+            mapControl: _root.mapControl
             z:          _zorderDragHandle
             visible:    !_circle
 
@@ -293,32 +346,36 @@ Item {
                 }
             }
 
-            onClicked: mapPolygon.removeVertex(polygonVertex)
+            onClicked: {
+                menu.popUpWithIndex(polygonVertex)
+            }
         }
     }
 
     Component {
         id: centerDragHandle
-
         MapQuickItem {
             id:             mapQuickItem
-            anchorPoint.x:  dragHandle.width / 2
-            anchorPoint.y:  dragHandle.height / 2
+            anchorPoint.x:  dragHandle.width  * 0.5
+            anchorPoint.y:  dragHandle.height * 0.5
             z:              _zorderDragHandle
-
             sourceItem: Rectangle {
-                id:         dragHandle
-                width:      ScreenTools.defaultFontPixelHeight * 1.5
-                height:     width
-                radius:     width / 2
-                color:      "white"
-                opacity:    .90
-
-                QGCLabel {
-                    anchors.horizontalCenter:   parent.horizontalCenter
-                    anchors.verticalCenter:     parent.verticalCenter
-                    text:                       "..."
-                    color:                      "black"
+                id:             dragHandle
+                width:          ScreenTools.defaultFontPixelHeight * 1.5
+                height:         width
+                radius:         width * 0.5
+                color:          Qt.rgba(1,1,1,0.8)
+                border.color:   Qt.rgba(0,0,0,0.25)
+                border.width:   1
+                QGCColoredImage {
+                    width:      parent.width
+                    height:     width
+                    color:      Qt.rgba(0,0,0,1)
+                    mipmap:     true
+                    fillMode:   Image.PreserveAspectFit
+                    source:     "/qmlimages/MapCenter.svg"
+                    sourceSize.height:  height
+                    anchors.centerIn:   parent
                 }
             }
         }
@@ -329,7 +386,7 @@ Item {
 
         MapQuickItem {
             id:             mapQuickItem
-            anchorPoint.x:  dragHandle.width / 2
+            anchorPoint.x:  dragHandle.width  / 2
             anchorPoint.y:  dragHandle.height / 2
             z:              _zorderDragHandle
             visible:        !_circle
@@ -337,12 +394,13 @@ Item {
             property int polygonVertex
 
             sourceItem: Rectangle {
-                id:         dragHandle
-                width:      ScreenTools.defaultFontPixelHeight * 1.5
-                height:     width
-                radius:     width / 2
-                color:      "white"
-                opacity:    .90
+                id:             dragHandle
+                width:          ScreenTools.defaultFontPixelHeight * 1.5
+                height:         width
+                radius:         width * 0.5
+                color:          Qt.rgba(1,1,1,0.8)
+                border.color:   Qt.rgba(0,0,0,0.25)
+                border.width:   1
             }
         }
     }
@@ -379,54 +437,41 @@ Item {
     }
 
     Component {
+        id: editPositionDialog
+
+        EditPositionDialog {
+            coordinate: mapPolygon.center
+            onCoordinateChanged: mapPolygon.center = coordinate
+        }
+    }
+
+    Component {
         id: centerDragAreaComponent
 
         MissionItemIndicatorDrag {
+            mapControl:                 _root.mapControl
             z:                          _zorderCenterHandle
             onItemCoordinateChanged:    mapPolygon.center = itemCoordinate
             onDragStart:                mapPolygon.centerDrag = true
             onDragStop:                 mapPolygon.centerDrag = false
-            onClicked:                  menu.popup()
+
+            onClicked: {
+                menu.popUpWithIndex(-1)      //-- Don't offer a choice to delete vertex (cur index == -1)
+            }
 
             function setRadiusFromDialog() {
                 setCircleRadius(mapPolygon.center, radiusField.text)
-                radiusDialog.visible = false
-            }
-
-            Menu {
-                id: menu
-
-                MenuItem {
-                    text:           qsTr("Circle" )
-                    onTriggered:    resetCircle()
-                }
-
-                MenuItem {
-                    text:           qsTr("Polygon")
-                    onTriggered:    resetPolygon()
-                }
-
-                MenuItem {
-                    text:           qsTr("Set radius..." )
-                    enabled:        _circle
-                    onTriggered:    radiusDialog.visible = true
-                }
-
-                MenuItem {
-                    text:           qsTr("Load KML...")
-                    onTriggered:    kmlLoadDialog.openForLoad()
-                }
+                _editCircleRadius = false
             }
 
             Rectangle {
-                id:                 radiusDialog
                 anchors.margins:    _margin
                 anchors.left:       parent.right
                 width:              radiusColumn.width + (_margin *2)
                 height:             radiusColumn.height + (_margin *2)
                 color:              qgcPal.window
                 border.color:       qgcPal.text
-                visible:            false
+                visible:            _editCircleRadius
 
                 Column {
                     id:                 radiusColumn
@@ -441,6 +486,7 @@ Item {
                         id:                 radiusField
                         text:               _circleRadius.toFixed(2)
                         onEditingFinished:  setRadiusFromDialog()
+                        inputMethodHints:   Qt.ImhFormattedNumbersOnly
                     }
                 }
 

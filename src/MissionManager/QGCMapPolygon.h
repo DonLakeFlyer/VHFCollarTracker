@@ -40,6 +40,7 @@ public:
     Q_INVOKABLE void clear(void);
     Q_INVOKABLE void appendVertex(const QGeoCoordinate& coordinate);
     Q_INVOKABLE void removeVertex(int vertexIndex);
+    Q_INVOKABLE void appendVertices(const QList<QGeoCoordinate>& coordinates);
 
     /// Adjust the value for the specified coordinate
     ///     @param vertexIndex Polygon point index to modify (0-based)
@@ -77,7 +78,10 @@ public:
     bool loadFromJson(const QJsonObject& json, bool required, QString& errorString);
 
     /// Convert polygon to NED and return (D is ignored)
-    QList<QPointF> nedPolygon(void);
+    QList<QPointF> nedPolygon(void) const;
+
+    /// Returns the area of the polygon in meters squared
+    double area(void) const;
 
     // Property methods
 

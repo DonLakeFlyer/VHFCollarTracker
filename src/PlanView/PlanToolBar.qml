@@ -32,13 +32,13 @@ Rectangle {
     property real   missionMaxTelemetry:        _controllerValid ? planMasterController.missionController.missionMaxTelemetry : NaN
     property bool   missionDirty:               _controllerValid ? planMasterController.missionController.dirty : false
 
-    property bool   _controllerValid:           planMasterController != undefined
+    property bool   _controllerValid:           planMasterController !== undefined
     property bool   _controllerOffline:         _controllerValid ? planMasterController.offline : true
     property var    _controllerDirty:           _controllerValid ? planMasterController.dirty : false
     property var    _controllerSyncInProgress:  _controllerValid ? planMasterController.syncInProgress : false
 
-    property bool   _statusValid:               currentMissionItem != undefined
-    property bool   _missionValid:              missionItems != undefined
+    property bool   _statusValid:               currentMissionItem !== undefined
+    property bool   _missionValid:              missionItems !== undefined
 
     property real   _dataFontSize:              ScreenTools.defaultFontPointSize
     property real   _largeValueWidth:           ScreenTools.defaultFontPixelWidth * 8
@@ -84,11 +84,8 @@ Rectangle {
     }
 
     //-- Eat mouse events, preventing them from reaching toolbar, which is underneath us.
-    MouseArea {
-        anchors.fill:   parent
-        onWheel:        { wheel.accepted = true; }
-        onPressed:      { mouse.accepted = true; }
-        onReleased:     { mouse.accepted = true; }
+    DeadMouseArea {
+        anchors.fill: parent
     }
 
     //-- The reason for this Row to be here is so the Logo (Home) button is in the same
@@ -119,6 +116,7 @@ Rectangle {
         if (_controllerProgressPct === 1) {
             missionStats.visible = false
             uploadCompleteText.visible = true
+            progressBar.visible = false
             resetProgressTimer.start()
         } else if (_controllerProgressPct > 0) {
             progressBar.visible = true
@@ -131,18 +129,7 @@ Rectangle {
         onTriggered: {
             missionStats.visible = true
             uploadCompleteText.visible = false
-            progressBar.visible = false
         }
-    }
-
-    Rectangle {
-        id:             progressBar
-        anchors.left:   parent.left
-        anchors.bottom: parent.bottom
-        height:         4
-        width:          _controllerProgressPct * parent.width
-        color:          qgcPal.colorGreen
-        visible:        false
     }
 
     QGCLabel {
@@ -170,11 +157,10 @@ Rectangle {
         columns:                3
 
         GridLayout {
-            anchors.verticalCenter: parent.verticalCenter
             columns:                8
             rowSpacing:             _rowSpacing
             columnSpacing:          _labelToValueSpacing
-            Layout.alignment:       Qt.AlignHCenter
+            Layout.alignment:       Qt.AlignVCenter | Qt.AlignHCenter
 
             QGCLabel {
                 text:               qsTr("Selected Waypoint")
@@ -225,11 +211,10 @@ Rectangle {
         }
 
         GridLayout {
-            anchors.verticalCenter: parent.verticalCenter
             columns:                5
             rowSpacing:             _rowSpacing
             columnSpacing:          _labelToValueSpacing
-            Layout.alignment:       Qt.AlignHCenter
+            Layout.alignment:       Qt.AlignVCenter | Qt.AlignHCenter
 
             QGCLabel {
                 text:               qsTr("Total Mission")
@@ -262,11 +247,10 @@ Rectangle {
         }
 
         GridLayout {
-            anchors.verticalCenter: parent.verticalCenter
             columns:                3
             rowSpacing:             _rowSpacing
             columnSpacing:          _labelToValueSpacing
-            Layout.alignment:       Qt.AlignHCenter
+            Layout.alignment:       Qt.AlignVCenter | Qt.AlignHCenter
             visible:                _batteryInfoAvailable
 
             QGCLabel {
@@ -283,13 +267,15 @@ Rectangle {
             }
 
             Item { width: 1; height: 1 }
-
+/*
+            FIXME: Swap point display is currently hidden since the code which calcs it doesn't work correctly
             QGCLabel { text: qsTr("Swap waypoint:"); font.pointSize: _dataFontSize; }
             QGCLabel {
                 text:                   _batteryChangePointText
                 font.pointSize:         _dataFontSize
                 Layout.minimumWidth:    _mediumValueWidth
             }
+*/
         }
     }
 
@@ -312,6 +298,79 @@ Rectangle {
             running:        _controllerDirty && !_controllerSyncInProgress
             alwaysRunToEnd: true
             duration:       2000
+        }
+    }
+
+    // Small mission download progress bar
+    Rectangle {
+        id:             progressBar
+        anchors.left:   parent.left
+        anchors.bottom: parent.bottom
+        height:         4
+        width:          _controllerProgressPct * parent.width
+        color:          qgcPal.colorGreen
+        visible:        false
+
+        onVisibleChanged: {
+            if (visible) {
+                largeProgressBar._userHide = false
+            }
+        }
+    }
+
+    /*
+    Rectangle {
+        anchors.bottom: parent.bottom
+        height:         toolBar.height * 0.05
+        width:          _activeVehicle ? _activeVehicle.parameterManager.loadProgress * parent.width : 0
+        color:          qgcPal.colorGreen
+        visible:        !largeProgressBar.visible
+    }
+    */
+
+    // Large mission download progress bar
+    Rectangle {
+        id:             largeProgressBar
+        anchors.bottom: parent.bottom
+        anchors.left:   parent.left
+        anchors.right:  parent.right
+        height:         parent.height
+        color:          qgcPal.window
+        visible:        _showLargeProgress
+
+        property bool _userHide:                false
+        property bool _showLargeProgress:       progressBar.visible && !_userHide && qgcPal.globalTheme === QGCPalette.Light
+
+        Connections {
+            target:                 QGroundControl.multiVehicleManager
+            onActiveVehicleChanged: largeProgressBar._userHide = false
+        }
+
+        Rectangle {
+            anchors.top:    parent.top
+            anchors.bottom: parent.bottom
+            width:          _controllerProgressPct * parent.width
+            color:          qgcPal.colorGreen
+        }
+
+        QGCLabel {
+            anchors.centerIn:   parent
+            text:               qsTr("Syncing Mission")
+            font.pointSize:     ScreenTools.largeFontPointSize
+        }
+
+        QGCLabel {
+            anchors.margins:    _margin
+            anchors.right:      parent.right
+            anchors.bottom:     parent.bottom
+            text:               qsTr("Click anywhere to hide")
+
+            property real _margin: ScreenTools.defaultFontPixelWidth / 2
+        }
+
+        MouseArea {
+            anchors.fill:   parent
+            onClicked:      largeProgressBar._userHide = true
         }
     }
 }

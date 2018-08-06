@@ -15,7 +15,7 @@ import QGroundControl.Controllers       1.0
 Rectangle {
     id:                 valuesRect
     width:              availableWidth
-    height:             deferedload.status == Loader.Ready ? (visible ? deferedload.item.height : 0) : 0
+    height:             valuesColumn.height + (_margin * 2)
     color:              qgcPal.windowShadeDark
     visible:            missionItem.isCurrentItem
     radius:             _radius
@@ -36,93 +36,64 @@ Rectangle {
     property var    _fileExtension:                 QGroundControl.settingsManager.appSettings.missionFileExtension
     property var    _appSettings:                   QGroundControl.settingsManager.appSettings
     property bool   _waypointsOnlyMode:             QGroundControl.corePlugin.options.missionWaypointsOnly
+    property bool   _showCameraSection:             !_waypointsOnlyMode || QGroundControl.corePlugin.showAdvancedUI
+    property bool   _simpleMissionStart:            QGroundControl.corePlugin.options.showSimpleMissionStart
 
     readonly property string _firmwareLabel:    qsTr("Firmware")
     readonly property string _vehicleLabel:     qsTr("Vehicle")
+    readonly property real  _margin:            ScreenTools.defaultFontPixelWidth / 2
 
     QGCPalette { id: qgcPal }
     QGCFileDialogController { id: fileController }
 
-    Loader {
-        id:              deferedload
-        active:          valuesRect.visible
-        asynchronous:    true
-        anchors.margins: _margin
-        anchors.left:    valuesRect.left
-        anchors.right:   valuesRect.right
-        anchors.top:     valuesRect.top
+    Column {
+        id:                 valuesColumn
+        anchors.margins:    _margin
+        anchors.left:       parent.left
+        anchors.right:      parent.right
+        anchors.top:        parent.top
+        spacing:            _margin
 
-        sourceComponent: Component {
-            Item {
-                id:                 valuesItem
-                height:             valuesColumn.height + (_margin * 2)
+        GridLayout {
+            anchors.left:   parent.left
+            anchors.right:  parent.right
+            columnSpacing:  ScreenTools.defaultFontPixelWidth
+            rowSpacing:     columnSpacing
+            columns:        2
 
-                Column {
-                    id:             valuesColumn
-                    anchors.left:   parent.left
-                    anchors.right:  parent.right
-                    anchors.top:    parent.top
-                    spacing:        _margin
+            QGCLabel {
+                text:       qsTr("Waypoint alt")
+            }
+            FactTextField {
+                fact:               QGroundControl.settingsManager.appSettings.defaultMissionItemAltitude
+                Layout.fillWidth:   true
+            }
 
-                    Loader {
-                        anchors.left:       parent.left
-                        anchors.right:      parent.right
-                        sourceComponent:    missionSettings
-                    }
-                } // Column
-            } // Item
-        } // Component
-    } // Loader
-
-    Component {
-        id: missionSettings
+            QGCCheckBox {
+                id:         flightSpeedCheckBox
+                text:       qsTr("Flight speed")
+                visible:    !_missionVehicle.vtol && !_simpleMissionStart
+                checked:    missionItem.speedSection.specifyFlightSpeed
+                onClicked:   missionItem.speedSection.specifyFlightSpeed = checked
+            }
+            FactTextField {
+                Layout.fillWidth:   true
+                fact:               missionItem.speedSection.flightSpeed
+                visible:            flightSpeedCheckBox.visible
+                enabled:            flightSpeedCheckBox.checked
+            }
+        }
 
         Column {
-            id:             valuesColumn
-            anchors.left:   parent ? parent.left  : undefined
-            anchors.right:  parent ? parent.right : undefined
-            anchors.top:    parent ? parent.top   : undefined
+            anchors.left:   parent.left
+            anchors.right:  parent.right
             spacing:        _margin
-
-            Column {
-                anchors.left:   parent.left
-                anchors.right:  parent.right
-                spacing:        _margin
-
-                GridLayout {
-                    anchors.left:   parent.left
-                    anchors.right:  parent.right
-                    columnSpacing:  ScreenTools.defaultFontPixelWidth
-                    rowSpacing:     columnSpacing
-                    columns:        2
-
-                    QGCLabel {
-                        text:       qsTr("Waypoint alt")
-                    }
-                    FactTextField {
-                        fact:               QGroundControl.settingsManager.appSettings.defaultMissionItemAltitude
-                        Layout.fillWidth:   true
-                    }
-
-                    QGCCheckBox {
-                        id:         flightSpeedCheckBox
-                        text:       qsTr("Flight speed")
-                        visible:    !_missionVehicle.vtol
-                        checked:    missionItem.speedSection.specifyFlightSpeed
-                        onClicked:   missionItem.speedSection.specifyFlightSpeed = checked
-                    }
-                    FactTextField {
-                        Layout.fillWidth:   true
-                        fact:               missionItem.speedSection.flightSpeed
-                        visible:            flightSpeedCheckBox.visible
-                        enabled:            flightSpeedCheckBox.checked
-                    }
-                } // GridLayout
-            }
+            visible:        !_simpleMissionStart
 
             CameraSection {
                 id:         cameraSection
                 checked:    missionItem.cameraSection.settingsSpecified
+                visible:    _showCameraSection
             }
 
             QGCLabel {
@@ -132,7 +103,7 @@ Rectangle {
                 wrapMode:               Text.WordWrap
                 horizontalAlignment:    Text.AlignHCenter
                 font.pointSize:         ScreenTools.smallFontPointSize
-                visible:                cameraSection.checked
+                visible:                _showCameraSection && cameraSection.checked
             }
 
             SectionHeader {
@@ -263,5 +234,5 @@ Rectangle {
                 }
             }
         } // Column
-    } // Deferred loader
+    } // Column
 } // Rectangle

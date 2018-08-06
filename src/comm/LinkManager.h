@@ -104,7 +104,7 @@ public:
 
     /// Creates, connects (and adds) a link  based on the given configuration instance.
     /// Link takes ownership of config.
-    LinkInterface* createConnectedLink(SharedLinkConfigurationPointer& config);
+    LinkInterface* createConnectedLink(SharedLinkConfigurationPointer& config, bool isPX4Flow = false);
 
     // This should only be used by Qml code
     Q_INVOKABLE void createConnectedLink(LinkConfiguration* config);
@@ -204,6 +204,8 @@ private:
     SerialConfiguration* _autoconnectConfigurationsContainsPort(const QString& portName);
 #endif
 
+    void _mavlinkMessageReceived(LinkInterface* link, mavlink_message_t message);
+
     bool    _configUpdateSuspended;                     ///< true: stop updating configuration list
     bool    _configurationsLoaded;                      ///< true: Link configurations have been loaded
     bool    _connectionsSuspended;                      ///< true: all new connections should not be allowed
@@ -233,6 +235,13 @@ private:
     static const char*  _defaultUPDLinkName;
     static const int    _autoconnectUpdateTimerMSecs;
     static const int    _autoconnectConnectDelayMSecs;
+
+    // NMEA GPS device for GCS position
+#ifndef __mobile__
+    QString      _nmeaDeviceName;
+    QSerialPort* _nmeaPort;
+    uint32_t     _nmeaBaud;
+#endif
 };
 
 #endif

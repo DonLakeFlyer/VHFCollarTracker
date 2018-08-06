@@ -24,6 +24,7 @@
 
 #include "QGCMAVLink.h"
 #include "LinkInterface.h"
+#include "Fact.h"
 
 #define UT_REGISTER_TEST(className) static UnitTestWrapper<className> className(#className);
 
@@ -95,6 +96,10 @@ public:
     /// Fuzzy compare on two doubles, where NaN is a possible value
     /// @return true: equal
     static bool doubleNaNCompare(double value1, double value2);
+
+    /// Changes the Facts rawValue such that it emits a valueChanged signal.
+    ///     @param increment 0 use standard increment, other increment by specified amount if double value
+    void changeFactValue(Fact* fact, double increment = 0);
 
 protected slots:
     

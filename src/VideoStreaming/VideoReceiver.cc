@@ -63,12 +63,15 @@ VideoReceiver::VideoReceiver(QObject* parent)
     , _videoSink(NULL)
     , _socket(NULL)
     , _serverPresent(false)
+    , _rtspTestInterval_ms(5000)
 #endif
     , _videoSurface(NULL)
     , _videoRunning(false)
     , _showFullScreen(false)
+    , _videoSettings(NULL)
 {
-    _videoSurface  = new VideoSurface;
+    _videoSurface = new VideoSurface;
+    _videoSettings = qgcApp()->toolbox()->settingsManager()->videoSettings();
 #if defined(QGC_GST_STREAMING)
     _setVideoSink(_videoSurface->videoSink());
     _timer.setSingleShot(true);
@@ -147,8 +150,10 @@ VideoReceiver::_connected()
     _timer.stop();
     _socket->deleteLater();
     _socket = NULL;
-    _serverPresent = true;
-    start();
+    if(_videoSettings->streamEnabled()->rawValue().toBool()) {
+        _serverPresent = true;
+        start();
+    }
 }
 #endif
 
@@ -160,8 +165,10 @@ VideoReceiver::_socketError(QAbstractSocket::SocketError socketError)
     Q_UNUSED(socketError);
     _socket->deleteLater();
     _socket = NULL;
-    //-- Try again in 5 seconds
-    _timer.start(5000);
+    //-- Try again in a while
+    if(_videoSettings->streamEnabled()->rawValue().toBool()) {
+        _timer.start(_rtspTestInterval_ms);
+    }
 }
 #endif
 
@@ -175,18 +182,21 @@ VideoReceiver::_timeout()
         delete _socket;
         _socket = NULL;
     }
-    //-- RTSP will try to connect to the server. If it cannot connect,
-    //   it will simply give up and never try again. Instead, we keep
-    //   attempting a connection on this timer. Once a connection is
-    //   found to be working, only then we actually start the stream.
-    QUrl url(_uri);
-    _socket = new QTcpSocket;
-    _socket->setProxy(QNetworkProxy::NoProxy);
-    connect(_socket, static_cast<void (QTcpSocket::*)(QAbstractSocket::SocketError)>(&QTcpSocket::error), this, &VideoReceiver::_socketError);
-    connect(_socket, &QTcpSocket::connected, this, &VideoReceiver::_connected);
-    //qCDebug(VideoReceiverLog) << "Trying to connect to:" << url.host() << url.port();
-    _socket->connectToHost(url.host(), url.port());
-    _timer.start(5000);
+    if(_videoSettings->streamEnabled()->rawValue().toBool()) {
+        //-- RTSP will try to connect to the server. If it cannot connect,
+        //   it will simply give up and never try again. Instead, we keep
+        //   attempting a connection on this timer. Once a connection is
+        //   found to be working, only then we actually start the stream.
+        QUrl url(_uri);
+        _socket = new QTcpSocket;
+        QNetworkProxy tempProxy;
+        tempProxy.setType(QNetworkProxy::DefaultProxy);
+        _socket->setProxy(tempProxy);
+        connect(_socket, static_cast<void (QTcpSocket::*)(QAbstractSocket::SocketError)>(&QTcpSocket::error), this, &VideoReceiver::_socketError);
+        connect(_socket, &QTcpSocket::connected, this, &VideoReceiver::_connected);
+        _socket->connectToHost(url.host(), url.port());
+        _timer.start(_rtspTestInterval_ms);
+    }
 }
 #endif
 
@@ -203,7 +213,13 @@ VideoReceiver::_timeout()
 void
 VideoReceiver::start()
 {
+    if(!_videoSettings->streamEnabled()->rawValue().toBool() ||
+       !_videoSettings->streamConfigured()) {
+        qCDebug(VideoReceiverLog) << "start() but not enabled/configured";
+        return;
+    }
 #if defined(QGC_GST_STREAMING)
+    _stop = false;
     qCDebug(VideoReceiverLog) << "start()";
 
     if (_uri.isEmpty()) {
@@ -352,6 +368,7 @@ VideoReceiver::start()
             bus = NULL;
         }
 
+        GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "pipeline-paused");
         running = gst_element_set_state(_pipeline, GST_STATE_PLAYING) != GST_STATE_CHANGE_FAILURE;
 
     } while(0);
@@ -405,6 +422,7 @@ VideoReceiver::start()
 
         _running = false;
     } else {
+        GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "pipeline-playing");
         _running = true;
         qCDebug(VideoReceiverLog) << "Running";
     }
@@ -417,6 +435,7 @@ void
 VideoReceiver::stop()
 {
 #if defined(QGC_GST_STREAMING)
+    _stop = true;
     qCDebug(VideoReceiverLog) << "stop()";
     if(!_streaming) {
         _shutdownPipeline();
@@ -550,7 +569,7 @@ void
 VideoReceiver::_cleanupOldVideos()
 {
     //-- Only perform cleanup if storage limit is enabled
-    if(qgcApp()->toolbox()->settingsManager()->videoSettings()->enableStorageLimit()->rawValue().toBool()) {
+    if(_videoSettings->enableStorageLimit()->rawValue().toBool()) {
         QString savePath = qgcApp()->toolbox()->settingsManager()->appSettings()->videoSavePath();
         QDir videoDir = QDir(savePath);
         videoDir.setFilter(QDir::Files | QDir::Readable | QDir::NoSymLinks | QDir::Writable);
@@ -566,7 +585,7 @@ VideoReceiver::_cleanupOldVideos()
         if(!vidList.isEmpty()) {
             uint64_t total   = 0;
             //-- Settings are stored using MB
-            uint64_t maxSize = (qgcApp()->toolbox()->settingsManager()->videoSettings()->maxVideoSize()->rawValue().toUInt() * 1024 * 1024);
+            uint64_t maxSize = (_videoSettings->maxVideoSize()->rawValue().toUInt() * 1024 * 1024);
             //-- Compute total used storage
             for(int i = 0; i < vidList.size(); i++) {
                 total += vidList[i].size();
@@ -597,7 +616,7 @@ VideoReceiver::_cleanupOldVideos()
 //                                        |                                      |
 //                                        +--------------------------------------+
 void
-VideoReceiver::startRecording(void)
+VideoReceiver::startRecording(const QString &videoFile)
 {
 #if defined(QGC_GST_STREAMING)
 
@@ -608,13 +627,7 @@ VideoReceiver::startRecording(void)
         return;
     }
 
-    QString savePath = qgcApp()->toolbox()->settingsManager()->appSettings()->videoSavePath();
-    if(savePath.isEmpty()) {
-        qgcApp()->showMessage(tr("Unabled to record video. Video save path must be specified in Settings."));
-        return;
-    }
-
-    uint32_t muxIdx = qgcApp()->toolbox()->settingsManager()->videoSettings()->recordingFormat()->rawValue().toUInt();
+    uint32_t muxIdx = _videoSettings->recordingFormat()->rawValue().toUInt();
     if(muxIdx >= NUM_MUXES) {
         qgcApp()->showMessage(tr("Invalid video format defined."));
         return;
@@ -636,11 +649,20 @@ VideoReceiver::startRecording(void)
         return;
     }
 
-    QString videoFile;
-    videoFile = savePath + "/" + QDateTime::currentDateTime().toString("yyyy-MM-dd_hh.mm.ss") + "." + kVideoExtensions[muxIdx];
+    if(videoFile.isEmpty()) {
+        QString savePath = qgcApp()->toolbox()->settingsManager()->appSettings()->videoSavePath();
+        if(savePath.isEmpty()) {
+            qgcApp()->showMessage(tr("Unabled to record video. Video save path must be specified in Settings."));
+            return;
+        }
+        _videoFile = savePath + "/" + QDateTime::currentDateTime().toString("yyyy-MM-dd_hh.mm.ss") + "." + kVideoExtensions[muxIdx];
+    } else {
+        _videoFile = videoFile;
+    }
+    emit videoFileChanged();
 
-    g_object_set(G_OBJECT(_sink->filesink), "location", qPrintable(videoFile), NULL);
-    qCDebug(VideoReceiverLog) << "New video file:" << videoFile;
+    g_object_set(G_OBJECT(_sink->filesink), "location", qPrintable(_videoFile), NULL);
+    qCDebug(VideoReceiverLog) << "New video file:" << _videoFile;
 
     gst_object_ref(_sink->queue);
     gst_object_ref(_sink->parse);
@@ -655,13 +677,25 @@ VideoReceiver::startRecording(void)
     gst_element_sync_state_with_parent(_sink->mux);
     gst_element_sync_state_with_parent(_sink->filesink);
 
+    // Install a probe on the recording branch to drop buffers until we hit our first keyframe
+    // When we hit our first keyframe, we can offset the timestamps appropriately according to the first keyframe time
+    // This will ensure the first frame is a keyframe at t=0, and decoding can begin immediately on playback
+    GstPad* probepad = gst_element_get_static_pad(_sink->queue, "src");
+    gst_pad_add_probe(probepad, (GstPadProbeType)(GST_PAD_PROBE_TYPE_BUFFER /* | GST_PAD_PROBE_TYPE_BLOCK */), _keyframeWatch, this, NULL); // to drop the buffer or to block the buffer?
+    gst_object_unref(probepad);
+
+    // Link the recording branch to the pipeline
     GstPad* sinkpad = gst_element_get_static_pad(_sink->queue, "sink");
     gst_pad_link(_sink->teepad, sinkpad);
     gst_object_unref(sinkpad);
 
+    GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "pipeline-recording");
+
     _recording = true;
     emit recordingChanged();
     qCDebug(VideoReceiverLog) << "Recording started";
+#else
+    Q_UNUSED(videoFile)
 #endif
 }
 
@@ -780,6 +814,33 @@ VideoReceiver::_unlinkCallBack(GstPad* pad, GstPadProbeInfo* info, gpointer user
 #endif
 
 //-----------------------------------------------------------------------------
+#if defined(QGC_GST_STREAMING)
+GstPadProbeReturn
+VideoReceiver::_keyframeWatch(GstPad* pad, GstPadProbeInfo* info, gpointer user_data)
+{
+    Q_UNUSED(pad);
+    if(info != NULL && user_data != NULL) {
+        GstBuffer* buf = gst_pad_probe_info_get_buffer(info);
+        if(GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_DELTA_UNIT)) { // wait for a keyframe
+            return GST_PAD_PROBE_DROP;
+        } else {
+            VideoReceiver* pThis = (VideoReceiver*)user_data;
+            // reset the clock
+            GstClock* clock = gst_pipeline_get_clock(GST_PIPELINE(pThis->_pipeline));
+            GstClockTime time = gst_clock_get_time(clock);
+            gst_object_unref(clock);
+            gst_element_set_base_time(pThis->_pipeline, time); // offset pipeline timestamps to start at zero again
+            buf->dts = 0; // The offset will not apply to this current buffer, our first frame, timestamp is zero
+            buf->pts = 0;
+            qCDebug(VideoReceiverLog) << "Got keyframe, stop dropping buffers";
+        }
+    }
+
+    return GST_PAD_PROBE_REMOVE;
+}
+#endif
+
+//-----------------------------------------------------------------------------
 void
 VideoReceiver::_updateTimer()
 {
@@ -803,7 +864,7 @@ VideoReceiver::_updateTimer()
         if(_videoRunning) {
             uint32_t timeout = 1;
             if(qgcApp()->toolbox() && qgcApp()->toolbox()->settingsManager()) {
-                timeout = qgcApp()->toolbox()->settingsManager()->videoSettings()->rtspTimeout()->rawValue().toUInt();
+                timeout = _videoSettings->rtspTimeout()->rawValue().toUInt();
             }
             time_t elapsed = 0;
             time_t lastFrame = _videoSurface->lastFrame();
@@ -812,9 +873,11 @@ VideoReceiver::_updateTimer()
             }
             if(elapsed > (time_t)timeout && _videoSurface) {
                 stop();
+                // We want to start it back again with _updateTimer
+                _stop = false;
             }
         } else {
-            if(!running() && !_uri.isEmpty()) {
+            if(!_stop && !running() && !_uri.isEmpty() && _videoSettings->streamEnabled()->rawValue().toBool()) {
                 start();
             }
         }

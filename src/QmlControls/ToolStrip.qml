@@ -16,7 +16,7 @@ import QGroundControl.Palette       1.0
 Rectangle {
     id:         _root
     color:      qgcPal.window
-    width:      ScreenTools.isMobile ? ScreenTools.minTouchPixels : ScreenTools.defaultFontPixelWidth * 6
+    width:      ScreenTools.isMobile ? ScreenTools.minTouchPixels : ScreenTools.defaultFontPixelWidth * 7
     height:     buttonStripColumn.height + (buttonStripColumn.anchors.margins * 2)
     radius:     _radius
     border.width:   1
@@ -50,6 +50,10 @@ Rectangle {
                 _root.clicked(i, false)
             }
         }
+    }
+
+    DeadMouseArea {
+        anchors.fill: parent
     }
 
     Column {
@@ -129,7 +133,7 @@ Rectangle {
                     id:             scope
                     anchors.left:   parent.left
                     anchors.right:  parent.right
-                    height:         width
+                    height:         width * 0.8
 
                     Rectangle {
                         anchors.fill:   parent
@@ -137,9 +141,11 @@ Rectangle {
 
                         QGCColoredImage {
                             id:                 button
-                            anchors.fill:       parent
+                            height:             parent.height
+                            width:              height
+                            anchors.centerIn:   parent
                             source:             _source
-                            sourceSize.height:  parent.height
+                            sourceSize.height:  height
                             fillMode:           Image.PreserveAspectFit
                             mipmap:             true
                             smooth:             true

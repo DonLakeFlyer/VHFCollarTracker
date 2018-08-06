@@ -213,6 +213,31 @@ QGCView {
         }
     }
 
+    QGCFileDialog {
+        id:             fileDialog
+        qgcView:        offlineMapView
+        folder:         QGroundControl.settingsManager.appSettings.missionSavePath
+        nameFilters:    ["Tile Sets (*.qgctiledb)"]
+        fileExtension:  "qgctiledb"
+
+        onAcceptedForSave: {
+            if (QGroundControl.mapEngineManager.exportSets(file)) {
+                rootLoader.sourceComponent = exportToDiskProgress
+            } else {
+                showList()
+            }
+            close()
+        }
+
+        onAcceptedForLoad: {
+            if(!QGroundControl.mapEngineManager.importSets(file)) {
+                showList();
+                mainWindow.enableToolbar()
+            }
+            close()
+        }
+    }
+
     MessageDialog {
         id:         errorDialog
         visible:    false
@@ -261,7 +286,12 @@ QGCView {
 
                     Item { width: 1; height: 1 }
 
-                    QGCLabel { text:       qsTr("Max Cache Memory Size (MB):") }
+                    QGCLabel {
+                        anchors.left:   parent.left
+                        anchors.right:  parent.right
+                        wrapMode:       Text.WordWrap
+                        text:           qsTr("Max Cache Memory Size (MB):")
+                    }
 
                     QGCTextField {
                         id:                 maxCacheMemSize
@@ -272,6 +302,9 @@ QGCView {
                     }
 
                     QGCLabel {
+                        anchors.left:   parent.left
+                        anchors.right:  parent.right
+                        wrapMode:       Text.WordWrap
                         font.pointSize: _adjustableFontPointSize
                         text:           qsTr("Memory cache changes require a restart to take effect.")
                     }
@@ -285,6 +318,9 @@ QGCView {
                         width:              ScreenTools.defaultFontPixelWidth * 30
                     }
                     QGCLabel {
+                        anchors.left:   parent.left
+                        anchors.right:  parent.right
+                        wrapMode:       Text.WordWrap
                         text:           qsTr("To enable Mapbox maps, enter your access token.")
                         visible:        _mapboxFact ? _mapboxFact.visible : false
                         font.pointSize: _adjustableFontPointSize
@@ -299,6 +335,9 @@ QGCView {
                         width:              ScreenTools.defaultFontPixelWidth * 30
                     }
                     QGCLabel {
+                        anchors.left:   parent.left
+                        anchors.right:  parent.right
+                        wrapMode:       Text.WordWrap
                         text:           qsTr("To enable Esri maps, enter your access token.")
                         visible:        _esriFact ? _esriFact.visible : false
                         font.pointSize: _adjustableFontPointSize
@@ -339,6 +378,7 @@ QGCView {
             allowVehicleLocationCenter: false
             gesture.flickDeceleration:  3000
             mapName:                    "OfflineMap"
+            qgcView:                    offlineMapView
 
             property bool isSatelliteMap: activeMapType.name.indexOf("Satellite") > -1 || activeMapType.name.indexOf("Hybrid") > -1
 
@@ -433,7 +473,7 @@ QGCView {
                     Row {
                         spacing:    ScreenTools.defaultFontPixelWidth
                         anchors.horizontalCenter: parent.horizontalCenter
-                        visible:    !_defaultSet
+                        visible:    !_defaultSet && mapType !== "Airmap Elevation Data"
                         QGCLabel {  text: qsTr("Zoom Levels:"); width: infoView._labelWidth; }
                         QGCLabel {  text: offlineMapView._currentSelection ? (offlineMapView._currentSelection.minZoom + " - " + offlineMapView._currentSelection.maxZoom) : ""; horizontalAlignment: Text.AlignRight; width: infoView._valueWidth; }
                     }
@@ -654,11 +694,9 @@ QGCView {
             color:              Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.85)
             radius:             ScreenTools.defaultFontPixelWidth * 0.5
 
-            MouseArea {
-                anchors.fill:   parent
-                onWheel:        { wheel.accepted = true; }
-                onPressed:      { mouse.accepted = true; }
-                onReleased:     { mouse.accepted = true; }
+            //-- Eat mouse events
+            DeadMouseArea {
+                anchors.fill: parent
             }
 
             QGCLabel {
@@ -730,6 +768,16 @@ QGCView {
                                 } else {
                                     mapCombo.currentIndex = index
                                 }
+                            }
+                        }
+                        QGCCheckBox {
+                            anchors.left:   parent.left
+                            anchors.right:  parent.right
+                            text:           qsTr("Fetch elevation data")
+                            checked:        QGroundControl.mapEngineManager.fetchElevation
+                            onClicked: {
+                                QGroundControl.mapEngineManager.fetchElevation = checked
+                                handleChanges()
                             }
                         }
                     }
@@ -918,11 +966,14 @@ QGCView {
                 width:      Math.min(_tileSetList.width, (ScreenTools.defaultFontPixelWidth  * 50).toFixed(0))
                 spacing:    ScreenTools.defaultFontPixelHeight * 0.5
                 anchors.horizontalCenter: parent.horizontalCenter
+                ExclusiveGroup { id: selectionGroup }
                 OfflineMapButton {
                     id:             firstButton
                     text:           qsTr("Add New Set")
                     width:          _cacheList.width
-                    height:         ScreenTools.defaultFontPixelHeight * 2
+                    height:         ScreenTools.defaultFontPixelHeight * (ScreenTools.isMobile ? 3 : 2)
+                    currentSet:     _currentSelection
+                    exclusiveGroup: selectionGroup
                     onClicked: {
                         offlineMapView._currentSelection = null
                         addNewSet()
@@ -936,7 +987,10 @@ QGCView {
                         tiles:          object.totalTileCount
                         complete:       object.complete
                         width:          firstButton.width
-                        height:         ScreenTools.defaultFontPixelHeight * 2
+                        height:         ScreenTools.defaultFontPixelHeight * (ScreenTools.isMobile ? 3 : 2)
+                        exclusiveGroup: selectionGroup
+                        currentSet:     _currentSelection
+                        tileSet:        object
                         onClicked: {
                             offlineMapView._currentSelection = object
                             showInfo()
@@ -965,7 +1019,6 @@ QGCView {
                 text:           qsTr("Export")
                 width:          _buttonSize
                 visible:        QGroundControl.corePlugin.options.showOfflineMapExport
-                enabled:        QGroundControl.mapEngineManager.tileSets.count > 1
                 onClicked:      showExport()
             }
             QGCButton {
@@ -1001,8 +1054,13 @@ QGCView {
                     delegate: QGCCheckBox {
                         text:           object.name
                         checked:        object.selected
-                        onClicked: {
-                            object.selected = checked
+                        onClicked:      object.selected = checked
+                        Connections {
+                            // This connection should theoretically not be needed since the `checked: object.selected` binding should work.
+                            // But for some reason when the user clicks the check box taht binding breaks. Which in turns causes
+                            // Select All/None to update the internal state but check box visible state is out of sync
+                            target:             object
+                            onSelectedChanged:  checked = object.selected
                         }
                     }
                 }
@@ -1030,10 +1088,9 @@ QGCView {
                 width:          _bigButtonSize
                 enabled:        QGroundControl.mapEngineManager.selectedCount > 0
                 onClicked: {
-                    showList();
-                    if(QGroundControl.mapEngineManager.exportSets()) {
-                        rootLoader.sourceComponent = exportToDiskProgress
-                    }
+                    fileDialog.title = qsTr("Export Tile Set")
+                    fileDialog.selectExisting = false
+                    fileDialog.openForSave()
                 }
             }
             QGCButton {
@@ -1186,11 +1243,10 @@ QGCView {
                             text:           qsTr("Import")
                             width:          _bigButtonSize * 1.25
                             onClicked: {
-                                if(!QGroundControl.mapEngineManager.importSets()) {
-                                    showList();
-                                    mainWindow.enableToolbar()
-                                    rootLoader.sourceComponent = null
-                                }
+                                rootLoader.sourceComponent = null
+                                fileDialog.title = qsTr("Import Tile Set")
+                                fileDialog.selectExisting = true
+                                fileDialog.openForLoad()
                             }
                         }
                         QGCButton {

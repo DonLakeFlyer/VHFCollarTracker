@@ -32,7 +32,12 @@ Rectangle {
         altSlider.value = 0
     }
 
-    function getValue() {
+    function setToMinimumTakeoff() {
+        altField.setToMinimumTakeoff()
+    }
+
+    /// Returns the user specified change in altitude from the current vehicle altitude
+    function getAltitudeChangeValue() {
         return altField.newAltitudeMeters - _vehicleAltitude
     }
 
@@ -70,6 +75,10 @@ Rectangle {
             property real   altLossGain:            altExp * (altSlider.value > 0 ? altGainRange : altLossRange)
             property real   newAltitudeMeters:      _vehicleAltitude + altLossGain
             property string newAltitudeAppUnits:    QGroundControl.metersToAppSettingsDistanceUnits(newAltitudeMeters).toFixed(1)
+
+            function setToMinimumTakeoff() {
+                altSlider.value = Math.pow(_activeVehicle.minimumTakeoffAltitude() / altGainRange, 1.0/3.0)
+            }
         }
     }
 

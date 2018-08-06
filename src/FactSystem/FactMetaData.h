@@ -27,7 +27,7 @@
 class FactMetaData : public QObject
 {
     Q_OBJECT
-    
+
 public:
     typedef enum {
         valueTypeUint8,
@@ -36,6 +36,8 @@ public:
         valueTypeInt16,
         valueTypeUint32,
         valueTypeInt32,
+        valueTypeUint64,
+        valueTypeInt64,
         valueTypeFloat,
         valueTypeDouble,
         valueTypeString,
@@ -45,7 +47,7 @@ public:
     } ValueType_t;
 
     typedef QVariant (*Translator)(const QVariant& from);
-    
+
     FactMetaData(QObject* parent = NULL);
     FactMetaData(ValueType_t type, QObject* parent = NULL);
     FactMetaData(ValueType_t type, const QString name, QObject* parent = NULL);
@@ -76,6 +78,9 @@ public:
     /// Returns the string for distance units which has configued by user
     static QString appSettingsAreaUnitsString(void);
 
+    static const QString defaultCategory    ();
+    static const QString defaultGroup       ();
+
     int             decimalPlaces           (void) const;
     QVariant        rawDefaultValue         (void) const;
     QVariant        cookedDefaultValue      (void) const { return _rawTranslator(rawDefaultValue()); }
@@ -84,6 +89,7 @@ public:
     QVariantList    bitmaskValues           (void) const { return _bitmaskValues; }
     QStringList     enumStrings             (void) const { return _enumStrings; }
     QVariantList    enumValues              (void) const { return _enumValues; }
+    QString         category                (void) const { return _category; }
     QString         group                   (void) const { return _group; }
     QString         longDescription         (void) const { return _longDescription;}
     QVariant        rawMax                  (void) const { return _rawMax; }
@@ -100,10 +106,13 @@ public:
     bool            rebootRequired          (void) const { return _rebootRequired; }
     bool            hasControl              (void) const { return _hasControl; }
     bool            readOnly                (void) const { return _readOnly; }
+    bool            writeOnly               (void) const { return _writeOnly; }
+    bool            volatileValue           (void) const { return _volatile; }
 
     /// Amount to increment value when used in controls such as spin button or slider with detents.
     /// NaN for no increment available.
-    double          increment               (void) const { return _increment; }
+    double          rawIncrement            (void) const { return _rawIncrement; }
+    double          cookedIncrement         (void) const;
 
     Translator      rawTranslator           (void) const { return _rawTranslator; }
     Translator      cookedTranslator        (void) const { return _cookedTranslator; }
@@ -118,6 +127,7 @@ public:
     void setRawDefaultValue (const QVariant& rawDefaultValue);
     void setBitmaskInfo     (const QStringList& strings, const QVariantList& values);
     void setEnumInfo        (const QStringList& strings, const QVariantList& values);
+    void setCategory        (const QString& category)           { _category = category; }
     void setGroup           (const QString& group)              { _group = group; }
     void setLongDescription (const QString& longDescription)    { _longDescription = longDescription;}
     void setRawMax          (const QVariant& rawMax);
@@ -126,9 +136,11 @@ public:
     void setShortDescription(const QString& shortDescription)   { _shortDescription = shortDescription; }
     void setRawUnits        (const QString& rawUnits);
     void setRebootRequired  (bool rebootRequired)               { _rebootRequired = rebootRequired; }
-    void setIncrement       (double increment)                  { _increment = increment; }
+    void setRawIncrement    (double increment)                  { _rawIncrement = increment; }
     void setHasControl      (bool bValue)                       { _hasControl = bValue; }
     void setReadOnly        (bool bValue)                       { _readOnly = bValue; }
+    void setWriteOnly       (bool bValue)                       { _writeOnly = bValue; }
+    void setVolatileValue   (bool bValue);
 
     void setTranslators(Translator rawTranslator, Translator cookedTranslator);
 
@@ -193,15 +205,23 @@ private:
     static QVariant _normToPercent(const QVariant& normalized);
     static QVariant _centimetersToInches(const QVariant& centimeters);
     static QVariant _inchesToCentimeters(const QVariant& inches);
+    static QVariant _celsiusToFarenheit(const QVariant& celsius);
+    static QVariant _farenheitToCelsius(const QVariant& farenheit);
+
+    enum UnitTypes {
+        UnitDistance = 0,
+        UnitArea,
+        UnitSpeed,
+        UnitTemperature
+    };
 
     struct AppSettingsTranslation_s {
-        const char* rawUnits;
-        const char* cookedUnits;
-        bool        speed;
-        uint32_t    speedOrDistanceUnits;
-        Translator  rawTranslator;
-        Translator  cookedTranslator;
-
+        QString     rawUnits;
+        const char*     cookedUnits;
+        UnitTypes       unitType;
+        uint32_t        unitOption;
+        Translator      rawTranslator;
+        Translator      cookedTranslator;
     };
 
     static const AppSettingsTranslation_s* _findAppSettingsDistanceUnitsTranslation(const QString& rawUnits);
@@ -215,6 +235,7 @@ private:
     QVariantList    _bitmaskValues;
     QStringList     _enumStrings;
     QVariantList    _enumValues;
+    QString         _category;
     QString         _group;
     QString         _longDescription;
     QVariant        _rawMax;
@@ -228,9 +249,11 @@ private:
     Translator      _rawTranslator;
     Translator      _cookedTranslator;
     bool            _rebootRequired;
-    double          _increment;
+    double          _rawIncrement;
     bool            _hasControl;
     bool            _readOnly;
+    bool            _writeOnly;
+    bool            _volatile;
 
     // Exact conversion constants
     static const struct UnitConsts_s {
@@ -242,7 +265,7 @@ private:
     } constants;
 
     struct BuiltInTranslation_s {
-        const char* rawUnits;
+        QString rawUnits;
         const char* cookedUnits;
         Translator  rawTranslator;
         Translator  cookedTranslator;
@@ -263,6 +286,7 @@ private:
     static const char*  _mobileDefaultValueJsonKey;
     static const char*  _minJsonKey;
     static const char*  _maxJsonKey;
+    static const char*  _incrementJsonKey;
     static const char* _hasControlJsonKey;
 };
 

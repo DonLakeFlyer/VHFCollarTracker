@@ -40,6 +40,7 @@ static const char* kParameterrange  = "parameterrange";
 static const char* kParameterranges = "parameterranges";
 static const char* kParameters      = "parameters";
 static const char* kReadOnly        = "readonly";
+static const char* kWriteOnly       = "writeonly";
 static const char* kRoption         = "roption";
 static const char* kStep            = "step";
 static const char* kStrings         = "strings";
@@ -310,7 +311,7 @@ QGCCameraControl::takePhoto()
     }
     if(capturesPhotos()) {
         _vehicle->sendMavCommand(
-            MAV_COMP_ID_CAMERA,                                         // Target component
+            _compID,                                                    // Target component
             MAV_CMD_IMAGE_START_CAPTURE,                                // Command id
             false,                                                      // ShowError
             0,                                                          // Reserved (Set to 0)
@@ -338,7 +339,7 @@ QGCCameraControl::stopTakePhoto()
     }
     if(capturesPhotos()) {
         _vehicle->sendMavCommand(
-            MAV_COMP_ID_CAMERA,                                         // Target component
+            _compID,                                                    // Target component
             MAV_CMD_IMAGE_STOP_CAPTURE,                                 // Command id
             false,                                                      // ShowError
             0);                                                         // Reserved (Set to 0)
@@ -360,7 +361,7 @@ QGCCameraControl::startVideo()
     }
     if(videoStatus() != VIDEO_CAPTURE_STATUS_RUNNING) {
         _vehicle->sendMavCommand(
-            MAV_COMP_ID_CAMERA,                         // Target component
+            _compID,                                    // Target component
             MAV_CMD_VIDEO_START_CAPTURE,                // Command id
             true,                                       // ShowError
             0,                                          // Reserved (Set to 0)
@@ -377,7 +378,7 @@ QGCCameraControl::stopVideo()
     qCDebug(CameraControlLog) << "stopVideo()";
     if(videoStatus() == VIDEO_CAPTURE_STATUS_RUNNING) {
         _vehicle->sendMavCommand(
-            MAV_COMP_ID_CAMERA,                         // Target component
+            _compID,                                    // Target component
             MAV_CMD_VIDEO_STOP_CAPTURE,                 // Command id
             true,                                       // ShowError
             0);                                         // Reserved (Set to 0)
@@ -398,7 +399,7 @@ QGCCameraControl::setVideoMode()
             MAV_CMD_SET_CAMERA_MODE,                // Command id
             true,                                   // ShowError
             0,                                      // Reserved (Set to 0)
-            CAM_MODE_VIDEO);                     // Camera mode (0: photo, 1: video)
+            CAM_MODE_VIDEO);                        // Camera mode (0: photo, 1: video)
         _setCameraMode(CAM_MODE_VIDEO);
     }
 }
@@ -659,6 +660,13 @@ QGCCameraControl::_loadSettings(const QDomNodeList nodeList)
         //-- Is it read only?
         bool readOnly = false;
         read_attribute(parameterNode, kReadOnly, readOnly);
+        //-- Is it write only?
+        bool writeOnly = false;
+        read_attribute(parameterNode, kWriteOnly, writeOnly);
+        //-- It can't be both
+        if(readOnly && writeOnly) {
+            qCritical() << QString("Parameter %1 cannot be both read only and write only").arg(factName);
+        }
         //-- Param type
         bool unknownType;
         FactMetaData::ValueType_t factType = FactMetaData::stringToType(type, unknownType);
@@ -689,6 +697,7 @@ QGCCameraControl::_loadSettings(const QDomNodeList nodeList)
         metaData->setLongDescription(description);
         metaData->setHasControl(control);
         metaData->setReadOnly(readOnly);
+        metaData->setWriteOnly(writeOnly);
         //-- Options (enums)
         QDomElement optionElem = parameterNode.toElement();
         QDomNodeList optionsRoot = optionElem.elementsByTagName(kOptions);
@@ -781,7 +790,7 @@ QGCCameraControl::_loadSettings(const QDomNodeList nodeList)
                     QVariant typedValue;
                     QString  errorString;
                     if (metaData->convertAndValidateRaw(attr, true /* convertOnly */, typedValue, errorString)) {
-                        metaData->setIncrement(typedValue.toDouble());
+                        metaData->setRawIncrement(typedValue.toDouble());
                     } else {
                         qWarning() << "Invalid step value for" << factName
                                    << " type:"  << metaData->type()
@@ -797,7 +806,7 @@ QGCCameraControl::_loadSettings(const QDomNodeList nodeList)
                     metaData->setRawUnits(attr);
                 }
             }
-            qCDebug(CameraControlLog) << "New parameter:" << factName;
+            qCDebug(CameraControlLog) << "New parameter:" << factName << (readOnly ? "ReadOnly" : "Writable") << (writeOnly ? "WriteOnly" : "Readable");
             _nameToFactMetaDataMap[factName] = metaData;
             Fact* pFact = new Fact(_compID, factName, factType, this);
             QQmlEngine::setObjectOwnership(pFact, QQmlEngine::CppOwnership);

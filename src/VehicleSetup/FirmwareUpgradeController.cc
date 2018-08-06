@@ -99,6 +99,7 @@ void FirmwareUpgradeController::flash(AutoPilotStackType_t stackType,
                                       FirmwareType_t firmwareType,
                                       FirmwareVehicleType_t vehicleType)
 {
+    qCDebug(FirmwareUpgradeLog) << "_flash stackType:firmwareType:vehicleType" << stackType << firmwareType << vehicleType;
     FirmwareIdentifier firmwareId = FirmwareIdentifier(stackType, firmwareType, vehicleType);
     if (_bootloaderFound) {
         _getFirmwareFile(firmwareId);
@@ -114,9 +115,9 @@ void FirmwareUpgradeController::flash(const FirmwareIdentifier& firmwareId)
     flash(firmwareId.autopilotStackType, firmwareId.firmwareType, firmwareId.firmwareVehicleType);
 }
 
-void FirmwareUpgradeController::flashSingleFirmwareMode(void)
+void FirmwareUpgradeController::flashSingleFirmwareMode(FirmwareType_t firmwareType)
 {
-    flash(SingleFirmwareMode, StableFirmware, DefaultVehicleFirmware);
+    flash(SingleFirmwareMode, firmwareType, DefaultVehicleFirmware);
 }
 
 void FirmwareUpgradeController::cancel(void)
@@ -301,24 +302,6 @@ void FirmwareUpgradeController::_initFirmwareHash()
         { AutoPilotStackAPM, DeveloperFirmware, RoverFirmware,          "http://gumstix-aerocore.s3.amazonaws.com/Rover/latest/PX4/APMrover2-v2.px4"}
     };
 
-    /////////////////////////////// FMUV1 firmwares ///////////////////////////////////////////
-    FirmwareToUrlElement_t rgPX4FMUV1FirmwareArray[] = {
-        { AutoPilotStackPX4, StableFirmware,    DefaultVehicleFirmware, "http://px4-travis.s3.amazonaws.com/Firmware/stable/px4fmu-v1_default.px4"},
-        { AutoPilotStackPX4, BetaFirmware,      DefaultVehicleFirmware, "http://px4-travis.s3.amazonaws.com/Firmware/beta/px4fmu-v1_default.px4"},
-        { AutoPilotStackPX4, DeveloperFirmware, DefaultVehicleFirmware, "http://px4-travis.s3.amazonaws.com/Firmware/master/px4fmu-v1_default.px4"},
-        { AutoPilotStackAPM, StableFirmware,    CopterFirmware,         "http://firmware.ardupilot.org/Copter/stable/PX4/ArduCopter-v1.px4"},
-        { AutoPilotStackAPM, StableFirmware,    HeliFirmware,           "http://firmware.ardupilot.org/Copter/stable/PX4-heli/ArduCopter-v1.px4"},
-        { AutoPilotStackAPM, StableFirmware,    PlaneFirmware,          "http://firmware.ardupilot.org/Plane/stable/PX4/ArduPlane-v1.px4"},
-        { AutoPilotStackAPM, StableFirmware,    RoverFirmware,          "http://firmware.ardupilot.org/Rover/stable/PX4/APMrover2-v1.px4"},
-        { AutoPilotStackAPM, BetaFirmware,      CopterFirmware,         "http://firmware.ardupilot.org/Copter/beta/PX4/ArduCopter-v1.px4"},
-        { AutoPilotStackAPM, BetaFirmware,      HeliFirmware,           "http://firmware.ardupilot.org/Copter/beta/PX4-heli/ArduCopter-v1.px4"},
-        { AutoPilotStackAPM, BetaFirmware,      PlaneFirmware,          "http://firmware.ardupilot.org/Plane/beta/PX4/ArduPlane-v1.px4"},
-        { AutoPilotStackAPM, BetaFirmware,      RoverFirmware,          "http://firmware.ardupilot.org/Rover/beta/PX4/APMrover2-v1.px4"},
-        { AutoPilotStackAPM, DeveloperFirmware, CopterFirmware,         "http://firmware.ardupilot.org/Copter/latest/PX4/ArduCopter-v1.px4"},
-        { AutoPilotStackAPM, DeveloperFirmware, HeliFirmware,           "http://firmware.ardupilot.org/Copter/latest/PX4-heli/ArduCopter-v1.px4"},
-        { AutoPilotStackAPM, DeveloperFirmware, PlaneFirmware,          "http://firmware.ardupilot.org/Plane/latest/PX4/ArduPlane-v1.px4"},
-        { AutoPilotStackAPM, DeveloperFirmware, RoverFirmware,          "http://firmware.ardupilot.org/Rover/latest/PX4/APMrover2-v1.px4"}
-    };
     //////////////////////////////////// AUAVX2_1 firmwares //////////////////////////////////////////////////
     FirmwareToUrlElement_t rgAUAVX2_1FirmwareArray[] = {
         { AutoPilotStackPX4, StableFirmware,    DefaultVehicleFirmware, "http://px4-travis.s3.amazonaws.com/Firmware/stable/auav-x21_default.px4"},
@@ -369,7 +352,8 @@ void FirmwareUpgradeController::_initFirmwareHash()
 
     /////////////////////////////// px4flow firmwares ///////////////////////////////////////
     FirmwareToUrlElement_t rgPX4FLowFirmwareArray[] = {
-        { PX4Flow, StableFirmware, DefaultVehicleFirmware, "http://px4-travis.s3.amazonaws.com/Flow/master/px4flow.px4" },
+        { PX4FlowPX4, StableFirmware, DefaultVehicleFirmware, "http://px4-travis.s3.amazonaws.com/Flow/master/px4flow.px4" },
+        { PX4FlowAPM, StableFirmware, DefaultVehicleFirmware, "http://firmware.ardupilot.org/Tools/PX4Flow/px4flow-klt-latest.px4" },
     };
 
     /////////////////////////////// 3dr radio firmwares ///////////////////////////////////////
@@ -412,12 +396,6 @@ void FirmwareUpgradeController::_initFirmwareHash()
     for (int i = 0; i < size; i++) {
         const FirmwareToUrlElement_t& element = rgAeroCoreFirmwareArray[i];
         _rgAeroCoreFirmware.insert(FirmwareIdentifier(element.stackType, element.firmwareType, element.vehicleType), element.url);
-    }
-
-    size = sizeof(rgPX4FMUV1FirmwareArray)/sizeof(rgPX4FMUV1FirmwareArray[0]);
-    for (int i = 0; i < size; i++) {
-        const FirmwareToUrlElement_t& element = rgPX4FMUV1FirmwareArray[i];
-        _rgPX4FMUV1Firmware.insert(FirmwareIdentifier(element.stackType, element.firmwareType, element.vehicleType), element.url);
     }
 
     size = sizeof(rgAUAVX2_1FirmwareArray)/sizeof(rgAUAVX2_1FirmwareArray[0]);
@@ -479,8 +457,6 @@ void FirmwareUpgradeController::_bootloaderSyncFailed(void)
 QHash<FirmwareUpgradeController::FirmwareIdentifier, QString>* FirmwareUpgradeController::_firmwareHashForBoardId(int boardId)
 {
     switch (boardId) {
-    case Bootloader::boardIDPX4FMUV1:
-        return &_rgPX4FMUV1Firmware;
     case Bootloader::boardIDPX4Flow:
         return &_rgPX4FLowFirmware;
     case Bootloader::boardIDPX4FMUV2:
@@ -505,6 +481,8 @@ QHash<FirmwareUpgradeController::FirmwareIdentifier, QString>* FirmwareUpgradeCo
         return &_rgASCV1Firmware;
     case Bootloader::boardIDCrazyflie2:
         return &_rgCrazyflie2Firmware;
+    case Bootloader::boardIDNXPHliteV3:
+        return &_rgNXPHliteV3Firmware;
     case Bootloader::boardID3DRRadio:
         return &_rg3DRRadioFirmware;
     default:

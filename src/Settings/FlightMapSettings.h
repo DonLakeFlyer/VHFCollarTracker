@@ -25,7 +25,8 @@ public:
         mapProviderGoogle,
         mapProviderStarkart,
         mapProviderMapbox,
-        mapProviderEsri
+        mapProviderEsri,
+        mapProviderEniro
     } MapProvider_t;
 
     // This enum must match the json meta data
@@ -42,7 +43,9 @@ public:
     Fact* mapProvider   (void);
     Fact* mapType       (void);
 
-    static const char* flightMapSettingsGroupName;
+    static const char* name;
+    static const char* settingsGroup;
+
     static const char* mapProviderSettingsName;
     static const char* mapTypeSettingsName;
 
@@ -60,8 +63,6 @@ private:
     SettingsFact*   _mapTypeFact;
     QStringList     _savedMapTypeStrings;
     QVariantList    _savedMapTypeValues;
-
-    static const char* _settingsGroupName;
 };
 
 #endif

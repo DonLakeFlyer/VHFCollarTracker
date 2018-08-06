@@ -20,13 +20,12 @@
 
 #include "QGCMAVLink.h"
 #include "QGC.h"
-#include "MavlinkQmlSingleton.h"
 #include "QmlObjectListModel.h"
 #include "Fact.h"
 #include "QGCLoggingCategory.h"
 #include "QmlObjectListModel.h"
 
-class SurveyMissionItem;
+class SurveyComplexItem;
 class SimpleMissionItem;
 class MissionController;
 #ifdef UNITTEST_BUILD
@@ -82,6 +81,9 @@ public:
     /// @return Flight gimbal yaw change value if this item supports it. If not it returns NaN.
     double specifiedGimbalYaw(void) const;
 
+    /// @return Flight gimbal pitch change value if this item supports it. If not it returns NaN.
+    double specifiedGimbalPitch(void) const;
+
     void setCommand         (MAV_CMD command);
     void setSequenceNumber  (int sequenceNumber);
     void setIsCurrentItem   (bool isCurrentItem);
@@ -107,10 +109,12 @@ signals:
     void sequenceNumberChanged      (int sequenceNumber);
     void specifiedFlightSpeedChanged(double flightSpeed);
     void specifiedGimbalYawChanged  (double gimbalYaw);
+    void specifiedGimbalPitchChanged(double gimbalPitch);
 
 private slots:
-    void _param2Changed         (QVariant value);
-    void _param3Changed         (QVariant value);
+    void _param1Changed(QVariant value);
+    void _param2Changed(QVariant value);
+    void _param3Changed(QVariant value);
 
 private:
     bool _convertJsonV1ToV2(const QJsonObject& json, QJsonObject& v2Json, QString& errorString);
@@ -147,7 +151,7 @@ private:
     static const char*  _jsonParam3Key;
     static const char*  _jsonParam4Key;
 
-    friend class SurveyMissionItem;
+    friend class SurveyComplexItem;
     friend class SimpleMissionItem;
     friend class MissionController;
 #ifdef UNITTEST_BUILD

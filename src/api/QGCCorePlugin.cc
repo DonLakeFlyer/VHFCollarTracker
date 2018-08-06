@@ -15,6 +15,7 @@
 #include "SettingsManager.h"
 #include "AppMessages.h"
 #include "QmlObjectListModel.h"
+#include "VideoReceiver.h"
 
 #include <QtQml>
 #include <QQmlEngine>
@@ -32,6 +33,7 @@ public:
         , pOfflineMaps              (NULL)
         , pMAVLink                  (NULL)
         , pConsole                  (NULL)
+        , pHelp                     (NULL)
     #if defined(QT_DEBUG)
         , pMockLink                 (NULL)
         , pDebug                    (NULL)
@@ -39,6 +41,7 @@ public:
         , defaultOptions            (NULL)
         , valuesPageWidgetInfo      (NULL)
         , cameraPageWidgetInfo      (NULL)
+        , videoPageWidgetInfo       (NULL)
         , healthPageWidgetInfo      (NULL)
         , vibrationPageWidgetInfo   (NULL)
     {
@@ -71,6 +74,7 @@ public:
     QmlComponentInfo* pOfflineMaps;
     QmlComponentInfo* pMAVLink;
     QmlComponentInfo* pConsole;
+    QmlComponentInfo* pHelp;
 #if defined(QT_DEBUG)
     QmlComponentInfo* pMockLink;
     QmlComponentInfo* pDebug;
@@ -80,6 +84,7 @@ public:
 
     QmlComponentInfo*   valuesPageWidgetInfo;
     QmlComponentInfo*   cameraPageWidgetInfo;
+    QmlComponentInfo*   videoPageWidgetInfo;
     QmlComponentInfo*   healthPageWidgetInfo;
     QmlComponentInfo*   vibrationPageWidgetInfo;
     QVariantList        instrumentPageWidgetList;
@@ -132,6 +137,9 @@ QVariantList &QGCCorePlugin::settingsPages()
         _p->pConsole = new QmlComponentInfo(tr("Console"),
                                        QUrl::fromUserInput("qrc:/qml/QGroundControl/Controls/AppMessages.qml"));
         _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pConsole));
+        _p->pHelp = new QmlComponentInfo(tr("Help"),
+                                       QUrl::fromUserInput("qrc:/qml/HelpSettings.qml"));
+        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pHelp));
 #if defined(QT_DEBUG)
         //-- These are always present on Debug builds
         _p->pMockLink = new QmlComponentInfo(tr("Mock Link"),
@@ -148,13 +156,19 @@ QVariantList &QGCCorePlugin::settingsPages()
 QVariantList& QGCCorePlugin::instrumentPages(void)
 {
     if (!_p->valuesPageWidgetInfo) {
-        _p->valuesPageWidgetInfo = new QmlComponentInfo(tr("Values"), QUrl::fromUserInput("qrc:/qml/ValuePageWidget.qml"));
-        _p->cameraPageWidgetInfo = new QmlComponentInfo(tr("Camera"), QUrl::fromUserInput("qrc:/qml/CameraPageWidget.qml"));
-        _p->healthPageWidgetInfo = new QmlComponentInfo(tr("Health"), QUrl::fromUserInput("qrc:/qml/HealthPageWidget.qml"));
+        _p->valuesPageWidgetInfo    = new QmlComponentInfo(tr("Values"),    QUrl::fromUserInput("qrc:/qml/ValuePageWidget.qml"));
+        _p->cameraPageWidgetInfo    = new QmlComponentInfo(tr("Camera"),    QUrl::fromUserInput("qrc:/qml/CameraPageWidget.qml"));
+#if defined(QGC_GST_STREAMING)
+        _p->videoPageWidgetInfo     = new QmlComponentInfo(tr("Video Stream"), QUrl::fromUserInput("qrc:/qml/VideoPageWidget.qml"));
+#endif
+        _p->healthPageWidgetInfo    = new QmlComponentInfo(tr("Health"),    QUrl::fromUserInput("qrc:/qml/HealthPageWidget.qml"));
         _p->vibrationPageWidgetInfo = new QmlComponentInfo(tr("Vibration"), QUrl::fromUserInput("qrc:/qml/VibrationPageWidget.qml"));
 
         _p->instrumentPageWidgetList.append(QVariant::fromValue(_p->valuesPageWidgetInfo));
         _p->instrumentPageWidgetList.append(QVariant::fromValue(_p->cameraPageWidgetInfo));
+#if defined(QGC_GST_STREAMING)
+        _p->instrumentPageWidgetList.append(QVariant::fromValue(_p->videoPageWidgetInfo));
+#endif
         _p->instrumentPageWidgetList.append(QVariant::fromValue(_p->healthPageWidgetInfo));
         _p->instrumentPageWidgetList.append(QVariant::fromValue(_p->vibrationPageWidgetInfo));
     }
@@ -182,8 +196,13 @@ bool QGCCorePlugin::overrideSettingsGroupVisibility(QString name)
     return true;
 }
 
-bool QGCCorePlugin::adjustSettingMetaData(FactMetaData& metaData)
+bool QGCCorePlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaData& metaData)
 {
+    if (settingsGroup != AppSettings::settingsGroup) {
+        // All changes refer to AppSettings
+        return true;
+    }
+
     //-- Default Palette
     if (metaData.name() == AppSettings::indoorPaletteName) {
         QVariant outdoorPalette;
@@ -272,4 +291,9 @@ bool QGCCorePlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, mavlin
 QmlObjectListModel* QGCCorePlugin::customMapItems(void)
 {
     return &_p->_emptyCustomMapItems;
+}
+
+VideoReceiver* QGCCorePlugin::createVideoReceiver(QObject* parent)
+{
+    return new VideoReceiver(parent);
 }

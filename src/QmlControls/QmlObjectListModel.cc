@@ -45,7 +45,7 @@ QVariant QmlObjectListModel::data(const QModelIndex &index, int role) const
         return QVariant();
     }
     
-    if (index.row() >= _objectList.count()) {
+    if (index.row() < 0 || index.row() >= _objectList.count()) {
         return QVariant();
     }
     
@@ -107,8 +107,6 @@ bool QmlObjectListModel::removeRows(int position, int rows, const QModelIndex& p
     
     beginRemoveRows(QModelIndex(), position, position + rows - 1);
     for (int row=0; row<rows; row++) {
-        // FIXME: Need to figure our correct memory management for here
-        //_objectList[position]->deleteLater();
         _objectList.removeAt(position);
     }
     endRemoveRows();
@@ -120,11 +118,17 @@ bool QmlObjectListModel::removeRows(int position, int rows, const QModelIndex& p
 
 QObject* QmlObjectListModel::operator[](int index)
 {
+    if (index < 0 || index >= _objectList.count()) {
+        return NULL;
+    }
     return _objectList[index];
 }
 
 const QObject* QmlObjectListModel::operator[](int index) const
 {
+    if (index < 0 || index >= _objectList.count()) {
+        return NULL;
+    }
     return _objectList[index];
 }
 
@@ -172,9 +176,40 @@ void QmlObjectListModel::insert(int i, QObject* object)
     setDirty(true);
 }
 
+void QmlObjectListModel::insert(int i, QList<QObject*> objects)
+{
+    if (i < 0 || i > _objectList.count()) {
+        qWarning() << "Invalid index index:count" << i << _objectList.count();
+    }
+
+    int j = i;
+    foreach (QObject* object, objects) {
+        QQmlEngine::setObjectOwnership(object, QQmlEngine::CppOwnership);
+
+        // Look for a dirtyChanged signal on the object
+        if (object->metaObject()->indexOfSignal(QMetaObject::normalizedSignature("dirtyChanged(bool)")) != -1) {
+            if (!_skipDirtyFirstItem || j != 0) {
+                QObject::connect(object, SIGNAL(dirtyChanged(bool)), this, SLOT(_childDirtyChanged(bool)));
+            }
+        }
+        j++;
+
+        _objectList.insert(i, object);
+    }
+
+    insertRows(i, objects.count());
+
+    setDirty(true);
+}
+
 void QmlObjectListModel::append(QObject* object)
 {
     insert(_objectList.count(), object);
+}
+
+void QmlObjectListModel::append(QList<QObject*> objects)
+{
+    insert(_objectList.count(), objects);
 }
 
 QObjectList QmlObjectListModel::swapObjectList(const QObjectList& newlist)

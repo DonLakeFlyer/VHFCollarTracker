@@ -7,14 +7,16 @@
 # License terms set in COPYING.md
 # -------------------------------------------------
 
+QMAKE_PROJECT_DEPTH = 0 # undocumented qmake flag to force absolute paths in make files
+
 exists($${OUT_PWD}/qgroundcontrol.pro) {
     error("You must use shadow build (e.g. mkdir build; cd build; qmake ../qgroundcontrol.pro).")
 }
 
 message(Qt version $$[QT_VERSION])
 
-!equals(QT_MAJOR_VERSION, 5) | !greaterThan(QT_MINOR_VERSION, 6) {
-    error("Unsupported Qt version, 5.7+ is required")
+!equals(QT_MAJOR_VERSION, 5) | !greaterThan(QT_MINOR_VERSION, 8) {
+    error("Unsupported Qt version, 5.9+ is required")
 }
 
 include(QGCCommon.pri)
@@ -43,8 +45,6 @@ MacBuild {
 }
 
 iOSBuild {
-    BUNDLE.files        = $$files($$PWD/ios/AppIcon*.png) $$PWD/ios/QGCLaunchScreen.xib
-    QMAKE_BUNDLE_DATA  += BUNDLE
     LIBS               += -framework AVFoundation
     #-- Info.plist (need an "official" one for the App Store)
     ForAppStore {
@@ -56,13 +56,14 @@ iOSBuild {
             error("Error building .plist file. 'ForAppStore' builds are only possible through the official build system.")
         }
         QT               += qml-private
-        CONFIG           += qtquickcompiler
         QMAKE_INFO_PLIST  = $${BASEDIR}/ios/iOSForAppStore-Info.plist
         OTHER_FILES      += $${BASEDIR}/ios/iOSForAppStore-Info.plist
     } else {
         QMAKE_INFO_PLIST  = $${BASEDIR}/ios/iOS-Info.plist
         OTHER_FILES      += $${BASEDIR}/ios/iOS-Info.plist
     }
+    BUNDLE.files        = $$files($$PWD/ios/AppIcon*.png) $$PWD/ios/QGCLaunchScreen.xib $$QMAKE_INFO_PLIST
+    QMAKE_BUNDLE_DATA  += BUNDLE
     #-- TODO: Add iTunesArtwork
 }
 
@@ -201,14 +202,14 @@ LinuxBuild {
 CONFIG += qt \
     thread \
     c++11 \
+    qtquickcompiler \
 
 contains(DEFINES, ENABLE_VERBOSE_OUTPUT) {
     message("Enable verbose compiler output (manual override from command line)")
 } else:exists(user_config.pri):infile(user_config.pri, DEFINES, ENABLE_VERBOSE_OUTPUT) {
     message("Enable verbose compiler output (manual override from user_config.pri)")
 } else {
-CONFIG += \
-    silent
+    CONFIG += silent
 }
 
 QT += \
@@ -233,10 +234,13 @@ QT += \
         multimedia
 }
 
-!MobileBuild {
-QT += \
-    printsupport \
-    serialport \
+AndroidBuild || iOSBuild {
+    # Android and iOS don't unclude these
+} else {
+    QT += \
+        printsupport \
+        serialport \
+        charts \
 }
 
 contains(DEFINES, QGC_ENABLE_BLUETOOTH) {
@@ -343,6 +347,7 @@ INCLUDEPATH += \
     src/QtLocationPlugin \
     src/QtLocationPlugin/QMLControl \
     src/Settings \
+    src/Terrain \
     src/VehicleSetup \
     src/ViewWidgets \
     src/Audio \
@@ -388,12 +393,14 @@ HEADERS += \
     src/api/QGCOptions.h \
     src/api/QGCSettings.h \
     src/api/QmlComponentInfo.h \
+    src/comm/MavlinkMessagesTimer.h
 
 SOURCES += \
     src/api/QGCCorePlugin.cc \
     src/api/QGCOptions.cc \
     src/api/QGCSettings.cc \
     src/api/QmlComponentInfo.cc \
+    src/comm/MavlinkMessagesTimer.cc
 
 #
 # Unit Test specific configuration goes here (requires full debug build with all plugins)
@@ -412,7 +419,9 @@ DebugBuild { PX4FirmwarePlugin { PX4FirmwarePluginFactory  { APMFirmwarePlugin {
         src/FactSystem/FactSystemTestGeneric.h \
         src/FactSystem/FactSystemTestPX4.h \
         src/FactSystem/ParameterManagerTest.h \
+        src/MissionManager/CameraCalcTest.h \
         src/MissionManager/CameraSectionTest.h \
+        src/MissionManager/CorridorScanComplexItemTest.h \
         src/MissionManager/MissionCommandTreeTest.h \
         src/MissionManager/MissionControllerManagerTest.h \
         src/MissionManager/MissionControllerTest.h \
@@ -421,10 +430,13 @@ DebugBuild { PX4FirmwarePlugin { PX4FirmwarePluginFactory  { APMFirmwarePlugin {
         src/MissionManager/MissionSettingsTest.h \
         src/MissionManager/PlanMasterControllerTest.h \
         src/MissionManager/QGCMapPolygonTest.h \
+        src/MissionManager/QGCMapPolylineTest.h \
         src/MissionManager/SectionTest.h \
         src/MissionManager/SimpleMissionItemTest.h \
         src/MissionManager/SpeedSectionTest.h \
-        src/MissionManager/SurveyMissionItemTest.h \
+        src/MissionManager/StructureScanComplexItemTest.h \
+        src/MissionManager/SurveyComplexItemTest.h \
+        src/MissionManager/TransectStyleComplexItemTest.h \
         src/MissionManager/VisualMissionItemTest.h \
         src/qgcunittest/FileDialogTest.h \
         src/qgcunittest/FileManagerTest.h \
@@ -448,7 +460,9 @@ DebugBuild { PX4FirmwarePlugin { PX4FirmwarePluginFactory  { APMFirmwarePlugin {
         src/FactSystem/FactSystemTestGeneric.cc \
         src/FactSystem/FactSystemTestPX4.cc \
         src/FactSystem/ParameterManagerTest.cc \
+        src/MissionManager/CameraCalcTest.cc \
         src/MissionManager/CameraSectionTest.cc \
+        src/MissionManager/CorridorScanComplexItemTest.cc \
         src/MissionManager/MissionCommandTreeTest.cc \
         src/MissionManager/MissionControllerManagerTest.cc \
         src/MissionManager/MissionControllerTest.cc \
@@ -457,10 +471,13 @@ DebugBuild { PX4FirmwarePlugin { PX4FirmwarePluginFactory  { APMFirmwarePlugin {
         src/MissionManager/MissionSettingsTest.cc \
         src/MissionManager/PlanMasterControllerTest.cc \
         src/MissionManager/QGCMapPolygonTest.cc \
+        src/MissionManager/QGCMapPolylineTest.cc \
         src/MissionManager/SectionTest.cc \
         src/MissionManager/SimpleMissionItemTest.cc \
         src/MissionManager/SpeedSectionTest.cc \
-        src/MissionManager/SurveyMissionItemTest.cc \
+        src/MissionManager/StructureScanComplexItemTest.cc \
+        src/MissionManager/SurveyComplexItemTest.cc \
+        src/MissionManager/TransectStyleComplexItemTest.cc \
         src/MissionManager/VisualMissionItemTest.cc \
         src/qgcunittest/FileDialogTest.cc \
         src/qgcunittest/FileManagerTest.cc \
@@ -483,8 +500,9 @@ DebugBuild { PX4FirmwarePlugin { PX4FirmwarePluginFactory  { APMFirmwarePlugin {
 
 HEADERS += \
     src/AnalyzeView/ExifParser.h \
-    src/AnalyzeView/ULogParser.h \
+    src/AnalyzeView/LogDownloadController.h \
     src/AnalyzeView/PX4LogParser.h \
+    src/AnalyzeView/ULogParser.h \
     src/Audio/AudioOutput.h \
     src/Camera/QGCCameraControl.h \
     src/Camera/QGCCameraIO.h \
@@ -497,12 +515,14 @@ HEADERS += \
     src/Joystick/Joystick.h \
     src/Joystick/JoystickManager.h \
     src/JsonHelper.h \
+    src/KMLFileHelper.h \
     src/LogCompressor.h \
     src/MG.h \
     src/MissionManager/CameraCalc.h \
     src/MissionManager/CameraSection.h \
     src/MissionManager/CameraSpec.h \
     src/MissionManager/ComplexMissionItem.h \
+    src/MissionManager/CorridorScanComplexItem.h \
     src/MissionManager/FixedWingLandingComplexItem.h \
     src/MissionManager/GeoFenceController.h \
     src/MissionManager/GeoFenceManager.h \
@@ -521,6 +541,7 @@ HEADERS += \
     src/MissionManager/QGCFencePolygon.h \
     src/MissionManager/QGCMapCircle.h \
     src/MissionManager/QGCMapPolygon.h \
+    src/MissionManager/QGCMapPolyline.h \
     src/MissionManager/RallyPoint.h \
     src/MissionManager/RallyPointController.h \
     src/MissionManager/RallyPointManager.h \
@@ -528,7 +549,8 @@ HEADERS += \
     src/MissionManager/Section.h \
     src/MissionManager/SpeedSection.h \
     src/MissionManager/StructureScanComplexItem.h \
-    src/MissionManager/SurveyMissionItem.h \
+    src/MissionManager/SurveyComplexItem.h \
+    src/MissionManager/TransectStyleComplexItem.h \
     src/MissionManager/VisualMissionItem.h \
     src/PositionManager/PositionManager.h \
     src/PositionManager/SimulatedPosition.h \
@@ -549,7 +571,7 @@ HEADERS += \
     src/QGCToolbox.h \
     src/QmlControls/AppMessages.h \
     src/QmlControls/CoordinateVector.h \
-    src/QmlControls/MavlinkQmlSingleton.h \
+    src/QmlControls/EditPositionDialogController.h \
     src/QmlControls/ParameterEditorController.h \
     src/QmlControls/QGCFileDialogController.h \
     src/QmlControls/QGCImageProvider.h \
@@ -568,7 +590,8 @@ HEADERS += \
     src/Settings/SettingsManager.h \
     src/Settings/UnitsSettings.h \
     src/Settings/VideoSettings.h \
-    src/Terrain.h \
+    src/Terrain/TerrainQuery.h \
+    src/TerrainTile.h \
     src/Vehicle/MAVLinkLogManager.h \
     src/VehicleSetup/JoystickConfigController.h \
     src/comm/LinkConfiguration.h \
@@ -582,7 +605,7 @@ HEADERS += \
     src/uas/UAS.h \
     src/uas/UASInterface.h \
     src/uas/UASMessageHandler.h \
-    src/AnalyzeView/LogDownloadController.h \
+    src/UTM.h \
 
 AndroidBuild {
 HEADERS += \
@@ -675,8 +698,9 @@ AndroidBuild {
 
 SOURCES += \
     src/AnalyzeView/ExifParser.cc \
-    src/AnalyzeView/ULogParser.cc \
+    src/AnalyzeView/LogDownloadController.cc \
     src/AnalyzeView/PX4LogParser.cc \
+    src/AnalyzeView/ULogParser.cc \
     src/Audio/AudioOutput.cc \
     src/Camera/QGCCameraControl.cc \
     src/Camera/QGCCameraIO.cc \
@@ -688,11 +712,13 @@ SOURCES += \
     src/Joystick/Joystick.cc \
     src/Joystick/JoystickManager.cc \
     src/JsonHelper.cc \
+    src/KMLFileHelper.cc \
     src/LogCompressor.cc \
     src/MissionManager/CameraCalc.cc \
     src/MissionManager/CameraSection.cc \
     src/MissionManager/CameraSpec.cc \
     src/MissionManager/ComplexMissionItem.cc \
+    src/MissionManager/CorridorScanComplexItem.cc \
     src/MissionManager/FixedWingLandingComplexItem.cc \
     src/MissionManager/GeoFenceController.cc \
     src/MissionManager/GeoFenceManager.cc \
@@ -711,13 +737,15 @@ SOURCES += \
     src/MissionManager/QGCFencePolygon.cc \
     src/MissionManager/QGCMapCircle.cc \
     src/MissionManager/QGCMapPolygon.cc \
+    src/MissionManager/QGCMapPolyline.cc \
     src/MissionManager/RallyPoint.cc \
     src/MissionManager/RallyPointController.cc \
     src/MissionManager/RallyPointManager.cc \
     src/MissionManager/SimpleMissionItem.cc \
     src/MissionManager/SpeedSection.cc \
     src/MissionManager/StructureScanComplexItem.cc \
-    src/MissionManager/SurveyMissionItem.cc \
+    src/MissionManager/SurveyComplexItem.cc \
+    src/MissionManager/TransectStyleComplexItem.cc \
     src/MissionManager/VisualMissionItem.cc \
     src/PositionManager/PositionManager.cpp \
     src/PositionManager/SimulatedPosition.cc \
@@ -737,6 +765,7 @@ SOURCES += \
     src/QGCToolbox.cc \
     src/QmlControls/AppMessages.cc \
     src/QmlControls/CoordinateVector.cc \
+    src/QmlControls/EditPositionDialogController.cc \
     src/QmlControls/ParameterEditorController.cc \
     src/QmlControls/QGCFileDialogController.cc \
     src/QmlControls/QGCImageProvider.cc \
@@ -755,7 +784,8 @@ SOURCES += \
     src/Settings/SettingsManager.cc \
     src/Settings/UnitsSettings.cc \
     src/Settings/VideoSettings.cc \
-    src/Terrain.cc \
+    src/Terrain/TerrainQuery.cc \
+    src/TerrainTile.cc\
     src/Vehicle/MAVLinkLogManager.cc \
     src/VehicleSetup/JoystickConfigController.cc \
     src/comm/LinkConfiguration.cc \
@@ -768,7 +798,7 @@ SOURCES += \
     src/main.cc \
     src/uas/UAS.cc \
     src/uas/UASMessageHandler.cc \
-    src/AnalyzeView/LogDownloadController.cc \
+    src/UTM.cpp \
 
 DebugBuild {
 SOURCES += \
@@ -918,6 +948,7 @@ APMFirmwarePlugin {
         src/AutoPilotPlugins/APM/APMCompassCal.h \
         src/AutoPilotPlugins/APM/APMFlightModesComponent.h \
         src/AutoPilotPlugins/APM/APMFlightModesComponentController.h \
+        src/AutoPilotPlugins/APM/APMHeliComponent.h \
         src/AutoPilotPlugins/APM/APMLightsComponent.h \
         src/AutoPilotPlugins/APM/APMSubFrameComponent.h \
         src/AutoPilotPlugins/APM/APMPowerComponent.h \
@@ -943,6 +974,7 @@ APMFirmwarePlugin {
         src/AutoPilotPlugins/APM/APMCompassCal.cc \
         src/AutoPilotPlugins/APM/APMFlightModesComponent.cc \
         src/AutoPilotPlugins/APM/APMFlightModesComponentController.cc \
+        src/AutoPilotPlugins/APM/APMHeliComponent.cc \
         src/AutoPilotPlugins/APM/APMLightsComponent.cc \
         src/AutoPilotPlugins/APM/APMSubFrameComponent.cc \
         src/AutoPilotPlugins/APM/APMPowerComponent.cc \
@@ -1031,7 +1063,7 @@ HEADERS += \
     src/FactSystem/FactGroup.h \
     src/FactSystem/FactMetaData.h \
     src/FactSystem/FactSystem.h \
-    src/FactSystem/FactValidator.h \
+    src/FactSystem/FactValueSliderListModel.h \
     src/FactSystem/ParameterManager.h \
     src/FactSystem/SettingsFact.h \
 
@@ -1041,7 +1073,7 @@ SOURCES += \
     src/FactSystem/FactGroup.cc \
     src/FactSystem/FactMetaData.cc \
     src/FactSystem/FactSystem.cc \
-    src/FactSystem/FactValidator.cc \
+    src/FactSystem/FactValueSliderListModel.cc \
     src/FactSystem/ParameterManager.cc \
     src/FactSystem/SettingsFact.cc \
 

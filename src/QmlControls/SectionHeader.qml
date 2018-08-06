@@ -24,7 +24,7 @@ FocusScope {
             exclusiveGroup.bindCheckable(_root)
     }
 
-    QGCPalette { id: qgcPal; colorGroupEnabled: true }
+    QGCPalette { id: qgcPal; colorGroupEnabled: enabled }
 
     QGCMouseArea {
         anchors.fill: parent
@@ -51,10 +51,10 @@ FocusScope {
 
                 QGCColoredImage {
                     id:                     image
-                    width:                  label.height / 2
-                    height:                 width
                     anchors.right:          parent.right
                     anchors.verticalCenter: parent.verticalCenter
+                    width:                  label.height / 2
+                    height:                 width
                     source:                 "/qmlimages/arrow-down.png"
                     color:                  qgcPal.text
                     visible:                !_root.checked
@@ -62,10 +62,9 @@ FocusScope {
             }
 
             Rectangle {
-                anchors.left:   parent.left
-                anchors.right:  parent.right
-                height:         1
-                color:          qgcPal.text
+                Layout.fillWidth:   true
+                height:             1
+                color:              qgcPal.text
             }
         }
     }

@@ -27,8 +27,8 @@ const char* MissionSettingsItem::_plannedHomePositionAltitudeName = "PlannedHome
 
 QMap<QString, FactMetaData*> MissionSettingsItem::_metaDataMap;
 
-MissionSettingsItem::MissionSettingsItem(Vehicle* vehicle, QObject* parent)
-    : ComplexMissionItem                (vehicle, parent)
+MissionSettingsItem::MissionSettingsItem(Vehicle* vehicle, bool flyView, QObject* parent)
+    : ComplexMissionItem                (vehicle, flyView, parent)
     , _plannedHomePositionAltitudeFact  (0, _plannedHomePositionAltitudeName,   FactMetaData::valueTypeDouble)
     , _plannedHomePositionFromVehicle   (false)
     , _missionEndRTL                    (false)
@@ -57,14 +57,14 @@ MissionSettingsItem::MissionSettingsItem(Vehicle* vehicle, QObject* parent)
 
     connect(this,               &MissionSettingsItem::terrainAltitudeChanged,           this, &MissionSettingsItem::_setHomeAltFromTerrain);
 
-    connect(&_plannedHomePositionAltitudeFact,  &Fact::valueChanged,                    this, &MissionSettingsItem::_setDirty);
-    connect(&_plannedHomePositionAltitudeFact,  &Fact::valueChanged,                    this, &MissionSettingsItem::_updateAltitudeInCoordinate);
+    connect(&_plannedHomePositionAltitudeFact,  &Fact::rawValueChanged,                 this, &MissionSettingsItem::_updateAltitudeInCoordinate);
 
     connect(&_cameraSection,    &CameraSection::dirtyChanged,   this, &MissionSettingsItem::_sectionDirtyChanged);
     connect(&_speedSection,     &SpeedSection::dirtyChanged,    this, &MissionSettingsItem::_sectionDirtyChanged);
 
-    connect(&_cameraSection,    &CameraSection::specifiedGimbalYawChanged,  this, &MissionSettingsItem::specifiedGimbalYawChanged);
-    connect(&_speedSection,     &SpeedSection::specifiedFlightSpeedChanged, this, &MissionSettingsItem::specifiedFlightSpeedChanged);
+    connect(&_cameraSection,    &CameraSection::specifiedGimbalYawChanged,      this, &MissionSettingsItem::specifiedGimbalYawChanged);
+    connect(&_cameraSection,    &CameraSection::specifiedGimbalPitchChanged,    this, &MissionSettingsItem::specifiedGimbalPitchChanged);
+    connect(&_speedSection,     &SpeedSection::specifiedFlightSpeedChanged,     this, &MissionSettingsItem::specifiedFlightSpeedChanged);
 }
 
 int MissionSettingsItem::lastSequenceNumber(void) const
@@ -259,6 +259,11 @@ double MissionSettingsItem::specifiedGimbalYaw(void)
     return _cameraSection.specifyGimbal() ? _cameraSection.gimbalYaw()->rawValue().toDouble() : std::numeric_limits<double>::quiet_NaN();
 }
 
+double MissionSettingsItem::specifiedGimbalPitch(void)
+{
+    return _cameraSection.specifyGimbal() ? _cameraSection.gimbalPitch()->rawValue().toDouble() : std::numeric_limits<double>::quiet_NaN();
+}
+
 void MissionSettingsItem::_updateAltitudeInCoordinate(QVariant value)
 {
     double newAltitude = value.toDouble();
@@ -293,4 +298,9 @@ void MissionSettingsItem::_setHomeAltFromTerrain(double terrainAltitude)
     if (!_plannedHomePositionFromVehicle) {
         _plannedHomePositionAltitudeFact.setRawValue(terrainAltitude);
     }
+}
+
+QString MissionSettingsItem::abbreviation(void) const
+{
+    return _flyView ? tr("H") : tr("Planned Home");
 }

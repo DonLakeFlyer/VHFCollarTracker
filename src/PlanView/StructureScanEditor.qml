@@ -25,10 +25,10 @@ Rectangle {
     //property real   availableWidth    ///< Width for control
     //property var    missionItem       ///< Mission Item for editor
 
-    property real   _margin:        ScreenTools.defaultFontPixelWidth / 2
-    property real   _fieldWidth:    ScreenTools.defaultFontPixelWidth * 10.5
-    property var    _vehicle:       QGroundControl.multiVehicleManager.activeVehicle ? QGroundControl.multiVehicleManager.activeVehicle : QGroundControl.multiVehicleManager.offlineEditingVehicle
-
+    property real   _margin:                    ScreenTools.defaultFontPixelWidth / 2
+    property real   _fieldWidth:                ScreenTools.defaultFontPixelWidth * 10.5
+    property var    _vehicle:                   QGroundControl.multiVehicleManager.activeVehicle ? QGroundControl.multiVehicleManager.activeVehicle : QGroundControl.multiVehicleManager.offlineEditingVehicle
+    property real   _cameraMinTriggerInterval:  missionItem.cameraCalc.minTriggerInterval.rawValue
 
     function polygonCaptureStarted() {
         missionItem.clearPolygon()
@@ -49,11 +49,6 @@ Rectangle {
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
 
-    ExclusiveGroup {
-        id: yawRadiosGroup
-        onCurrentChanged: missionItem.yawVehicleToStructure = yawVehicleRadio.checked
-    }
-
     Column {
         id:                 editorColumn
         anchors.margins:    _margin
@@ -61,14 +56,6 @@ Rectangle {
         anchors.left:       parent.left
         anchors.right:      parent.right
         spacing:            _margin
-
-        QGCLabel {
-            anchors.left:   parent.left
-            anchors.right:  parent.right
-            text:           qsTr("WORK IN PROGRESS. CAREFUL!")
-            wrapMode:       Text.WordWrap
-            color:          qgcPal.warningText
-        }
 
         QGCLabel {
             anchors.left:   parent.left
@@ -81,10 +68,10 @@ Rectangle {
         QGCLabel {
             anchors.left:   parent.left
             anchors.right:  parent.right
-            text:           qsTr("WARNING: Photo interval is below minimum interval (%1 secs) supported by camera.").arg(missionItem.cameraMinTriggerInterval.toFixed(1))
+            text:           qsTr("WARNING: Photo interval is below minimum interval (%1 secs) supported by camera.").arg(_cameraMinTriggerInterval.toFixed(1))
             wrapMode:       Text.WordWrap
             color:          qgcPal.warningText
-            visible:        missionItem.cameraShots > 0 && missionItem.cameraMinTriggerInterval !== 0 && missionItem.cameraMinTriggerInterval > missionItem.timeBetweenShots
+            visible:        missionItem.cameraShots > 0 && _cameraMinTriggerInterval !== 0 && _cameraMinTriggerInterval > missionItem.timeBetweenShots
         }
 
         CameraCalc {
@@ -113,13 +100,27 @@ Rectangle {
                 rowSpacing:     _margin
                 columns:        2
 
-                QGCLabel { text: qsTr("Layers") }
+                QGCLabel {
+                    text:       qsTr("Structure height")
+                    visible:    !missionItem.cameraCalc.isManualCamera
+                }
+                FactTextField {
+                    fact:               missionItem.structureHeight
+                    Layout.fillWidth:   true
+                    visible:            !missionItem.cameraCalc.isManualCamera
+                }
+
+                QGCLabel {
+                    text:       qsTr("# Layers")
+                    visible:    missionItem.cameraCalc.isManualCamera
+                }
                 FactTextField {
                     fact:               missionItem.layers
                     Layout.fillWidth:   true
+                    visible:            missionItem.cameraCalc.isManualCamera
                 }
 
-                QGCLabel { text: qsTr("Altitude") }
+                QGCLabel { text: qsTr("Bottom layer alt") }
                 FactTextField {
                     fact:               missionItem.altitude
                     Layout.fillWidth:   true
@@ -133,26 +134,9 @@ Rectangle {
                 }
             }
 
-            QGCLabel { text: qsTr("Point camera to structure using:") }
-
-            RowLayout {
-                spacing: _margin
-
-                QGCRadioButton {
-                    id:             yawVehicleRadio
-                    text:           qsTr("Vehicle yaw")
-                    exclusiveGroup: yawRadiosGroup
-                    checked:        !!missionItem.yawVehicleToStructure
-                    enabled:        false
-                }
-
-                QGCRadioButton
-                {
-                    text:           qsTr("Gimbal yaw")
-                    exclusiveGroup: yawRadiosGroup
-                    checked:        !missionItem.yawVehicleToStructure
-                    enabled:        false
-                }
+            Item {
+                height: ScreenTools.defaultFontPixelHeight / 2
+                width:  1
             }
 
             QGCButton {
@@ -176,6 +160,9 @@ Rectangle {
 
             QGCLabel { text: qsTr("Photo interval") }
             QGCLabel { text: missionItem.timeBetweenShots.toFixed(1) + " " + qsTr("secs") }
+
+            QGCLabel { text: qsTr("Trigger Distance") }
+            QGCLabel { text: missionItem.cameraCalc.adjustedFootprintSide.valueString + " " + QGroundControl.appSettingsDistanceUnitsString }
         }
     } // Column
 } // Rectangle

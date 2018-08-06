@@ -30,7 +30,7 @@ qreal groundTimeSeconds()
     return static_cast<qreal>(groundTimeMilliseconds()) / 1000.0f;
 }
 
-float limitAngleToPMPIf(float angle)
+float limitAngleToPMPIf(double angle)
 {
     if (angle > -20*M_PI && angle < 20*M_PI)
     {
@@ -61,14 +61,14 @@ double limitAngleToPMPId(double angle)
         {
             while (angle < -M_PI)
             {
-                angle += M_PI;
+                angle += 2.0f * M_PI;
             }
         }
         else if (angle > M_PI)
         {
             while (angle > M_PI)
             {
-                angle -= M_PI;
+                angle -= 2.0f * M_PI;
             }
         }
     }

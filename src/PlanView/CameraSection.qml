@@ -46,7 +46,7 @@ Column {
             anchors.left:   parent.left
             anchors.right:  parent.right
             spacing:        ScreenTools.defaultFontPixelWidth
-            visible:        _camera.cameraAction.rawValue == 1
+            visible:        _camera.cameraAction.rawValue === 1
 
             QGCLabel {
                 text:               qsTr("Time")
@@ -62,7 +62,7 @@ Column {
             anchors.left:   parent.left
             anchors.right:  parent.right
             spacing:        ScreenTools.defaultFontPixelWidth
-            visible:        _camera.cameraAction.rawValue == 2
+            visible:        _camera.cameraAction.rawValue === 2
 
             QGCLabel {
                 text:               qsTr("Distance")
@@ -71,6 +71,26 @@ Column {
             FactTextField {
                 fact:                   _camera.cameraPhotoIntervalDistance
                 Layout.preferredWidth:  _fieldWidth
+            }
+        }
+
+        RowLayout {
+            anchors.left:   parent.left
+            anchors.right:  parent.right
+            spacing:        ScreenTools.defaultFontPixelWidth
+            visible:        _camera.cameraModeSupported
+
+            QGCCheckBox {
+                id:                 modeCheckBox
+                text:               qsTr("Mode")
+                checked:            _camera.specifyCameraMode
+                onClicked:          _camera.specifyCameraMode = checked
+            }
+            FactComboBox {
+                fact:               _camera.cameraMode
+                indexModel:         false
+                enabled:            modeCheckBox.checked
+                Layout.fillWidth:   true
             }
         }
 
@@ -102,26 +122,6 @@ Column {
                 fact:           _camera.gimbalYaw
                 implicitWidth:  ScreenTools.defaultFontPixelWidth * 9
                 enabled:        gimbalCheckBox.checked
-            }
-        }
-
-        RowLayout {
-            anchors.left:   parent.left
-            anchors.right:  parent.right
-            spacing:        ScreenTools.defaultFontPixelWidth
-            visible:        _camera.cameraModeSupported
-
-            QGCCheckBox {
-                id:                 modeCheckBox
-                text:               qsTr("Mode")
-                checked:            _camera.specifyCameraMode
-                onClicked:          _camera.specifyCameraMode = checked
-            }
-            FactComboBox {
-                fact:               _camera.cameraMode
-                indexModel:         false
-                enabled:            modeCheckBox.checked
-                Layout.fillWidth:   true
             }
         }
     }

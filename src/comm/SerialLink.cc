@@ -30,8 +30,8 @@ QGC_LOGGING_CATEGORY(SerialLinkLog, "SerialLinkLog")
 
 static QStringList kSupportedBaudRates;
 
-SerialLink::SerialLink(SharedLinkConfigurationPointer& config)
-    : LinkInterface(config)
+SerialLink::SerialLink(SharedLinkConfigurationPointer& config, bool isPX4Flow)
+    : LinkInterface(config, isPX4Flow)
     , _port(NULL)
     , _bytesRead(0)
     , _stopp(false)
@@ -57,10 +57,6 @@ void SerialLink::requestReset()
 SerialLink::~SerialLink()
 {
     _disconnect();
-    if (_port) {
-        delete _port;
-    }
-    _port = NULL;
 }
 
 bool SerialLink::_isBootloader()
@@ -92,6 +88,7 @@ void SerialLink::_writeBytes(const QByteArray data)
         _port->write(data);
     } else {
         // Error occurred
+        qWarning() << "Serial port not writeable";
         _emitLinkError(tr("Could not send data - link %1 is disconnected!").arg(getName()));
     }
 }
@@ -105,7 +102,7 @@ void SerialLink::_disconnect(void)
 {
     if (_port) {
         _port->close();
-        delete _port;
+        _port->deleteLater();
         _port = NULL;
     }
 
@@ -157,7 +154,12 @@ bool SerialLink::_hardwareConnect(QSerialPort::SerialPortError& error, QString& 
     if (_port) {
         qCDebug(SerialLinkLog) << "SerialLink:" << QString::number((long)this, 16) << "closing port";
         _port->close();
-        QGC::SLEEP::usleep(50000);
+
+        // Wait 50 ms while continuing to run the event queue
+        for (unsigned i = 0; i < 10; i++) {
+            QGC::SLEEP::usleep(5000);
+            qgcApp()->processEvents(QEventLoop::ExcludeUserInputEvents);
+        }
         delete _port;
         _port = NULL;
     }
@@ -169,12 +171,22 @@ bool SerialLink::_hardwareConnect(QSerialPort::SerialPortError& error, QString& 
         qCDebug(SerialLinkLog) << "Not connecting to a bootloader, waiting for 2nd chance";
         const unsigned retry_limit = 12;
         unsigned retries;
+
         for (retries = 0; retries < retry_limit; retries++) {
             if (!_isBootloader()) {
-                QGC::SLEEP::msleep(500);
+                // Wait 500 ms while continuing to run the event loop
+                for (unsigned i = 0; i < 100; i++) {
+                    QGC::SLEEP::msleep(5);
+                    qgcApp()->processEvents(QEventLoop::ExcludeUserInputEvents);
+                }
                 break;
             }
-            QGC::SLEEP::msleep(500);
+
+            // Wait 500 ms while continuing to run the event loop
+            for (unsigned i = 0; i < 100; i++) {
+                QGC::SLEEP::msleep(5);
+                qgcApp()->processEvents(QEventLoop::ExcludeUserInputEvents);
+            }
         }
         // Check limit
         if (retries == retry_limit) {
@@ -184,7 +196,7 @@ bool SerialLink::_hardwareConnect(QSerialPort::SerialPortError& error, QString& 
         }
     }
 
-    _port = new QSerialPort(_serialConfig->portName());
+    _port = new QSerialPort(_serialConfig->portName(), this);
 
     QObject::connect(_port, static_cast<void (QSerialPort::*)(QSerialPort::SerialPortError)>(&QSerialPort::error),
                      this, &SerialLink::linkError);
@@ -199,10 +211,17 @@ bool SerialLink::_hardwareConnect(QSerialPort::SerialPortError& error, QString& 
 #ifdef __android__
     _port->open(QIODevice::ReadWrite);
 #else
-    for (int openRetries = 0; openRetries < 4; openRetries++) {
+
+    // Try to open the port three times
+    for (int openRetries = 0; openRetries < 3; openRetries++) {
         if (!_port->open(QIODevice::ReadWrite)) {
             qCDebug(SerialLinkLog) << "Port open failed, retrying";
-            QGC::SLEEP::msleep(500);
+            // Wait 250 ms while continuing to run the event loop
+            for (unsigned i = 0; i < 50; i++) {
+                QGC::SLEEP::msleep(5);
+                qgcApp()->processEvents(QEventLoop::ExcludeUserInputEvents);
+            }
+            qgcApp()->processEvents(QEventLoop::ExcludeUserInputEvents);
         } else {
             break;
         }
@@ -239,12 +258,18 @@ bool SerialLink::_hardwareConnect(QSerialPort::SerialPortError& error, QString& 
 
 void SerialLink::_readBytes(void)
 {
-    qint64 byteCount = _port->bytesAvailable();
-    if (byteCount) {
-        QByteArray buffer;
-        buffer.resize(byteCount);
-        _port->read(buffer.data(), buffer.size());
-        emit bytesReceived(this, buffer);
+    if (_port && _port->isOpen()) {
+        qint64 byteCount = _port->bytesAvailable();
+        if (byteCount) {
+            QByteArray buffer;
+            buffer.resize(byteCount);
+            _port->read(buffer.data(), buffer.size());
+            emit bytesReceived(this, buffer);
+        }
+    } else {
+        // Error occurred
+        qWarning() << "Serial port not readable";
+        _emitLinkError(tr("Could not read data - link %1 is disconnected!").arg(getName()));
     }
 }
 
@@ -284,7 +309,7 @@ bool SerialLink::isConnected() const
 
 QString SerialLink::getName() const
 {
-    return _serialConfig->portName();
+    return _serialConfig->name();
 }
 
 /**

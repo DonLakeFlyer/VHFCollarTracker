@@ -59,8 +59,8 @@ CameraSection::CameraSection(Vehicle* vehicle, QObject* parent)
 
     connect(&_cameraActionFact,                 &Fact::valueChanged,                        this, &CameraSection::_cameraActionChanged);
 
-    connect(&_gimbalPitchFact,                  &Fact::valueChanged,                        this, &CameraSection::_setDirty);
-    connect(&_gimbalYawFact,                    &Fact::valueChanged,                        this, &CameraSection::_setDirty);
+    connect(&_gimbalPitchFact,                  &Fact::valueChanged,                        this, &CameraSection::_dirtyIfSpecified);
+    connect(&_gimbalYawFact,                    &Fact::valueChanged,                        this, &CameraSection::_dirtyIfSpecified);
     connect(&_cameraPhotoIntervalDistanceFact,  &Fact::valueChanged,                        this, &CameraSection::_setDirty);
     connect(&_cameraPhotoIntervalTimeFact,      &Fact::valueChanged,                        this, &CameraSection::_setDirty);
     connect(&_cameraModeFact,                   &Fact::valueChanged,                        this, &CameraSection::_setDirty);
@@ -68,7 +68,9 @@ CameraSection::CameraSection(Vehicle* vehicle, QObject* parent)
     connect(this,                               &CameraSection::specifyCameraModeChanged,   this, &CameraSection::_setDirty);
 
     connect(this,                               &CameraSection::specifyGimbalChanged,       this, &CameraSection::_updateSpecifiedGimbalYaw);
+    connect(this,                               &CameraSection::specifyGimbalChanged,       this, &CameraSection::_updateSpecifiedGimbalPitch);
     connect(&_gimbalYawFact,                    &Fact::valueChanged,                        this, &CameraSection::_updateSpecifiedGimbalYaw);
+    connect(&_gimbalPitchFact,                  &Fact::valueChanged,                        this, &CameraSection::_updateSpecifiedGimbalPitch);
 }
 
 void CameraSection::setSpecifyGimbal(bool specifyGimbal)
@@ -178,11 +180,11 @@ void CameraSection::appendSectionItems(QList<MissionItem*>& items, QObject* miss
             item = new MissionItem(nextSequenceNumber++,
                                    MAV_CMD_VIDEO_START_CAPTURE,
                                    MAV_FRAME_MISSION,
-                                   0,                           // Reserved (Set to 0)
-                                   0,                           // No CAMERA_CAPTURE_STATUS streaming
-                                   NAN, NAN, NAN, NAN, NAN,     // param 3-7 reserved
-                                   true,                        // autoContinue
-                                   false,                       // isCurrentItem
+                                   0,                               // Reserved (Set to 0)
+                                   VIDEO_CAPTURE_STATUS_INTERVAL,   // CAMERA_CAPTURE_STATUS (default to every 5 seconds)
+                                   NAN, NAN, NAN, NAN, NAN,         // param 3-7 reserved
+                                   true,                            // autoContinue
+                                   false,                           // isCurrentItem
                                    missionItemParent);
             break;
 
@@ -358,7 +360,7 @@ bool CameraSection::_scanTakeVideo(QmlObjectListModel* visualItems, int scanInde
     if (item) {
         MissionItem& missionItem = item->missionItem();
         if ((MAV_CMD)item->command() == MAV_CMD_VIDEO_START_CAPTURE) {
-            if (missionItem.param1() == 0 && missionItem.param2() == 0) {
+            if (missionItem.param1() == 0 && missionItem.param2() == VIDEO_CAPTURE_STATUS_INTERVAL) {
                 cameraAction()->setRawValue(TakeVideo);
                 visualItems->removeAt(scanIndex)->deleteLater();
                 return true;
@@ -491,9 +493,23 @@ double CameraSection::specifiedGimbalYaw(void) const
     return _specifyGimbal ? _gimbalYawFact.rawValue().toDouble() : std::numeric_limits<double>::quiet_NaN();
 }
 
+double CameraSection::specifiedGimbalPitch(void) const
+{
+    return _specifyGimbal ? _gimbalPitchFact.rawValue().toDouble() : std::numeric_limits<double>::quiet_NaN();
+}
+
 void CameraSection::_updateSpecifiedGimbalYaw(void)
 {
-    emit specifiedGimbalYawChanged(specifiedGimbalYaw());
+    if (_specifyGimbal) {
+        emit specifiedGimbalYawChanged(specifiedGimbalYaw());
+    }
+}
+
+void CameraSection::_updateSpecifiedGimbalPitch(void)
+{
+    if (_specifyGimbal) {
+        emit specifiedGimbalPitchChanged(specifiedGimbalPitch());
+    }
 }
 
 void CameraSection::_updateSettingsSpecified(void)
@@ -520,4 +536,12 @@ void CameraSection::_cameraActionChanged(void)
 bool CameraSection::cameraModeSupported(void) const
 {
     return _vehicle->firmwarePlugin()->supportedMissionCommands().contains(MAV_CMD_SET_CAMERA_MODE);
+}
+
+void CameraSection::_dirtyIfSpecified(void)
+{
+    // We only set the dirty bit if specify gimbal it set. This allows us to change defaults without affecting dirty.
+    if (_specifyGimbal) {
+        setDirty(true);
+    }
 }

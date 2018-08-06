@@ -15,7 +15,7 @@ Vagrant.configure(2) do |config|
   config.vm.provider "virtualbox"
   config.vm.provider "vmware_fusion"
 
-  config.vm.box = "boxcutter/ubuntu1604"
+  config.vm.box = "ubuntu/xenial64"
   config.vm.provider :docker do |docker, override|
     override.vm.box = "tknerr/baseimage-ubuntu-16.04"
   end
@@ -45,6 +45,7 @@ Vagrant.configure(2) do |config|
 
   $config_shell = <<-'SHELL'
      set -e
+     set -x
 
      export %{build_env}
      export JOBS=$((`cat /proc/cpuinfo | grep -c ^processor`+1))
