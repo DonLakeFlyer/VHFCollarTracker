@@ -76,7 +76,7 @@ Rectangle {
         anchors.verticalCenter: commandPicker.verticalCenter
         anchors.leftMargin:     _margin
         anchors.left:           parent.left
-        text:                   missionItem.homePosition ? "H" : missionItem.sequenceNumber
+        text:                   missionItem.homePosition ? "P" : missionItem.sequenceNumber
         color:                  _outerTextColor
     }
 
@@ -148,7 +148,7 @@ Rectangle {
             MenuItem {
                 text:           qsTr("Edit position...")
                 visible:        missionItem.specifiesCoordinate
-                onTriggered:    qgcView.showDialog(editPositionDialog, qsTr("Edit Position"), qgcView.showDialogDefaultWidth, StandardButton.Cancel)
+                onTriggered:    qgcView.showDialog(editPositionDialog, qsTr("Edit Position"), qgcView.showDialogDefaultWidth, StandardButton.Close)
             }
 
             MenuSeparator {

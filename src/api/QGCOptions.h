@@ -47,6 +47,11 @@ public:
     Q_PROPERTY(bool                     useMobileFileDialog             READ useMobileFileDialog            CONSTANT)
     Q_PROPERTY(bool                     showMissionStatus               READ showMissionStatus              CONSTANT)
     Q_PROPERTY(bool                     guidedActionsRequireRCRSSI      READ guidedActionsRequireRCRSSI     CONSTANT)
+    Q_PROPERTY(bool                     showMissionAbsoluteAltitude     READ showMissionAbsoluteAltitude    NOTIFY showMissionAbsoluteAltitudeChanged)
+    Q_PROPERTY(bool                     showSimpleMissionStart          READ showSimpleMissionStart         NOTIFY showSimpleMissionStartChanged)
+    Q_PROPERTY(bool                     disableVehicleConnection        READ disableVehicleConnection       CONSTANT)
+    Q_PROPERTY(float                    devicePixelRatio                READ devicePixelRatio               NOTIFY devicePixelRatioChanged)
+    Q_PROPERTY(float                    devicePixelDensity              READ devicePixelDensity             NOTIFY devicePixelDensityChanged)
 
     /// Should QGC hide its settings menu and colapse it into one single menu (Settings and Vehicle Setup)?
     /// @return true if QGC should consolidate both menus into one.
@@ -86,6 +91,9 @@ public:
     virtual bool    guidedActionsRequireRCRSSI      () const { return false; }  ///< true: Guided actions will be disabled is there is no RC RSSI
     virtual bool    showOfflineMapExport            () const { return true; }
     virtual bool    showOfflineMapImport            () const { return true; }
+    virtual bool    showMissionAbsoluteAltitude     () const { return true; }
+    virtual bool    showSimpleMissionStart          () const { return false; }
+    virtual bool    disableVehicleConnection        () const { return false; }  ///< true: vehicle connection is disabled
 
 #if defined(__mobile__)
     virtual bool    useMobileFileDialog             () const { return true;}
@@ -97,6 +105,10 @@ public:
     /// supports downloading a single firmware file from the URL. It also supports custom install through
     /// the Advanced options.
     virtual QString firmwareUpgradeSingleURL        () const { return QString(); }
+
+    /// Device specific pixel ratio/density (for when Qt doesn't properly read it from the hardware)
+    virtual float   devicePixelRatio                () const { return 0.0f; }
+    virtual float   devicePixelDensity              () const { return 0.0f; }
 
 signals:
     void showSensorCalibrationCompassChanged    (bool show);
@@ -111,6 +123,10 @@ signals:
     void multiVehicleEnabledChanged             (bool multiVehicleEnabled);
     void showOfflineMapExportChanged            ();
     void showOfflineMapImportChanged            ();
+    void showMissionAbsoluteAltitudeChanged     ();
+    void showSimpleMissionStartChanged          ();
+    void devicePixelRatioChanged                ();
+    void devicePixelDensityChanged              ();
 
 private:
     CustomInstrumentWidget* _defaultInstrumentWidget;

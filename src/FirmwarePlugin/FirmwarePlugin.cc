@@ -150,6 +150,12 @@ bool FirmwarePlugin::supportsJSButton(void)
     return false;
 }
 
+bool FirmwarePlugin::supportsTerrainFrame(void) const
+{
+    // Generic firmware supports this since we don't know
+    return true;
+}
+
 bool FirmwarePlugin::adjustIncomingMavlinkMessage(Vehicle* vehicle, mavlink_message_t* message)
 {
     Q_UNUSED(vehicle);
@@ -264,12 +270,6 @@ void FirmwarePlugin::guidedModeTakeoff(Vehicle* vehicle, double takeoffAltRel)
     qgcApp()->showMessage(guided_mode_not_supported_by_vehicle);
 }
 
-void FirmwarePlugin::guidedModeOrbit(Vehicle* /*vehicle*/, const QGeoCoordinate& /*centerCoord*/, double /*radius*/, double /*velocity*/, double /*altitude*/)
-{
-    // Not supported by generic vehicle
-    qgcApp()->showMessage(guided_mode_not_supported_by_vehicle);
-}
-
 void FirmwarePlugin::guidedModeGotoLocation(Vehicle* vehicle, const QGeoCoordinate& gotoCoord)
 {
     // Not supported by generic vehicle
@@ -338,6 +338,7 @@ const QVariantList &FirmwarePlugin::toolBarIndicators(const Vehicle* vehicle)
         _toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/toolbar/VTOLModeIndicator.qml")));
         _toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/toolbar/ArmedIndicator.qml")));
         _toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/toolbar/GPSRTKIndicator.qml")));
+        _toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/toolbar/LinkIndicator.qml")));
     }
     return _toolBarIndicatorList;
 }
@@ -499,6 +500,30 @@ const QVariantList& FirmwarePlugin::cameraList(const Vehicle* vehicle)
                                       4000,     // imageWidth
                                       3000,     // imageHeight
                                       2.98,     // focalLength
+                                      true,     // landscape
+                                      false,    // fixedOrientation
+                                      0,        // minTriggerInterval
+                                      this);
+        _cameraList.append(QVariant::fromValue(metaData));
+
+        metaData = new CameraMetaData(tr("Sentera NDVI Single Sensor"),
+                                      4.68,     // sensorWidth
+                                      3.56,     // sendsorHeight
+                                      1248,     // imageWidth
+                                      952,      // imageHeight
+                                      4.14,     // focalLength
+                                      true,     // landscape
+                                      false,    // fixedOrientation
+                                      0,        // minTriggerInterval
+                                      this);
+        _cameraList.append(QVariant::fromValue(metaData));
+
+        metaData = new CameraMetaData(tr("Sentera Double 4K Sensor"),
+                                      6.2,      // sensorWidth
+                                      4.65,     // sendsorHeight
+                                      4000,     // imageWidth
+                                      3000,     // imageHeight
+                                      5.4,      // focalLength
                                       true,     // landscape
                                       false,    // fixedOrientation
                                       0,        // minTriggerInterval

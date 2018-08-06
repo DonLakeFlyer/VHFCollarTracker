@@ -15,6 +15,7 @@
 #include "SettingsManager.h"
 #include "AppMessages.h"
 #include "QmlObjectListModel.h"
+#include "VideoReceiver.h"
 
 #include <QtQml>
 #include <QQmlEngine>
@@ -32,6 +33,7 @@ public:
         , pOfflineMaps              (NULL)
         , pMAVLink                  (NULL)
         , pConsole                  (NULL)
+        , pHelp                     (NULL)
     #if defined(QT_DEBUG)
         , pMockLink                 (NULL)
         , pDebug                    (NULL)
@@ -72,6 +74,7 @@ public:
     QmlComponentInfo* pOfflineMaps;
     QmlComponentInfo* pMAVLink;
     QmlComponentInfo* pConsole;
+    QmlComponentInfo* pHelp;
 #if defined(QT_DEBUG)
     QmlComponentInfo* pMockLink;
     QmlComponentInfo* pDebug;
@@ -134,6 +137,9 @@ QVariantList &QGCCorePlugin::settingsPages()
         _p->pConsole = new QmlComponentInfo(tr("Console"),
                                        QUrl::fromUserInput("qrc:/qml/QGroundControl/Controls/AppMessages.qml"));
         _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pConsole));
+        _p->pHelp = new QmlComponentInfo(tr("Help"),
+                                       QUrl::fromUserInput("qrc:/qml/HelpSettings.qml"));
+        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pHelp));
 #if defined(QT_DEBUG)
         //-- These are always present on Debug builds
         _p->pMockLink = new QmlComponentInfo(tr("Mock Link"),
@@ -190,8 +196,13 @@ bool QGCCorePlugin::overrideSettingsGroupVisibility(QString name)
     return true;
 }
 
-bool QGCCorePlugin::adjustSettingMetaData(FactMetaData& metaData)
+bool QGCCorePlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaData& metaData)
 {
+    if (settingsGroup != AppSettings::settingsGroup) {
+        // All changes refer to AppSettings
+        return true;
+    }
+
     //-- Default Palette
     if (metaData.name() == AppSettings::indoorPaletteName) {
         QVariant outdoorPalette;
@@ -280,4 +291,9 @@ bool QGCCorePlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, mavlin
 QmlObjectListModel* QGCCorePlugin::customMapItems(void)
 {
     return &_p->_emptyCustomMapItems;
+}
+
+VideoReceiver* QGCCorePlugin::createVideoReceiver(QObject* parent)
+{
+    return new VideoReceiver(parent);
 }

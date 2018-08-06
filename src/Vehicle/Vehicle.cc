@@ -69,7 +69,8 @@ const char* Vehicle::_distanceToHomeFactName =      "distanceToHome";
 const char* Vehicle::_hobbsFactName =               "hobbs";
 
 const char* Vehicle::_gpsFactGroupName =            "gps";
-const char* Vehicle::_batteryFactGroupName =        "battery";
+const char* Vehicle::_battery1FactGroupName =       "battery";
+const char* Vehicle::_battery2FactGroupName =       "battery2";
 const char* Vehicle::_windFactGroupName =           "wind";
 const char* Vehicle::_vibrationFactGroupName =      "vibration";
 const char* Vehicle::_temperatureFactGroupName =    "temperature";
@@ -109,7 +110,7 @@ Vehicle::Vehicle(LinkInterface*             link,
     , _currentMessageType(MessageNone)
     , _updateCount(0)
     , _rcRSSI(255)
-    , _rcRSSIstore(255)
+    , _rcRSSIstore(255.)
     , _autoDisconnect(false)
     , _flying(false)
     , _landing(false)
@@ -133,6 +134,7 @@ Vehicle::Vehicle(LinkInterface*             link,
     , _vehicleCapabilitiesKnown(false)
     , _capabilityBits(0)
     , _highLatencyLink(false)
+    , _receivingAttitudeQuaternion(false)
     , _cameras(NULL)
     , _connectionLost(false)
     , _connectionLostEnabled(true)
@@ -168,6 +170,7 @@ Vehicle::Vehicle(LinkInterface*             link,
     , _gitHash(versionNotSetValue)
     , _uid(0)
     , _lastAnnouncedLowBatteryPercent(100)
+    , _priorityLinkCommanded(false)
     , _rollFact             (0, _rollFactName,              FactMetaData::valueTypeDouble)
     , _pitchFact            (0, _pitchFactName,             FactMetaData::valueTypeDouble)
     , _headingFact          (0, _headingFactName,           FactMetaData::valueTypeDouble)
@@ -184,21 +187,22 @@ Vehicle::Vehicle(LinkInterface*             link,
     , _distanceToHomeFact   (0, _distanceToHomeFactName,    FactMetaData::valueTypeDouble)
     , _hobbsFact            (0, _hobbsFactName,             FactMetaData::valueTypeString)
     , _gpsFactGroup(this)
-    , _batteryFactGroup(this)
+    , _battery1FactGroup(this)
+    , _battery2FactGroup(this)
     , _windFactGroup(this)
     , _vibrationFactGroup(this)
     , _temperatureFactGroup(this)
     , _clockFactGroup(this)
     , _distanceSensorFactGroup(this)
 {
-    _addLink(link);
-
     connect(_joystickManager, &JoystickManager::activeJoystickChanged, this, &Vehicle::_loadSettings);
     connect(qgcApp()->toolbox()->multiVehicleManager(), &MultiVehicleManager::activeVehicleAvailableChanged, this, &Vehicle::_loadSettings);
 
     _mavlink = _toolbox->mavlinkProtocol();
 
     connect(_mavlink, &MAVLinkProtocol::messageReceived,     this, &Vehicle::_mavlinkMessageReceived);
+
+    _addLink(link);
 
     connect(this, &Vehicle::_sendMessageOnLinkOnThread, this, &Vehicle::_sendMessageOnLink, Qt::QueuedConnection);
     connect(this, &Vehicle::flightModeChanged,          this, &Vehicle::_handleFlightModeChanged);
@@ -222,12 +226,6 @@ Vehicle::Vehicle(LinkInterface*             link,
     _prearmErrorTimer.setInterval(_prearmErrorTimeoutMSecs);
     _prearmErrorTimer.setSingleShot(true);
 
-    // Connection Lost timer
-    _connectionLostTimer.setInterval(_connectionLostTimeoutMSecs);
-    _connectionLostTimer.setSingleShot(false);
-    _connectionLostTimer.start();
-    connect(&_connectionLostTimer, &QTimer::timeout, this, &Vehicle::_connectionLostTimeout);
-
     // Send MAV_CMD ack timer
     _mavCommandAckTimer.setSingleShot(true);
     _mavCommandAckTimer.setInterval(_highLatencyLink ? _mavCommandAckTimeoutMSecsHighLatency : _mavCommandAckTimeoutMSecs);
@@ -238,12 +236,9 @@ Vehicle::Vehicle(LinkInterface*             link,
     // Listen for system messages
     connect(_toolbox->uasMessageHandler(), &UASMessageHandler::textMessageCountChanged,  this, &Vehicle::_handleTextMessage);
     connect(_toolbox->uasMessageHandler(), &UASMessageHandler::textMessageReceived,      this, &Vehicle::_handletextMessageReceived);
-    // Now connect the new UAS
-    connect(_mav, SIGNAL(attitudeChanged                    (UASInterface*,double,double,double,quint64)),              this, SLOT(_updateAttitude(UASInterface*, double, double, double, quint64)));
-    connect(_mav, SIGNAL(attitudeChanged                    (UASInterface*,int,double,double,double,quint64)),          this, SLOT(_updateAttitude(UASInterface*,int,double, double, double, quint64)));
 
-    if (_highLatencyLink) {
-        // High latency links don't request information
+    if (_highLatencyLink || link->isPX4Flow()) {
+        // These links don't request information
         _setMaxProtoVersion(100);
         _setCapabilities(0);
         _initialPlanRequestComplete = true;
@@ -308,7 +303,7 @@ Vehicle::Vehicle(MAV_AUTOPILOT              firmwareType,
     , _currentMessageType(MessageNone)
     , _updateCount(0)
     , _rcRSSI(255)
-    , _rcRSSIstore(255)
+    , _rcRSSIstore(255.)
     , _autoDisconnect(false)
     , _flying(false)
     , _landing(false)
@@ -324,6 +319,7 @@ Vehicle::Vehicle(MAV_AUTOPILOT              firmwareType,
     , _vehicleCapabilitiesKnown(true)
     , _capabilityBits(_firmwareType == MAV_AUTOPILOT_ARDUPILOTMEGA ? 0 : MAV_PROTOCOL_CAPABILITY_MISSION_FENCE | MAV_PROTOCOL_CAPABILITY_MISSION_RALLY)
     , _highLatencyLink(false)
+    , _receivingAttitudeQuaternion(false)
     , _cameras(NULL)
     , _connectionLost(false)
     , _connectionLostEnabled(true)
@@ -375,7 +371,8 @@ Vehicle::Vehicle(MAV_AUTOPILOT              firmwareType,
     , _distanceToHomeFact   (0, _distanceToHomeFactName,    FactMetaData::valueTypeDouble)
     , _hobbsFact            (0, _hobbsFactName,             FactMetaData::valueTypeString)
     , _gpsFactGroup(this)
-    , _batteryFactGroup(this)
+    , _battery1FactGroup(this)
+    , _battery2FactGroup(this)
     , _windFactGroup(this)
     , _vibrationFactGroup(this)
     , _clockFactGroup(this)
@@ -445,7 +442,8 @@ void Vehicle::_commonInit(void)
     _addFact(&_hobbsFact,               _hobbsFactName);
 
     _addFactGroup(&_gpsFactGroup,               _gpsFactGroupName);
-    _addFactGroup(&_batteryFactGroup,           _batteryFactGroupName);
+    _addFactGroup(&_battery1FactGroup,          _battery1FactGroupName);
+    _addFactGroup(&_battery2FactGroup,          _battery2FactGroupName);
     _addFactGroup(&_windFactGroup,              _windFactGroupName);
     _addFactGroup(&_vibrationFactGroup,         _vibrationFactGroupName);
     _addFactGroup(&_temperatureFactGroup,       _temperatureFactGroupName);
@@ -494,6 +492,7 @@ void Vehicle::prepareDelete()
 void Vehicle::_offlineFirmwareTypeSettingChanged(QVariant value)
 {
     _firmwareType = static_cast<MAV_AUTOPILOT>(value.toInt());
+    _firmwarePlugin = _firmwarePluginManager->firmwarePluginForAutopilot(_firmwareType, _vehicleType);
     emit firmwareTypeChanged();
     if (_firmwareType == MAV_AUTOPILOT_ARDUPILOTMEGA) {
         _capabilityBits = 0;
@@ -605,13 +604,6 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
         }
     }
 
-
-    // Mark this vehicle as active - but only if the traffic is coming from
-    // the actual vehicle
-    if (message.sysid == _id) {
-        _connectionActive();
-    }
-
     // Give the plugin a change to adjust the message contents
     if (!_firmwarePlugin->adjustIncomingMavlinkMessage(this, &message)) {
         return;
@@ -719,11 +711,17 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
     case MAVLINK_MSG_ID_ATTITUDE:
         _handleAttitude(message);
         break;
+    case MAVLINK_MSG_ID_ATTITUDE_QUATERNION:
+        _handleAttitudeQuaternion(message);
+        break;
     case MAVLINK_MSG_ID_ATTITUDE_TARGET:
         _handleAttitudeTarget(message);
         break;
     case MAVLINK_MSG_ID_DISTANCE_SENSOR:
         _handleDistanceSensor(message);
+        break;
+    case MAVLINK_MSG_ID_PING:
+        _handlePing(link, message);
         break;
 
     case MAVLINK_MSG_ID_SERIAL_CONTROL:
@@ -850,15 +848,57 @@ void Vehicle::_handleAttitudeTarget(mavlink_message_t& message)
     _setpointFactGroup.yawRate()->setRawValue(qRadiansToDegrees(attitudeTarget.body_yaw_rate));
 }
 
+void Vehicle::_handleAttitudeWorker(double rollRadians, double pitchRadians, double yawRadians)
+{
+    double roll, pitch, yaw;
+
+    roll = QGC::limitAngleToPMPIf(rollRadians);
+    pitch = QGC::limitAngleToPMPIf(pitchRadians);
+    yaw = QGC::limitAngleToPMPIf(yawRadians);
+
+    roll = qRadiansToDegrees(roll);
+    pitch = qRadiansToDegrees(pitch);
+    yaw = qRadiansToDegrees(yaw);
+
+    if (yaw < 0.0) {
+        yaw += 360.0;
+    }
+    // truncate to integer so widget never displays 360
+    yaw = trunc(yaw);
+
+    _rollFact.setRawValue(roll);
+    _pitchFact.setRawValue(pitch);
+    _headingFact.setRawValue(yaw);
+}
+
 void Vehicle::_handleAttitude(mavlink_message_t& message)
 {
-    mavlink_attitude_t attitude;
+    if (_receivingAttitudeQuaternion) {
+        return;
+    }
 
+    mavlink_attitude_t attitude;
     mavlink_msg_attitude_decode(&message, &attitude);
 
-    rollRate()->setRawValue(qRadiansToDegrees(attitude.rollspeed));
-    pitchRate()->setRawValue(qRadiansToDegrees(attitude.pitchspeed));
-    yawRate()->setRawValue(qRadiansToDegrees(attitude.yawspeed));
+    _handleAttitudeWorker(attitude.roll, attitude.pitch, attitude.yaw);
+}
+
+void Vehicle::_handleAttitudeQuaternion(mavlink_message_t& message)
+{
+    _receivingAttitudeQuaternion = true;
+
+    mavlink_attitude_quaternion_t attitudeQuaternion;
+    mavlink_msg_attitude_quaternion_decode(&message, &attitudeQuaternion);
+
+    float roll, pitch, yaw;
+    float q[] = { attitudeQuaternion.q1, attitudeQuaternion.q2, attitudeQuaternion.q3, attitudeQuaternion.q4 };
+    mavlink_quaternion_to_euler(q, &roll, &pitch, &yaw);
+
+    _handleAttitudeWorker(roll, pitch, yaw);
+
+    rollRate()->setRawValue(qRadiansToDegrees(attitudeQuaternion.rollspeed));
+    pitchRate()->setRawValue(qRadiansToDegrees(attitudeQuaternion.pitchspeed));
+    yawRate()->setRawValue(qRadiansToDegrees(attitudeQuaternion.yawspeed));
 }
 
 void Vehicle::_handleGpsRawInt(mavlink_message_t& message)
@@ -870,11 +910,11 @@ void Vehicle::_handleGpsRawInt(mavlink_message_t& message)
 
     if (gpsRawInt.fix_type >= GPS_FIX_TYPE_3D_FIX) {
         if (!_globalPositionIntMessageAvailable) {
-            //-- Set these here and emit a single signal instead of 3 for the same variable (_coordinate)
-            _coordinate.setLatitude(gpsRawInt.lat  / (double)1E7);
-            _coordinate.setLongitude(gpsRawInt.lon / (double)1E7);
-            _coordinate.setAltitude(gpsRawInt.alt  / 1000.0);
-            emit coordinateChanged(_coordinate);
+            QGeoCoordinate newPosition(gpsRawInt.lat  / (double)1E7, gpsRawInt.lon / (double)1E7, gpsRawInt.alt  / 1000.0);
+            if (newPosition != _coordinate) {
+                _coordinate = newPosition;
+                emit coordinateChanged(_coordinate);
+            }
             _altitudeAMSLFact.setRawValue(gpsRawInt.alt / 1000.0);
         }
     }
@@ -903,11 +943,11 @@ void Vehicle::_handleGlobalPositionInt(mavlink_message_t& message)
     }
 
     _globalPositionIntMessageAvailable = true;
-    //-- Set these here and emit a single signal instead of 3 for the same variable (_coordinate)
-    _coordinate.setLatitude(globalPositionInt.lat  / (double)1E7);
-    _coordinate.setLongitude(globalPositionInt.lon / (double)1E7);
-    _coordinate.setAltitude(globalPositionInt.alt  / 1000.0);
-    emit coordinateChanged(_coordinate);
+    QGeoCoordinate newPosition(globalPositionInt.lat  / (double)1E7, globalPositionInt.lon / (double)1E7, globalPositionInt.alt  / 1000.0);
+    if (newPosition != _coordinate) {
+        _coordinate = newPosition;
+        emit coordinateChanged(_coordinate);
+    }
 }
 
 void Vehicle::_handleHighLatency2(mavlink_message_t& message)
@@ -948,7 +988,7 @@ void Vehicle::_handleHighLatency2(mavlink_message_t& message)
     _windFactGroup.direction()->setRawValue((double)highLatency2.wind_heading * 2.0);
     _windFactGroup.speed()->setRawValue((double)highLatency2.windspeed / 5.0);
 
-    _batteryFactGroup.percentRemaining()->setRawValue(highLatency2.battery);
+    _battery1FactGroup.percentRemaining()->setRawValue(highLatency2.battery);
 
     _temperatureFactGroup.temperature1()->setRawValue(highLatency2.temperature_air);
 
@@ -1022,6 +1062,7 @@ void Vehicle::_setCapabilities(uint64_t capabilityBits)
 
     qCDebug(VehicleLog) << QString("Vehicle %1 Mavlink 2.0").arg(_capabilityBits & MAV_PROTOCOL_CAPABILITY_MAVLINK2 ? supports : doesNotSupport);
     qCDebug(VehicleLog) << QString("Vehicle %1 MISSION_ITEM_INT").arg(_capabilityBits & MAV_PROTOCOL_CAPABILITY_MISSION_INT ? supports : doesNotSupport);
+    qCDebug(VehicleLog) << QString("Vehicle %1 MISSION_COMMAND_INT").arg(_capabilityBits & MAV_PROTOCOL_CAPABILITY_COMMAND_INT ? supports : doesNotSupport);
     qCDebug(VehicleLog) << QString("Vehicle %1 GeoFence").arg(_capabilityBits & MAV_PROTOCOL_CAPABILITY_MISSION_FENCE ? supports : doesNotSupport);
     qCDebug(VehicleLog) << QString("Vehicle %1 RallyPoints").arg(_capabilityBits & MAV_PROTOCOL_CAPABILITY_MISSION_RALLY ? supports : doesNotSupport);
 }
@@ -1156,6 +1197,7 @@ void Vehicle::_handleCommandLong(mavlink_message_t& message)
                 if (sl && sl->getSerialConfig()->usbDirect()) {
                     qDebug() << "Disconnecting:" << _links.at(i)->getName();
                     qgcApp()->toolbox()->linkManager()->disconnectLink(_links.at(i));
+                    emit linksChanged();
                 }
             }
         }
@@ -1217,6 +1259,10 @@ void Vehicle::_handleWindCov(mavlink_message_t& message)
     float direction = qRadiansToDegrees(qAtan2(wind.wind_y, wind.wind_x));
     float speed = qSqrt(qPow(wind.wind_x, 2) + qPow(wind.wind_y, 2));
 
+    if (direction < 0) {
+        direction += 360;
+    }
+
     _windFactGroup.direction()->setRawValue(direction);
     _windFactGroup.speed()->setRawValue(speed);
     _windFactGroup.verticalSpeed()->setRawValue(0);
@@ -1252,19 +1298,19 @@ void Vehicle::_handleSysStatus(mavlink_message_t& message)
     mavlink_msg_sys_status_decode(&message, &sysStatus);
 
     if (sysStatus.current_battery == -1) {
-        _batteryFactGroup.current()->setRawValue(VehicleBatteryFactGroup::_currentUnavailable);
+        _battery1FactGroup.current()->setRawValue(VehicleBatteryFactGroup::_currentUnavailable);
     } else {
         // Current is in Amps, current_battery is 10 * milliamperes (1 = 10 milliampere)
-        _batteryFactGroup.current()->setRawValue((float)sysStatus.current_battery / 100.0f);
+        _battery1FactGroup.current()->setRawValue((float)sysStatus.current_battery / 100.0f);
     }
     if (sysStatus.voltage_battery == UINT16_MAX) {
-        _batteryFactGroup.voltage()->setRawValue(VehicleBatteryFactGroup::_voltageUnavailable);
+        _battery1FactGroup.voltage()->setRawValue(VehicleBatteryFactGroup::_voltageUnavailable);
     } else {
-        _batteryFactGroup.voltage()->setRawValue((double)sysStatus.voltage_battery / 1000.0);
+        _battery1FactGroup.voltage()->setRawValue((double)sysStatus.voltage_battery / 1000.0);
         // current_battery is 10 mA and voltage_battery is 1mV. (10/1e3 times 1/1e3 = 1/1e5)
-        _batteryFactGroup.instantPower()->setRawValue((float)(sysStatus.current_battery*sysStatus.voltage_battery)/(100000.0));
+        _battery1FactGroup.instantPower()->setRawValue((float)(sysStatus.current_battery*sysStatus.voltage_battery)/(100000.0));
     }
-    _batteryFactGroup.percentRemaining()->setRawValue(sysStatus.battery_remaining);
+    _battery1FactGroup.percentRemaining()->setRawValue(sysStatus.battery_remaining);
 
     if (sysStatus.battery_remaining > 0) {
         if (sysStatus.battery_remaining < _settingsManager->appSettings()->batteryPercentRemainingAnnounce()->rawValue().toInt() &&
@@ -1274,9 +1320,18 @@ void Vehicle::_handleSysStatus(mavlink_message_t& message)
         _lastAnnouncedLowBatteryPercent = sysStatus.battery_remaining;
     }
 
-    _onboardControlSensorsPresent = sysStatus.onboard_control_sensors_present;
-    _onboardControlSensorsEnabled = sysStatus.onboard_control_sensors_enabled;
-    _onboardControlSensorsHealth = sysStatus.onboard_control_sensors_health;
+    if (_onboardControlSensorsPresent != sysStatus.onboard_control_sensors_present) {
+        _onboardControlSensorsPresent = sysStatus.onboard_control_sensors_present;
+        emit sensorsPresentBitsChanged(_onboardControlSensorsPresent);
+    }
+    if (_onboardControlSensorsEnabled != sysStatus.onboard_control_sensors_enabled) {
+        _onboardControlSensorsEnabled = sysStatus.onboard_control_sensors_enabled;
+        emit sensorsEnabledBitsChanged(_onboardControlSensorsEnabled);
+    }
+    if (_onboardControlSensorsHealth != sysStatus.onboard_control_sensors_health) {
+        _onboardControlSensorsHealth = sysStatus.onboard_control_sensors_health;
+        emit sensorsHealthBitsChanged(_onboardControlSensorsHealth);
+    }
 
     // ArduPilot firmare has a strange case when ARMING_REQUIRE=0. This means the vehicle is always armed but the motors are not
     // really powered up until the safety button is pressed. Because of this we can't depend on the heartbeat to tell us the true
@@ -1289,6 +1344,7 @@ void Vehicle::_handleSysStatus(mavlink_message_t& message)
     if (newSensorsUnhealthy != _onboardControlSensorsUnhealthy) {
         _onboardControlSensorsUnhealthy = newSensorsUnhealthy;
         emit unhealthySensorsChanged();
+        emit sensorsUnhealthyBitsChanged(_onboardControlSensorsUnhealthy);
     }
 }
 
@@ -1297,15 +1353,17 @@ void Vehicle::_handleBatteryStatus(mavlink_message_t& message)
     mavlink_battery_status_t bat_status;
     mavlink_msg_battery_status_decode(&message, &bat_status);
 
+    VehicleBatteryFactGroup& batteryFactGroup = bat_status.id == 0 ? _battery1FactGroup : _battery2FactGroup;
+
     if (bat_status.temperature == INT16_MAX) {
-        _batteryFactGroup.temperature()->setRawValue(VehicleBatteryFactGroup::_temperatureUnavailable);
+        batteryFactGroup.temperature()->setRawValue(VehicleBatteryFactGroup::_temperatureUnavailable);
     } else {
-        _batteryFactGroup.temperature()->setRawValue((double)bat_status.temperature / 100.0);
+        batteryFactGroup.temperature()->setRawValue((double)bat_status.temperature / 100.0);
     }
     if (bat_status.current_consumed == -1) {
-        _batteryFactGroup.mahConsumed()->setRawValue(VehicleBatteryFactGroup::_mahConsumedUnavailable);
+        batteryFactGroup.mahConsumed()->setRawValue(VehicleBatteryFactGroup::_mahConsumedUnavailable);
     } else {
-        _batteryFactGroup.mahConsumed()->setRawValue(bat_status.current_consumed);
+        batteryFactGroup.mahConsumed()->setRawValue(bat_status.current_consumed);
     }
 
     int cellCount = 0;
@@ -1318,7 +1376,21 @@ void Vehicle::_handleBatteryStatus(mavlink_message_t& message)
         cellCount = -1;
     }
 
-    _batteryFactGroup.cellCount()->setRawValue(cellCount);
+    batteryFactGroup.cellCount()->setRawValue(cellCount);
+
+    //-- Time remaining in seconds (0 means not supported)
+    batteryFactGroup.timeRemaining()->setRawValue(bat_status.time_remaining);
+    //-- Battery charge state (0 means not supported)
+    if(bat_status.charge_state <= MAV_BATTERY_CHARGE_STATE_UNHEALTHY) {
+        batteryFactGroup.chargeState()->setRawValue(bat_status.charge_state);
+    } else {
+        batteryFactGroup.chargeState()->setRawValue(0);
+    }
+    //-- TODO: Somewhere, actions would be taken based on this chargeState:
+    //   MAV_BATTERY_CHARGE_STATE_CRITICAL:     Battery state is critical, return / abort immediately
+    //   MAV_BATTERY_CHARGE_STATE_EMERGENCY:    Battery state is too low for ordinary abortion, fastest possible emergency stop preventing damage
+    //   MAV_BATTERY_CHARGE_STATE_FAILED:       Battery failed, damage unavoidable
+    //   MAV_BATTERY_CHARGE_STATE_UNHEALTHY:    Battery is diagnosed to be broken or an error occurred, usage is discouraged / prohibited
 }
 
 void Vehicle::_setHomePosition(QGeoCoordinate& homeCoord)
@@ -1360,6 +1432,23 @@ void Vehicle::_updateArmed(bool armed)
             }
         }
     }
+}
+
+void Vehicle::_handlePing(LinkInterface* link, mavlink_message_t& message)
+{
+    mavlink_ping_t      ping;
+    mavlink_message_t   msg;
+
+    mavlink_msg_ping_decode(&message, &ping);
+    mavlink_msg_ping_pack_chan(_mavlink->getSystemId(),
+                               _mavlink->getComponentId(),
+                               priorityLink()->mavlinkChannel(),
+                               &msg,
+                               ping.time_usec,
+                               ping.seq,
+                               message.sysid,
+                               message.compid);
+    sendMessageOnLink(link, msg);
 }
 
 void Vehicle::_handleHeartbeat(mavlink_message_t& message)
@@ -1577,11 +1666,16 @@ void Vehicle::_addLink(LinkInterface* link)
     if (!_containsLink(link)) {
         qCDebug(VehicleLog) << "_addLink:" << QString("%1").arg((ulong)link, 0, 16);
         _links += link;
-        _updatePriorityLink();
-        _updateHighLatencyLink();
+        if (_links.count() <= 1) {
+            _updatePriorityLink(true /* updateActive */, false /* sendCommand */);
+        } else {
+            _updatePriorityLink(true /* updateActive */, true /* sendCommand */);
+        }
+
         connect(_toolbox->linkManager(), &LinkManager::linkInactive, this, &Vehicle::_linkInactiveOrDeleted);
         connect(_toolbox->linkManager(), &LinkManager::linkDeleted, this, &Vehicle::_linkInactiveOrDeleted);
         connect(link, &LinkInterface::highLatencyChanged, this, &Vehicle::_updateHighLatencyLink);
+        connect(link, &LinkInterface::activeChanged, this, &Vehicle::_linkActiveChanged);
     }
 }
 
@@ -1590,7 +1684,12 @@ void Vehicle::_linkInactiveOrDeleted(LinkInterface* link)
     qCDebug(VehicleLog) << "_linkInactiveOrDeleted linkCount" << _links.count();
 
     _links.removeOne(link);
-    _updatePriorityLink();
+
+    if (_priorityLink.data() == link) {
+        _priorityLink.clear();
+    }
+
+    _updatePriorityLink(true /* updateActive */, true /* sendCommand */);
 
     if (_links.count() == 0 && !_allLinksInactiveSent) {
         qCDebug(VehicleLog) << "All links inactive";
@@ -1636,8 +1735,19 @@ void Vehicle::_sendMessageOnLink(LinkInterface* link, mavlink_message_t message)
     emit messagesSentChanged();
 }
 
-void Vehicle::_updatePriorityLink(void)
+void Vehicle::_updatePriorityLink(bool updateActive, bool sendCommand)
 {
+    emit linksPropertiesChanged();
+
+    // if the priority link is commanded and still active don't change anything
+    if (_priorityLinkCommanded) {
+        if (_priorityLink.data()->link_active(_id)) {
+            return;
+        } else {
+            _priorityLinkCommanded = false;
+        }
+    }
+
     LinkInterface* newPriorityLink = NULL;
 
     // This routine specifically does not clear _priorityLink when there are no links remaining.
@@ -1650,7 +1760,7 @@ void Vehicle::_updatePriorityLink(void)
     // Check for the existing priority link to still be valid
     for (int i=0; i<_links.count(); i++) {
         if (_priorityLink.data() == _links[i]) {
-            if (!_priorityLink.data()->highLatency()) {
+            if (!_priorityLink.data()->highLatency() && _priorityLink->link_active(_id)) {
                 // Link is still valid. Continue to use it unless it is high latency. In that case we still look for a better
                 // link to use as priority link.
                 return;
@@ -1659,12 +1769,13 @@ void Vehicle::_updatePriorityLink(void)
     }
 
     // The previous priority link is no longer valid. We must no find the best link available in this priority order:
-    //      Direct USB connection
-    //      Not a high latency link
+    //      First active direct USB connection
+    //      Any active non high latency link
+    //      An active high latency link
     //      Any link
 
 #ifndef NO_SERIAL_LINK
-    // Search for direct usb connection
+    // Search for an active direct usb connection
     for (int i=0; i<_links.count(); i++) {
         LinkInterface* link = _links[i];
         SerialLink* pSerialLink = qobject_cast<SerialLink*>(link);
@@ -1673,11 +1784,10 @@ void Vehicle::_updatePriorityLink(void)
             if (config) {
                 SerialConfiguration* pSerialConfig = qobject_cast<SerialConfiguration*>(config);
                 if (pSerialConfig && pSerialConfig->usbDirect()) {
-                    if (_priorityLink.data() != link) {
+                    if (_priorityLink.data() != link && link->link_active(_id)) {
                         newPriorityLink = link;
                         break;
                     }
-                    return;
                 }
             }
         }
@@ -1685,10 +1795,21 @@ void Vehicle::_updatePriorityLink(void)
 #endif
 
     if (!newPriorityLink) {
-        // Search for non-high latency link
+        // Search for an active non-high latency link
         for (int i=0; i<_links.count(); i++) {
             LinkInterface* link = _links[i];
-            if (!link->highLatency()) {
+            if (!link->highLatency() && link->link_active(_id)) {
+                newPriorityLink = link;
+                break;
+            }
+        }
+    }
+
+    if (!newPriorityLink) {
+        // Search for an active high latency link
+        for (int i=0; i<_links.count(); i++) {
+            LinkInterface* link = _links[i];
+            if (link->highLatency() && link->link_active(_id)) {
                 newPriorityLink = link;
                 break;
             }
@@ -1700,35 +1821,19 @@ void Vehicle::_updatePriorityLink(void)
         newPriorityLink = _links[0];
     }
 
-    _priorityLink = _toolbox->linkManager()->sharedLinkInterfacePointerForLink(newPriorityLink);
-    _updateHighLatencyLink();
-}
+    if (_priorityLink.data() != newPriorityLink) {
+        if (_priorityLink) {
+            qgcApp()->showMessage((tr("switch to %2 as priority link")).arg(newPriorityLink->getName()));
+        }
+        _priorityLink = _toolbox->linkManager()->sharedLinkInterfacePointerForLink(newPriorityLink);
 
-void Vehicle::_updateAttitude(UASInterface*, double roll, double pitch, double yaw, quint64)
-{
-    if (qIsInf(roll)) {
-        _rollFact.setRawValue(0);
-    } else {
-        _rollFact.setRawValue(roll * (180.0 / M_PI));
-    }
-    if (qIsInf(pitch)) {
-        _pitchFact.setRawValue(0);
-    } else {
-        _pitchFact.setRawValue(pitch * (180.0 / M_PI));
-    }
-    if (qIsInf(yaw)) {
-        _headingFact.setRawValue(0);
-    } else {
-        yaw = yaw * (180.0 / M_PI);
-        if (yaw < 0.0) yaw += 360.0;
-        // truncate to integer so widget never displays 360
-        _headingFact.setRawValue(trunc(yaw));
-    }
-}
+        _updateHighLatencyLink(sendCommand);
 
-void Vehicle::_updateAttitude(UASInterface* uas, int, double roll, double pitch, double yaw, quint64 timestamp)
-{
-    _updateAttitude(uas, roll, pitch, yaw, timestamp);
+        emit priorityLinkNameChanged(_priorityLink->getName());
+        if (updateActive) {
+            _linkActiveChanged(_priorityLink.data(), _priorityLink->link_active(_id), _id);
+        }
+    }
 }
 
 int Vehicle::motorCount(void)
@@ -1760,19 +1865,6 @@ bool Vehicle::coaxialMotors(void)
 bool Vehicle::xConfigMotors(void)
 {
     return _firmwarePlugin->multiRotorXConfig(this);
-}
-
-/*
- * Internal
- */
-
-QString Vehicle::getMavIconColor()
-{
-    // TODO: Not using because not only the colors are ghastly, it doesn't respect dark/light palette
-    if(_mav)
-        return _mav->getColor().name();
-    else
-        return QString("black");
 }
 
 QString Vehicle::formatedMessages()
@@ -2043,6 +2135,53 @@ void Vehicle::setFlightMode(const QString& flightMode)
     }
 }
 
+QString Vehicle::priorityLinkName(void) const
+{
+    if (_priorityLink) {
+        return _priorityLink->getName();
+    }
+
+    return "none";
+}
+
+QVariantList Vehicle::links(void) const {
+    QVariantList ret;
+
+    foreach( const auto &item, _links )
+        ret << QVariant::fromValue(item);
+
+    return ret;
+}
+
+void Vehicle::setPriorityLinkByName(const QString& priorityLinkName)
+{
+    if (!_priorityLink) {
+        return;
+    }
+
+    if (priorityLinkName == _priorityLink->getName()) {
+        // The link did not change
+        return;
+    }
+
+    LinkInterface* newPriorityLink = NULL;
+
+
+    for (int i=0; i<_links.count(); i++) {
+        if (_links[i]->getName() == priorityLinkName) {
+            newPriorityLink = _links[i];
+        }
+    }
+
+    if (newPriorityLink) {
+        _priorityLinkCommanded = true;
+        _priorityLink = _toolbox->linkManager()->sharedLinkInterfacePointerForLink(newPriorityLink);
+        _updateHighLatencyLink(true);
+        emit priorityLinkNameChanged(_priorityLink->getName());
+        _linkActiveChanged(_priorityLink.data(), _priorityLink->link_active(_id), _id);
+    }
+}
+
 bool Vehicle::hilMode(void)
 {
     return _base_mode & MAV_MODE_FLAG_HIL_ENABLED;
@@ -2275,10 +2414,10 @@ void Vehicle::_sendQGCTimeToVehicle(void)
     // Timestamp of the component clock since boot time in milliseconds (Not necessary).
     cmd.time_boot_ms = 0;
     mavlink_msg_system_time_encode_chan(_mavlink->getSystemId(),
-                                    _mavlink->getComponentId(),
-                                    priorityLink()->mavlinkChannel(),
-                                    &msg,
-                                    &cmd);
+                                        _mavlink->getComponentId(),
+                                        priorityLink()->mavlinkChannel(),
+                                        &msg,
+                                        &cmd);
 
     sendMessageOnLink(priorityLink(), msg);
 }
@@ -2286,7 +2425,6 @@ void Vehicle::_sendQGCTimeToVehicle(void)
 void Vehicle::disconnectInactiveVehicle(void)
 {
     // Vehicle is no longer communicating with us, disconnect all links
-
 
     LinkManager* linkMgr = _toolbox->linkManager();
     for (int i=0; i<_links.count(); i++) {
@@ -2296,6 +2434,7 @@ void Vehicle::disconnectInactiveVehicle(void)
             linkMgr->disconnectLink(_links[i]);
         }
     }
+    emit linksChanged();
 }
 
 void Vehicle::_imageReady(UASInterface*)
@@ -2311,10 +2450,18 @@ void Vehicle::_imageReady(UASInterface*)
 
 void Vehicle::_remoteControlRSSIChanged(uint8_t rssi)
 {
-    if (_rcRSSIstore < 0 || _rcRSSIstore > 100) {
-        _rcRSSIstore = rssi;
+    //-- 0 <= rssi <= 100 - 255 means "invalid/unknown"
+    if(rssi > 100) { // Anything over 100 doesn't make sense
+        if(_rcRSSI != 255) {
+            _rcRSSI = 255;
+            emit rcRSSIChanged(_rcRSSI);
+        }
+        return;
     }
-
+    //-- Initialize it
+    if(_rcRSSIstore == 255.) {
+        _rcRSSIstore = (double)rssi;
+    }
     // Low pass to git rid of jitter
     _rcRSSIstore = (_rcRSSIstore * 0.9f) + ((float)rssi * 0.1);
     uint8_t filteredRSSI = (uint8_t)ceil(_rcRSSIstore);
@@ -2330,7 +2477,7 @@ void Vehicle::_remoteControlRSSIChanged(uint8_t rssi)
 void Vehicle::virtualTabletJoystickValue(double roll, double pitch, double yaw, double thrust)
 {
     // The following if statement prevents the virtualTabletJoystick from sending values if the standard joystick is enabled
-    if ( !_joystickEnabled ) {
+    if ( !_joystickEnabled && !_highLatencyLink) {
         _uas->setExternalControlSetpoint(roll, pitch, yaw, thrust, 0, JoystickModeRC);
     }
 }
@@ -2343,43 +2490,83 @@ void Vehicle::setConnectionLostEnabled(bool connectionLostEnabled)
     }
 }
 
-void Vehicle::_connectionLostTimeout(void)
+void Vehicle::_linkActiveChanged(LinkInterface *link, bool active, int vehicleID)
 {
-    if (highLatencyLink()) {
-        // No connection timeout on high latency links
+    // only continue if the vehicle id is correct
+    if (vehicleID != _id) {
         return;
     }
 
-    if (_connectionLostEnabled && !_connectionLost) {
-        _connectionLost = true;
-        _heardFrom = false;
-        _maxProtoVersion = 0;
-        emit connectionLostChanged(true);
-        _say(QString(tr("%1 communication lost")).arg(_vehicleIdSpeech()));
-        if (_autoDisconnect) {
+    emit linksPropertiesChanged();
 
-            // Reset link state
-            for (int i = 0; i < _links.length(); i++) {
-                _mavlink->resetMetadataForLink(_links.at(i));
+    bool communicationLost = false;
+    bool communicationRegained = false;
+
+    if (link == _priorityLink) {
+        if (active && _connectionLost) {
+            // communication to priority link regained
+            _connectionLost = false;
+            communicationRegained = true;
+            emit connectionLostChanged(false);
+
+            if (_priorityLink->highLatency()) {
+                _setMaxProtoVersion(100);
+            } else {
+                // Re-negotiate protocol version for the link
+                sendMavCommand(MAV_COMP_ID_ALL,                         // Don't know default component id yet.
+                               MAV_CMD_REQUEST_PROTOCOL_VERSION,
+                               false,                                   // No error shown if fails
+                               1);                                     // Request protocol version
             }
-            disconnectInactiveVehicle();
+        } else if (!active && !_connectionLost) {
+            _updatePriorityLink(false /* updateActive */, false /* sendCommand */);
+
+            // check if another active link has been found
+            if (link == _priorityLink) {
+                _connectionLost = true;
+                communicationLost = true;
+                _heardFrom = false;
+                _maxProtoVersion = 0;
+                emit connectionLostChanged(true);
+
+                if (_autoDisconnect) {
+                    // Reset link state
+                    for (int i = 0; i < _links.length(); i++) {
+                        _mavlink->resetMetadataForLink(_links.at(i));
+                    }
+
+                    disconnectInactiveVehicle();
+                }
+            }
+        }
+    } else {
+        qgcApp()->showMessage((tr("%1 communication to auxiliary link %2 %3")).arg(_vehicleIdSpeech()).arg(link->getName()).arg(active ? "regained" : "lost"));
+        _updatePriorityLink(false /* updateActive */, true /* sendCommand */);
+    }
+
+    QString commSpeech;
+    bool multiVehicle = _toolbox->multiVehicleManager()->vehicles()->count() > 1;
+    if (communicationRegained) {
+        commSpeech = tr("Communication regained");
+        if (_links.count() > 1) {
+            qgcApp()->showMessage(tr("Communication regained to vehicle %1 on %2 link %3").arg(_id).arg(_links.count() > 1 ? tr("priority") : tr("auxiliary")).arg(link->getName()));
+        } else if (multiVehicle) {
+            qgcApp()->showMessage(tr("Communication regained to vehicle %1").arg(_id));
         }
     }
-}
-
-void Vehicle::_connectionActive(void)
-{
-    _connectionLostTimer.start();
-    if (_connectionLost) {
-        _connectionLost = false;
-        emit connectionLostChanged(false);
-        _say(QString(tr("%1 communication regained")).arg(_vehicleIdSpeech()));
-
-        // Re-negotiate protocol version for the link
-        sendMavCommand(MAV_COMP_ID_ALL,                         // Don't know default component id yet.
-                       MAV_CMD_REQUEST_PROTOCOL_VERSION,
-                       false,                                   // No error shown if fails
-                       1);                                     // Request protocol version
+    if (communicationLost) {
+        commSpeech = tr("Communication lost");
+        if (_links.count() > 1) {
+            qgcApp()->showMessage(tr("Communication lost to vehicle %1 on %2 link %3").arg(_id).arg(_links.count() > 1 ? tr("priority") : tr("auxiliary")).arg(link->getName()));
+        } else if (multiVehicle) {
+            qgcApp()->showMessage(tr("Communication lost to vehicle %1").arg(_id));
+        }
+    }
+    if (multiVehicle && (communicationLost || communicationRegained)) {
+        commSpeech.append(tr(" to vehicle %1").arg(_id));
+    }
+    if (!commSpeech.isEmpty()) {
+        _say(commSpeech);
     }
 }
 
@@ -2436,6 +2623,11 @@ bool Vehicle::supportsJSButton(void) const
 bool Vehicle::supportsMotorInterference(void) const
 {
     return _firmwarePlugin->supportsMotorInterference();
+}
+
+bool Vehicle::supportsTerrainFrame(void) const
+{
+    return _firmwarePlugin->supportsTerrainFrame();
 }
 
 QString Vehicle::vehicleTypeName() const {
@@ -2553,7 +2745,6 @@ void Vehicle::guidedModeTakeoff(double altitudeRelative)
         qgcApp()->showMessage(guided_mode_not_supported_by_vehicle);
         return;
     }
-    setGuidedMode(true);
     _firmwarePlugin->guidedModeTakeoff(this, altitudeRelative);
 }
 
@@ -2593,13 +2784,33 @@ void Vehicle::guidedModeChangeAltitude(double altitudeChange)
     _firmwarePlugin->guidedModeChangeAltitude(this, altitudeChange);
 }
 
-void Vehicle::guidedModeOrbit(const QGeoCoordinate& centerCoord, double radius, double velocity, double altitude)
+void Vehicle::guidedModeOrbit(const QGeoCoordinate& centerCoord, double radius, double amslAltitude)
 {
     if (!orbitModeSupported()) {
         qgcApp()->showMessage(QStringLiteral("Orbit mode not supported by Vehicle."));
         return;
     }
-    _firmwarePlugin->guidedModeOrbit(this, centerCoord, radius, velocity, altitude);
+
+    if (capabilityBits() && MAV_PROTOCOL_CAPABILITY_COMMAND_INT) {
+        sendMavCommandInt(defaultComponentId(),
+                          MAV_CMD_DO_ORBIT,
+                          MAV_FRAME_GLOBAL,
+                          true,            // show error if fails
+                          radius,
+                          qQNaN(),         // Use default velocity
+                          0,               // Vehicle points to center
+                          qQNaN(),         // reserved
+                          centerCoord.latitude(), centerCoord.longitude(), amslAltitude);
+    } else {
+        sendMavCommand(defaultComponentId(),
+                       MAV_CMD_DO_ORBIT,
+                       true,            // show error if fails
+                       radius,
+                       qQNaN(),         // Use default velocity
+                       0,               // Vehicle points to center
+                       qQNaN(),         // reserved
+                       centerCoord.latitude(), centerCoord.longitude(), amslAltitude);
+    }
 }
 
 void Vehicle::pauseVehicle(void)
@@ -2683,6 +2894,7 @@ void Vehicle::sendMavCommand(int component, MAV_CMD command, bool showError, flo
     } else {
         MavCommandQueueEntry_t entry;
 
+        entry.commandInt = false;
         entry.component = component;
         entry.command = command;
         entry.showError = showError;
@@ -2700,6 +2912,31 @@ void Vehicle::sendMavCommand(int component, MAV_CMD command, bool showError, flo
             _mavCommandRetryCount = 0;
             _sendMavCommandAgain();
         }
+    }
+}
+
+void Vehicle::sendMavCommandInt(int component, MAV_CMD command, MAV_FRAME frame, bool showError, float param1, float param2, float param3, float param4, double param5, double param6, float param7)
+{
+    MavCommandQueueEntry_t entry;
+
+    entry.commandInt = true;
+    entry.component = component;
+    entry.command = command;
+    entry.frame = frame;
+    entry.showError = showError;
+    entry.rgParam[0] = param1;
+    entry.rgParam[1] = param2;
+    entry.rgParam[2] = param3;
+    entry.rgParam[3] = param4;
+    entry.rgParam[4] = param5;
+    entry.rgParam[5] = param6;
+    entry.rgParam[6] = param7;
+
+    _mavCommandQueue.append(entry);
+
+    if (_mavCommandQueue.count() == 1) {
+        _mavCommandRetryCount = 0;
+        _sendMavCommandAgain();
     }
 }
 
@@ -2769,25 +3006,47 @@ void Vehicle::_sendMavCommandAgain(void)
     _mavCommandAckTimer.start();
 
     mavlink_message_t       msg;
-    mavlink_command_long_t  cmd;
+    if (queuedCommand.commandInt) {
+        mavlink_command_int_t  cmd;
 
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = queuedCommand.command;
-    cmd.confirmation = 0;
-    cmd.param1 = queuedCommand.rgParam[0];
-    cmd.param2 = queuedCommand.rgParam[1];
-    cmd.param3 = queuedCommand.rgParam[2];
-    cmd.param4 = queuedCommand.rgParam[3];
-    cmd.param5 = queuedCommand.rgParam[4];
-    cmd.param6 = queuedCommand.rgParam[5];
-    cmd.param7 = queuedCommand.rgParam[6];
-    cmd.target_system = _id;
-    cmd.target_component = queuedCommand.component;
-    mavlink_msg_command_long_encode_chan(_mavlink->getSystemId(),
-                                         _mavlink->getComponentId(),
-                                         priorityLink()->mavlinkChannel(),
-                                         &msg,
-                                         &cmd);
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.target_system =     _id;
+        cmd.target_component =  queuedCommand.component;
+        cmd.command =           queuedCommand.command;
+        cmd.frame =             queuedCommand.frame;
+        cmd.param1 =            queuedCommand.rgParam[0];
+        cmd.param2 =            queuedCommand.rgParam[1];
+        cmd.param3 =            queuedCommand.rgParam[2];
+        cmd.param4 =            queuedCommand.rgParam[3];
+        cmd.x =                 queuedCommand.rgParam[4] * qPow(10.0, 7.0);
+        cmd.y =                 queuedCommand.rgParam[5] * qPow(10.0, 7.0);
+        cmd.z =                 queuedCommand.rgParam[6];
+        mavlink_msg_command_int_encode_chan(_mavlink->getSystemId(),
+                                            _mavlink->getComponentId(),
+                                            priorityLink()->mavlinkChannel(),
+                                            &msg,
+                                            &cmd);
+    } else {
+        mavlink_command_long_t  cmd;
+
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.target_system =     _id;
+        cmd.target_component =  queuedCommand.component;
+        cmd.command =           queuedCommand.command;
+        cmd.confirmation =      0;
+        cmd.param1 =            queuedCommand.rgParam[0];
+        cmd.param2 =            queuedCommand.rgParam[1];
+        cmd.param3 =            queuedCommand.rgParam[2];
+        cmd.param4 =            queuedCommand.rgParam[3];
+        cmd.param5 =            queuedCommand.rgParam[4];
+        cmd.param6 =            queuedCommand.rgParam[5];
+        cmd.param7 =            queuedCommand.rgParam[6];
+        mavlink_msg_command_long_encode_chan(_mavlink->getSystemId(),
+                                             _mavlink->getComponentId(),
+                                             priorityLink()->mavlinkChannel(),
+                                             &msg,
+                                             &cmd);
+    }
 
     sendMessageOnLink(priorityLink(), msg);
 }
@@ -2911,6 +3170,7 @@ QString Vehicle::firmwareVersionTypeString(void) const
 
 void Vehicle::rebootVehicle()
 {
+    _autoDisconnect = true;
     sendMavCommand(_defaultComponentId, MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, true, 1.0f);
 }
 
@@ -3276,12 +3536,23 @@ void Vehicle::_vehicleParamLoaded(bool ready)
     }
 }
 
-void Vehicle::_updateHighLatencyLink(void)
+void Vehicle::_updateHighLatencyLink(bool sendCommand)
 {
+    if (!_priorityLink) {
+        return;
+    }
+
     if (_priorityLink->highLatency() != _highLatencyLink) {
         _highLatencyLink = _priorityLink->highLatency();
         _mavCommandAckTimer.setInterval(_highLatencyLink ? _mavCommandAckTimeoutMSecsHighLatency : _mavCommandAckTimeoutMSecs);
         emit highLatencyLinkChanged(_highLatencyLink);
+
+        if (sendCommand) {
+            sendMavCommand(defaultComponentId(),
+                           MAV_CMD_CONTROL_HIGH_LATENCY,
+                           true,
+                           _highLatencyLink ? 1.0f : 0.0f); // request start/stop transmitting over high latency telemetry
+        }
     }
 }
 
@@ -3295,6 +3566,8 @@ const char* VehicleBatteryFactGroup::_currentFactName =                     "cur
 const char* VehicleBatteryFactGroup::_temperatureFactName =                 "temperature";
 const char* VehicleBatteryFactGroup::_cellCountFactName =                   "cellCount";
 const char* VehicleBatteryFactGroup::_instantPowerFactName =                "instantPower";
+const char* VehicleBatteryFactGroup::_timeRemainingFactName =               "timeRemaining";
+const char* VehicleBatteryFactGroup::_chargeStateFactName =                 "chargeState";
 
 const char* VehicleBatteryFactGroup::_settingsGroup =                       "Vehicle.battery";
 
@@ -3315,6 +3588,8 @@ VehicleBatteryFactGroup::VehicleBatteryFactGroup(QObject* parent)
     , _temperatureFact              (0, _temperatureFactName,               FactMetaData::valueTypeDouble)
     , _cellCountFact                (0, _cellCountFactName,                 FactMetaData::valueTypeInt32)
     , _instantPowerFact             (0, _instantPowerFactName,              FactMetaData::valueTypeFloat)
+    , _timeRemainingFact            (0, _timeRemainingFactName,             FactMetaData::valueTypeInt32)
+    , _chargeStateFact              (0, _chargeStateFactName,               FactMetaData::valueTypeUint8)
 {
     _addFact(&_voltageFact,                 _voltageFactName);
     _addFact(&_percentRemainingFact,        _percentRemainingFactName);
@@ -3323,6 +3598,8 @@ VehicleBatteryFactGroup::VehicleBatteryFactGroup(QObject* parent)
     _addFact(&_temperatureFact,             _temperatureFactName);
     _addFact(&_cellCountFact,               _cellCountFactName);
     _addFact(&_instantPowerFact,            _instantPowerFactName);
+    _addFact(&_timeRemainingFact,           _timeRemainingFactName);
+    _addFact(&_chargeStateFact,             _chargeStateFactName);
 
     // Start out as not available
     _voltageFact.setRawValue            (_voltageUnavailable);

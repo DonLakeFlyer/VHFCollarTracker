@@ -171,6 +171,7 @@
         <file alias="APM/BrandImageSub">src/FirmwarePlugin/APM/APMBrandImageSub.png</file>
         <file alias="PX4/BrandImage">src/FirmwarePlugin/PX4/PX4BrandImage.png</file>
         <file alias="subVehicleArrowOpaque.png">src/FlightMap/Images/sub.png</file>
+        <file alias="check.svg">resources/check.svg</file>
     </qresource>
     <qresource prefix="/res">
         <file alias="action.svg">resources/action.svg</file>
@@ -183,6 +184,7 @@
         <file alias="cancel.svg">resources/cancel.svg</file>
         <file alias="gear-black.svg">resources/gear-black.svg</file>
         <file alias="gear-white.svg">resources/gear-white.svg</file>
+        <file alias="helicoptericon.svg">resources/helicoptericon.svg</file>
         <file alias="JoystickBezel.png">resources/JoystickBezel.png</file>
         <file alias="JoystickBezelLight.png">resources/JoystickBezelLight.png</file>
         <file alias="land.svg">resources/land.svg</file>

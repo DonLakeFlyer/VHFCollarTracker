@@ -25,7 +25,7 @@ class TransectStyleComplexItem : public ComplexMissionItem
     Q_OBJECT
 
 public:
-    TransectStyleComplexItem(Vehicle* vehicle, QString settignsGroup, QObject* parent = NULL);
+    TransectStyleComplexItem(Vehicle* vehicle, bool flyView, QString settignsGroup, QObject* parent);
 
     Q_PROPERTY(QGCMapPolygon*   surveyAreaPolygon           READ surveyAreaPolygon                                  CONSTANT)
     Q_PROPERTY(CameraCalc*      cameraCalc                  READ cameraCalc                                         CONSTANT)
@@ -37,7 +37,6 @@ public:
     Q_PROPERTY(int              cameraShots                 READ cameraShots                                        NOTIFY cameraShotsChanged)
     Q_PROPERTY(double           timeBetweenShots            READ timeBetweenShots                                   NOTIFY timeBetweenShotsChanged)
     Q_PROPERTY(double           coveredArea                 READ coveredArea                                        NOTIFY coveredAreaChanged)
-    Q_PROPERTY(double           cameraMinTriggerInterval    READ cameraMinTriggerInterval                           NOTIFY cameraMinTriggerIntervalChanged)
     Q_PROPERTY(bool             hoverAndCaptureAllowed      READ hoverAndCaptureAllowed                             CONSTANT)
     Q_PROPERTY(QVariantList     visualTransectPoints        READ visualTransectPoints                               NOTIFY visualTransectPointsChanged)
 
@@ -58,14 +57,20 @@ public:
     Fact* terrainAdjustMaxDescentRate   (void) { return &_terrainAdjustMaxClimbRateFact; }
     Fact* terrainAdjustMaxClimbRate     (void) { return &_terrainAdjustMaxDescentRateFact; }
 
+    const Fact* hoverAndCapture         (void) const { return &_hoverAndCaptureFact; }
+
     int             cameraShots             (void) const { return _cameraShots; }
-    double          timeBetweenShots        (void);
     double          coveredArea             (void) const;
-    double          cameraMinTriggerInterval(void) const { return _cameraMinTriggerInterval; }
     bool            hoverAndCaptureAllowed  (void) const;
     bool            followTerrain           (void) const { return _followTerrain; }
 
+    virtual double  timeBetweenShots        (void) { return 0; } // Most be overridden. Implementation here is needed for unit testing.
+
     void setFollowTerrain(bool followTerrain);
+
+    double  triggerDistance         (void) const { return _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble(); }
+    bool    hoverAndCaptureEnabled  (void) const { return hoverAndCapture()->rawValue().toBool(); }
+    bool    triggerCamera           (void) const { return triggerDistance() != 0; }
 
     // Overrides from ComplexMissionItem
 
@@ -87,9 +92,6 @@ public:
     bool            isSimpleItem            (void) const final { return false; }
     bool            isStandaloneCoordinate  (void) const final { return false; }
     bool            specifiesAltitudeOnly   (void) const final { return false; }
-    QString         commandDescription      (void) const final { return tr("Corridor Scan"); }
-    QString         commandName             (void) const final { return tr("Corridor Scan"); }
-    QString         abbreviation            (void) const final { return "S"; }
     QGeoCoordinate  coordinate              (void) const final { return _coordinate; }
     QGeoCoordinate  exitCoordinate          (void) const final { return _exitCoordinate; }
     int             sequenceNumber          (void) const final { return _sequenceNumber; }
@@ -98,9 +100,12 @@ public:
     double          specifiedGimbalPitch    (void) final { return std::numeric_limits<double>::quiet_NaN(); }
     void            setMissionFlightStatus  (MissionController::MissionFlightStatus_t& missionFlightStatus) final;
     bool            readyForSave            (void) const override;
+    QString         commandDescription      (void) const override { return tr("Transect"); }
+    QString         commandName             (void) const override { return tr("Transect"); }
+    QString         abbreviation            (void) const override { return tr("T"); }
 
-    bool coordinateHasRelativeAltitude      (void) const final { return true /*_altitudeRelative*/; }
-    bool exitCoordinateHasRelativeAltitude  (void) const final { return true /*_altitudeRelative*/; }
+    bool coordinateHasRelativeAltitude      (void) const final;
+    bool exitCoordinateHasRelativeAltitude  (void) const final;
     bool exitCoordinateSameAsEntry          (void) const final { return false; }
 
     void            setDirty                (bool dirty) final;
@@ -119,7 +124,6 @@ public:
 signals:
     void cameraShotsChanged             (void);
     void timeBetweenShotsChanged        (void);
-    void cameraMinTriggerIntervalChanged(double cameraMinTriggerInterval);
     void visualTransectPointsChanged    (void);
     void coveredAreaChanged             (void);
     void followTerrainChanged           (bool followTerrain);
@@ -143,7 +147,6 @@ protected:
     bool    _hasTurnaround                  (void) const;
     double  _turnaroundDistance             (void) const;
 
-    QString         _settingsGroup;
     int             _sequenceNumber;
     bool            _dirty;
     QGeoCoordinate  _coordinate;
@@ -151,10 +154,11 @@ protected:
     QGCMapPolygon   _surveyAreaPolygon;
 
     enum CoordType {
-        CoordTypeInterior,
-        CoordTypeInteriorTerrainAdded,
-        CoordTypeSurveyEdge,
-        CoordTypeTurnaround
+        CoordTypeInterior,              ///< Interior waypoint for flight path only
+        CoordTypeInteriorHoverTrigger,  ///< Interior waypoint for hover and capture trigger
+        CoordTypeInteriorTerrainAdded,  ///< Interior waypoint added for terrain
+        CoordTypeSurveyEdge,            ///< Waypoint at edge of survey polygon
+        CoordTypeTurnaround             ///< Waypoint outside of survey polygon for turnaround
     };
 
     typedef struct {
@@ -172,7 +176,6 @@ protected:
     double          _complexDistance;
     int             _cameraShots;
     double          _timeBetweenShots;
-    double          _cameraMinTriggerInterval;
     double          _cruiseSpeed;
     CameraCalc      _cameraCalc;
     bool            _followTerrain;
@@ -200,6 +203,7 @@ protected:
 
 private slots:
     void _reallyQueryTransectsPathHeightInfo(void);
+    void _followTerrainChanged              (bool followTerrain);
 
 private:
     void    _queryTransectsPathHeightInfo   (void);
