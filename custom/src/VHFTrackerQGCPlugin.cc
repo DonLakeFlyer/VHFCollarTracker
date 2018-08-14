@@ -4,17 +4,19 @@
 #include "Vehicle.h"
 #include "VHFTrackerSettings.h"
 #include "QGCGeo.h"
+#include "QGCApplication.h"
 
 #include <QDebug>
 #include <QPointF>
 #include <QLineF>
 
 VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbox)
-    : QGCCorePlugin (app, toolbox)
-    , _beepStrength (0)
-    , _bpm          (0)
-    , _latitude     (0)
-    , _longitude    (0)
+    : QGCCorePlugin         (app, toolbox)
+    , _vehicleStateIndex    (0)
+    , _beepStrength         (0)
+    , _bpm                  (0)
+    , _latitude             (0)
+    , _longitude            (0)
 {
     _showAdvancedUI = true;
 }
@@ -167,4 +169,123 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
 
 
     return false;
+}
+
+void VHFTrackerQGCPlugin::startDetection(void)
+{
+    Vehicle* activeVehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
+
+    if (!activeVehicle) {
+        return;
+    }
+
+    VehicleState_t vehicleState;
+    double targetAltitude = _vhfSettings->altitude()->rawValue().toDouble();
+    qDebug() << "targetAltitude" << targetAltitude;
+
+    _vehicleStates.clear();
+    _vehicleStateIndex = 0;
+
+    // Reach target height
+    vehicleState.command =          MAV_CMD_NAV_TAKEOFF;
+    vehicleState.fact =             activeVehicle->altitudeRelative();
+    vehicleState.targetValue =      targetAltitude;
+    vehicleState.targetVariance =   1;
+    _vehicleStates.append(vehicleState);
+
+    // Rotate
+    int msecsWait = 8000;
+    int subDivide = 16;
+    double headingIncrement = 360.0 / subDivide;
+    double nextHeading = 0 - headingIncrement;
+    for (int i=0; i<subDivide; i++) {
+        nextHeading += headingIncrement;
+
+        vehicleState.command =          MAV_CMD_DO_REPOSITION;
+        vehicleState.fact =             activeVehicle->heading();
+        vehicleState.targetValue =      nextHeading;
+        vehicleState.targetVariance =   1;
+        _vehicleStates.append(vehicleState);
+
+        vehicleState.command =          MAV_CMD_NAV_DELAY;
+        vehicleState.fact =             NULL;
+        vehicleState.targetValue =      msecsWait;
+        vehicleState.targetVariance =   0;
+        _vehicleStates.append(vehicleState);
+    }
+
+    vehicleState.command =          MAV_CMD_NAV_RETURN_TO_LAUNCH;
+    vehicleState.fact =             NULL;
+    vehicleState.targetValue =      0;
+    vehicleState.targetVariance =   0;
+    _vehicleStates.append(vehicleState);
+
+    _nextVehicleState();
+}
+
+void VHFTrackerQGCPlugin::_rotateVehicle(Vehicle* vehicle, double headingDegrees)
+{
+    vehicle->sendCommand(0,                                               // component
+                         MAV_CMD_DO_REPOSITION,
+                         true,                                            // show error
+                         -1,                                              // no change in ground speed
+                         MAV_DO_REPOSITION_FLAGS_CHANGE_MODE,             // reposition flags not used
+                         0,                                               //reserved
+                         qDegreesToRadians(headingDegrees),    // change heading
+                         qQNaN(), qQNaN(), qQNaN());                      // no change lat, lon, alt
+}
+
+void VHFTrackerQGCPlugin::_nextVehicleState(void)
+{
+    Vehicle* activeVehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
+
+    if (!activeVehicle) {
+        return;
+    }
+
+    if (activeVehicle->flightMode() != "Takeoff" && activeVehicle->flightMode() != "Hold") {
+        // User cancel
+        return;
+    }
+
+    const VehicleState_t& currentState = _vehicleStates[_vehicleStateIndex];
+
+    switch (currentState.command) {
+    case MAV_CMD_NAV_TAKEOFF:
+        // Takeoff to specified altitude
+        activeVehicle->guidedModeTakeoff(currentState.targetValue);
+        break;
+    case MAV_CMD_DO_REPOSITION:
+        _rotateVehicle(activeVehicle, currentState.targetValue);
+        break;
+    case MAV_CMD_NAV_DELAY:
+        _vehicleStateIndex++;
+        QTimer::singleShot(currentState.targetValue, this, &VHFTrackerQGCPlugin::_nextVehicleState);
+        break;
+    case MAV_CMD_NAV_RETURN_TO_LAUNCH:
+        qDebug() << "RTL";
+        _vehicleStateIndex++;
+        activeVehicle->setFlightMode(activeVehicle->rtlFlightMode());
+        break;
+    default:
+        qgcApp()->showMessage(tr("VHFTrackerQGCPlugin::_nextVehicleState bad command %1").arg(currentState.command));
+        break;
+    }
+
+    if (currentState.fact) {
+        connect(currentState.fact, &Fact::rawValueChanged, this, &VHFTrackerQGCPlugin::_vehicleStateRawValueChanged);
+    }
+}
+
+void VHFTrackerQGCPlugin::_vehicleStateRawValueChanged(QVariant rawValue)
+{
+    const VehicleState_t& currentState = _vehicleStates[_vehicleStateIndex];
+
+    if (qAbs(rawValue.toDouble() - currentState.targetValue) < currentState.targetVariance) {
+        disconnect(currentState.fact, &Fact::rawValueChanged, this, &VHFTrackerQGCPlugin::_vehicleStateRawValueChanged);
+        _vehicleStateIndex++;
+        if (_vehicleStateIndex < _vehicleStates.count()) {
+            _nextVehicleState();
+        }
+    }
 }

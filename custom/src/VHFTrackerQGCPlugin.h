@@ -24,6 +24,8 @@ public:
     Q_PROPERTY(double               latitude        MEMBER _latitude        NOTIFY latitudeChanged)
     Q_PROPERTY(double               longitude       MEMBER _longitude       NOTIFY longitudeChanged)
 
+    Q_INVOKABLE void startDetection(void);
+
     // Overrides from QGCCorePlugin
     QString             brandImageIndoor    (void) const final;
     QString             brandImageOutdoor   (void) const final;
@@ -42,12 +44,27 @@ signals:
     void latitudeChanged    (double latitude);
     void longitudeChanged   (double longitude);
 
+private slots:
+    void _vehicleStateRawValueChanged   (QVariant rawValue);
+    void _nextVehicleState              (void);
+
 private:
+    typedef struct {
+        MAV_CMD command;
+        Fact*   fact;
+        double  targetValue;
+        double  targetVariance;
+    } VehicleState_t;
+
     //bool _handleMemoryVect  (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
-    bool _handleDebug       (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
+    bool _handleDebug   (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
+    void _rotateVehicle (Vehicle* vehicle, double headingDegrees);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;
+    int                     _vehicleStateIndex;
+    QList<VehicleState_t>   _vehicleStates;
+
     QmlObjectListModel      _mapItems;
     int                     _beepStrength;
     int                     _bpm;
