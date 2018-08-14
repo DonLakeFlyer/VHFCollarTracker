@@ -1,11 +1,11 @@
 [
 {
     "name":             "Altitude",
-    "shortDescription": "Altitude for the bottom layer of the structure scan.",
+    "shortDescription": "Altitude to perform VHF scan",
     "type":             "double",
     "units":            "m",
     "decimalPlaces":    1,
-    "defaultValue":     50
+    "defaultValue":     121.92
 },
 {
     "name":             "Layers",

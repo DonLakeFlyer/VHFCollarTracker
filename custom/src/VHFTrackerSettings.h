@@ -18,17 +18,21 @@ class VHFTrackerSettings : public SettingsGroup
 public:
     VHFTrackerSettings(QObject* parent = NULL);
 
+    Q_PROPERTY(Fact* altitude   READ altitude   CONSTANT)
     Q_PROPERTY(Fact* frequency  READ frequency  CONSTANT)
     Q_PROPERTY(Fact* gain       READ gain       CONSTANT)
 
+    Fact* altitude  (void);
     Fact* frequency (void);
     Fact* gain      (void);
 
 private:
+    SettingsFact* _altitudeFact;
     SettingsFact* _frequencyFact;
     SettingsFact* _gainFact;
 \
     static const char* _settingsGroup;
+    static const char* _altitudeFactName;
     static const char* _frequencyFactName;
     static const char* _gainFactName;
 };
