@@ -11,6 +11,7 @@ import QtQuick              2.3
 import QtQuick.Layouts      1.2
 import QtQuick.Controls     1.2
 import QtPositioning        5.2
+import QtCharts             2.2
 
 import QGroundControl                   1.0
 import QGroundControl.Controls          1.0
@@ -29,10 +30,16 @@ Item {
     readonly property string scaleState: "topMode"
 
     property var    _corePlugin:        QGroundControl.corePlugin
+    property var    _divisions:         QGroundControl.corePlugin.vhfSettings.divisions.rawValue
     property real   _margins:           ScreenTools.defaultFontPixelWidth
+    property real   _leftMargin:        ScreenTools.defaultFontPixelWidth * 10
+    property real   _rightMargin:       ScreenTools.defaultFontPixelWidth * 35
     property int    _pulseCount:        0
     property int    _pulseStrength:     0
     property int    _bpm:               _corePlugin.bpm
+    property int    _strongestAngle:    _corePlugin.strongestAngle
+
+    readonly property real _sliceSize: 360 / _divisions
 
     Connections {
         target: QGroundControl.corePlugin
@@ -44,9 +51,10 @@ Item {
     }
 
     Rectangle {
+        id:                     signalIndicator
         anchors.topMargin:      _margins
-        anchors.leftMargin:     ScreenTools.defaultFontPixelWidth * 10
-        anchors.rightMargin:    ScreenTools.defaultFontPixelWidth * 30
+        anchors.leftMargin:     _leftMargin
+        anchors.rightMargin:    _rightMargin
         anchors.top:            parent.top
         anchors.left:           parent.left
         anchors.right:          parent.right
@@ -117,6 +125,51 @@ Item {
                     repeat:         false
                     onTriggered:    _pulseStrength = 0
                 }
+            }
+        }
+    }
+
+    Loader {
+        id:                     strengthLoader
+        anchors.margins:        _margins
+        anchors.leftMargin:     _leftMargin
+        anchors.rightMargin:    _rightMargin
+        anchors.top:            signalIndicator.bottom
+        anchors.bottom:         parent.bottom
+        anchors.left:           parent.left
+        anchors.right:          parent.right
+        sourceComponent:        _corePlugin.strengthsAvailable ? strengthChart : undefined
+    }
+
+    Component {
+        id: strengthChart
+
+        ChartView {
+            antialiasing:       true
+            legend.alignment:   Qt.AlignRight
+
+            Instantiator {
+                model:  _corePlugin.angleStrengths
+
+                onObjectAdded: {
+                    var strongest = index == _strongestAngle
+                    var strength = object._modelData
+                    var slice = pieSeries.append(qsTr("%1 - %2%3").arg(index * _sliceSize).arg(strength).arg(strongest ? "*" : ""), _sliceSize)
+                    slice.borderColor = "black"
+                    slice.borderWidth = 2
+                    slice.labelVisible = true
+                    slice.exploded = strongest
+                    var darkness = 1 - (strength / 100.0)
+                    slice.color = Qt.rgba(darkness, darkness, darkness)
+                }
+
+                Item { property int _modelData: modelData }
+            }
+
+            PieSeries {
+                id:         pieSeries
+                startAngle: -_sliceSize / 2
+                endAngle:   360 + startAngle
             }
         }
     }
