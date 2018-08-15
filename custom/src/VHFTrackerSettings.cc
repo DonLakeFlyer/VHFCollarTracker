@@ -17,14 +17,16 @@
 
 const char* VHFTrackerSettings::_settingsGroup =        "VHFTracker";
 const char* VHFTrackerSettings::_altitudeFactName =     "Altitude";
+const char* VHFTrackerSettings::_divisionsFactName =    "Divisions";
 const char* VHFTrackerSettings::_frequencyFactName =    "frequency";
 const char* VHFTrackerSettings::_gainFactName =         "gain";
 
 VHFTrackerSettings::VHFTrackerSettings(QObject* parent)
     : SettingsGroup     (_settingsGroup, _settingsGroup, parent)
-    , _altitudeFact     (NULL)
-    , _frequencyFact    (NULL)
-    , _gainFact         (NULL)
+    , _altitudeFact     (nullptr)
+    , _divisionsFact    (nullptr)
+    , _frequencyFact    (nullptr)
+    , _gainFact         (nullptr)
 {
     QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
     qmlRegisterUncreatableType<VHFTrackerSettings>("QGroundControl.SettingsManager", 1, 0, "VHFTrackerSettings", "Reference only");
@@ -37,6 +39,15 @@ Fact* VHFTrackerSettings::altitude(void)
     }
 
     return _altitudeFact;
+}
+
+Fact* VHFTrackerSettings::divisions(void)
+{
+    if (!_divisionsFact) {
+        _divisionsFact = _createSettingsFact(_divisionsFactName);
+    }
+
+    return _divisionsFact;
 }
 
 Fact* VHFTrackerSettings::frequency(void)

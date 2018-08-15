@@ -8,6 +8,12 @@
     "defaultValue":     121.92
 },
 {
+    "name":             "Divisions",
+    "shortDescription": "Number of divisions to stop rotation at",
+    "type":             "Int32",
+    "defaultValue":     16
+},
+{
     "name":             "Layers",
     "shortDescription": "Number of scan layers.",
     "type":             "uint32",
