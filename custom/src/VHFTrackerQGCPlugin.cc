@@ -273,7 +273,6 @@ void VHFTrackerQGCPlugin::_nextVehicleState(void)
         activeVehicle->guidedModeTakeoff(currentState.targetValue);
         break;
     case MAV_CMD_DO_REPOSITION:
-        qDebug() << "rotate target" << currentState.targetValue;
         _rotateVehicle(activeVehicle, currentState.targetValue);
         break;
     case MAV_CMD_NAV_DELAY:
@@ -281,7 +280,6 @@ void VHFTrackerQGCPlugin::_nextVehicleState(void)
         QTimer::singleShot(currentState.targetValue, this, &VHFTrackerQGCPlugin::_nextVehicleState);
         break;
     case MAV_CMD_NAV_RETURN_TO_LAUNCH:
-        qDebug() << "RTL";
         _vehicleStateIndex++;
         activeVehicle->setFlightMode(activeVehicle->rtlFlightMode());
         _strengthsAvailable = true;
