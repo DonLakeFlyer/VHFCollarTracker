@@ -168,8 +168,10 @@ Item {
 
             PieSeries {
                 id:         pieSeries
-                startAngle: -_sliceSize / 2
-                endAngle:   360 + startAngle
+                startAngle: _startAngle
+                endAngle:   360 + _startAngle
+
+                property real _startAngle: -_sliceSize / 2
             }
         }
     }
