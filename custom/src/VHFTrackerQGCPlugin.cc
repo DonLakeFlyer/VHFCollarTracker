@@ -10,14 +10,14 @@
 #include <QPointF>
 #include <QLineF>
 
+QGC_LOGGING_CATEGORY(VHFTrackerQGCPluginLog, "VHFTrackerQGCPluginLog")
+
 VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbox)
     : QGCCorePlugin         (app, toolbox)
     , _vehicleStateIndex    (0)
     , _strengthsAvailable   (false)
     , _beepStrength         (0)
     , _bpm                  (0)
-    , _latitude             (0)
-    , _longitude            (0)
 {
     _showAdvancedUI = true;
 }
@@ -33,20 +33,8 @@ void VHFTrackerQGCPlugin::setToolbox(QGCToolbox* toolbox)
     _vhfSettings = new VHFTrackerSettings(this);
     _vhfQGCOptions = new VHFTrackerQGCOptions(this, this);
 
-    int divisions = _vhfSettings->divisions()->rawValue().toInt();
-
-    double divisionIncrement = 100.0 / divisions * 2;
-    double strength = 0;
-    for (int i=0; i<8; i++) {
-        _angleStrengths << QString("%1").arg((int)strength);
-        strength += divisionIncrement;
-    }
-    strength -= divisionIncrement;
-    for (int i=0; i<8; i++) {
-        strength -= divisionIncrement;
-        _angleStrengths << QString("%1").arg((int)(strength));
-    }
-    _strongestAngle = 7;
+    connect(_toolbox->multiVehicleManager(),    &MultiVehicleManager::parameterReadyVehicleAvailableChanged,    this, &VHFTrackerQGCPlugin::_vehicleReady);
+    connect(_vhfSettings->frequency(),          &Fact::rawValueChanged,                                         this, &VHFTrackerQGCPlugin::_sendFreqToVehicle);
 }
 
 QString VHFTrackerQGCPlugin::brandImageIndoor(void) const
@@ -92,26 +80,6 @@ bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, 
     return true;
 }
 
-#if 0
-bool VHFTrackerQGCPlugin::_handleMemoryVect(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
-{
-    Q_UNUSED(link);
-
-    mavlink_memory_vect_t memoryVect;
-
-    mavlink_msg_memory_vect_decode(&message, &memoryVect);
-
-    QList<QColor> signalStrengthColors;
-    for (int i=0; i<16; i++) {
-        signalStrengthColors.append(QColor(0, (uint8_t)memoryVect.value[i] * 2, 0));
-    }
-
-    _mapItems.append(new DirectionMapItem(vehicle->coordinate(), signalStrengthColors, this));
-
-    return false;
-}
-#endif
-
 bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
 {
     Q_UNUSED(vehicle);
@@ -137,54 +105,7 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
             }
             _elapsedTimer.restart();
         }
-    } else if (debugMsg.ind == 0) {
-#if 0
-        qDebug() << "Strong";
-        int strongHeading = debugMsg.time_boot_ms;
-        int pulseStrength = debugMsg.value;
-        QGeoCoordinate coordCenter = vehicle->coordinate();
-        QGeoCoordinate coordAnimal = coordCenter.atDistanceAndAzimuth(1000,  strongHeading);
-
-        _mapItems.append(new DirectionMapItem(coordCenter, strongHeading, pulseStrength, this));
-        _mapItems.append(new LineMapItem(coordCenter, strongHeading, pulseStrength, this));
-
-        QPair<QGeoCoordinate, QGeoCoordinate> linePair(coordCenter, coordAnimal);
-        _rgStrongLines.append(linePair);
-        if (_rgStrongLines.count() > 2) {
-            _rgStrongLines.removeFirst();
-        }
-
-        if (_rgStrongLines.count() == 2) {
-            double x, y, z;
-            QPointF pointCenter, pointAnimal;
-            QGeoCoordinate tangentOrigin = vehicle->coordinate();
-
-            convertGeoToNed(_rgStrongLines[0].first, tangentOrigin, &x, &y, &z);
-            pointCenter = QPointF(x, y);
-            convertGeoToNed(_rgStrongLines[0].second, tangentOrigin, &x, &y, &z);
-            pointAnimal = QPointF(x, y);
-            QLineF line1(pointCenter, pointAnimal);
-
-            convertGeoToNed(_rgStrongLines[1].first, tangentOrigin, &x, &y, &z);
-            pointCenter = QPointF(x, y);
-            convertGeoToNed(_rgStrongLines[1].second, tangentOrigin, &x, &y, &z);
-            pointAnimal = QPointF(x, y);
-            QLineF line2(pointCenter, pointAnimal);
-
-            QPointF intersectPoint;
-            line1.intersect(line2,  &intersectPoint);
-
-            QGeoCoordinate intersectCoord;
-            convertNedToGeo(intersectPoint.x(), intersectPoint.y(), 0, tangentOrigin, &intersectCoord);
-
-            _latitude = intersectCoord.latitude();
-            _longitude = intersectCoord.longitude();
-            emit latitudeChanged(_latitude);
-            emit longitudeChanged(_longitude);
-        }
-#endif
     }
-
 
     return false;
 }
@@ -270,20 +191,27 @@ void VHFTrackerQGCPlugin::_nextVehicleState(void)
     switch (currentState.command) {
     case MAV_CMD_NAV_TAKEOFF:
         // Takeoff to specified altitude
+        _say(QStringLiteral("Waiting for takeoff to %1 %2").arg(FactMetaData::metersToAppSettingsDistanceUnits(currentState.targetValue).toDouble()).arg(FactMetaData::appSettingsDistanceUnitsString()));
+        qCDebug(VHFTrackerQGCPluginLog) << "Takeoff" << currentState.targetValue;
         activeVehicle->guidedModeTakeoff(currentState.targetValue);
         break;
     case MAV_CMD_DO_REPOSITION:
+        _say(QStringLiteral("Waiting for rotate to %1 degrees").arg(qRound(currentState.targetValue)));
+        qCDebug(VHFTrackerQGCPluginLog) << "Rotate" << currentState.targetValue;
         _rotateVehicle(activeVehicle, currentState.targetValue);
         break;
     case MAV_CMD_NAV_DELAY:
+        _say(QStringLiteral("Collecting data for %1 seconds").arg(currentState.targetValue / 1000.0));
+        qCDebug(VHFTrackerQGCPluginLog) << "Delay" << currentState.targetValue;
         _vehicleStateIndex++;
         QTimer::singleShot(currentState.targetValue, this, &VHFTrackerQGCPlugin::_nextVehicleState);
         break;
     case MAV_CMD_NAV_RETURN_TO_LAUNCH:
+        _say(QStringLiteral("Collection complete returning"));
+        qCDebug(VHFTrackerQGCPluginLog) << "RTL";
         _vehicleStateIndex++;
         activeVehicle->setFlightMode(activeVehicle->rtlFlightMode());
-        _strengthsAvailable = true;
-        emit strengthsAvailableChanged(true);
+        _detectComplete();
         break;
     default:
         qgcApp()->showMessage(tr("VHFTrackerQGCPlugin::_nextVehicleState bad command %1").arg(currentState.command));
@@ -299,11 +227,63 @@ void VHFTrackerQGCPlugin::_vehicleStateRawValueChanged(QVariant rawValue)
 {
     const VehicleState_t& currentState = _vehicleStates[_vehicleStateIndex];
 
+    qCDebug(VHFTrackerQGCPluginLog) << "Waiting for value actual:wait:variance" << rawValue.toDouble() << currentState.targetValue << currentState.targetVariance;
+
     if (qAbs(rawValue.toDouble() - currentState.targetValue) < currentState.targetVariance) {
         disconnect(currentState.fact, &Fact::rawValueChanged, this, &VHFTrackerQGCPlugin::_vehicleStateRawValueChanged);
         _vehicleStateIndex++;
         if (_vehicleStateIndex < _vehicleStates.count()) {
             _nextVehicleState();
         }
+    }
+}
+
+void VHFTrackerQGCPlugin::_say(QString text)
+{
+    _toolbox->audioOutput()->say(text.toLower());
+}
+
+void VHFTrackerQGCPlugin::calibrateMaxPulse(void)
+{
+
+}
+
+
+void VHFTrackerQGCPlugin::_detectComplete(void)
+{
+    int divisions = _vhfSettings->divisions()->rawValue().toInt();
+
+    double divisionIncrement = 100.0 / divisions * 2;
+    double strength = 0;
+    for (int i=0; i<8; i++) {
+        _angleStrengths << QString("%1").arg((int)strength);
+        strength += divisionIncrement;
+    }
+    strength -= divisionIncrement;
+    for (int i=0; i<8; i++) {
+        strength -= divisionIncrement;
+        _angleStrengths << QString("%1").arg((int)(strength));
+    }
+    _strongestAngle = 7;
+
+    emit angleStrengthsChanged();
+    emit strongestAngleChanged(_strongestAngle);
+
+    _strengthsAvailable = true;
+    emit strengthsAvailableChanged(true);
+}
+
+void VHFTrackerQGCPlugin::_vehicleReady(bool ready)
+{
+    if (ready) {
+        _sendFreqToVehicle();
+    }
+}
+
+void VHFTrackerQGCPlugin::_sendFreqToVehicle(void)
+{
+    Vehicle* vehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
+    if (vehicle) {
+        vehicle->sendCommand(0, MAV_CMD_USER_1, true, _vhfSettings->frequency()->rawValue().toInt());
     }
 }

@@ -18,7 +18,8 @@
 const char* VHFTrackerSettings::_settingsGroup =        "VHFTracker";
 const char* VHFTrackerSettings::_altitudeFactName =     "Altitude";
 const char* VHFTrackerSettings::_divisionsFactName =    "Divisions";
-const char* VHFTrackerSettings::_frequencyFactName =    "frequency";
+const char* VHFTrackerSettings::_frequencyFactName =    "Frequency";
+const char* VHFTrackerSettings::_maxPulseFactName =     "MaxPulse";
 const char* VHFTrackerSettings::_gainFactName =         "gain";
 
 VHFTrackerSettings::VHFTrackerSettings(QObject* parent)
@@ -26,6 +27,7 @@ VHFTrackerSettings::VHFTrackerSettings(QObject* parent)
     , _altitudeFact     (nullptr)
     , _divisionsFact    (nullptr)
     , _frequencyFact    (nullptr)
+    , _maxPulseFact     (nullptr)
     , _gainFact         (nullptr)
 {
     QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
@@ -57,6 +59,15 @@ Fact* VHFTrackerSettings::frequency(void)
     }
 
     return _frequencyFact;
+}
+
+Fact* VHFTrackerSettings::maxPulse(void)
+{
+    if (!_maxPulseFact) {
+        _maxPulseFact = _createSettingsFact(_maxPulseFactName);
+    }
+
+    return _maxPulseFact;
 }
 
 Fact* VHFTrackerSettings::gain(void)

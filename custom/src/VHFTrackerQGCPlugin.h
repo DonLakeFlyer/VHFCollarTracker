@@ -4,11 +4,14 @@
 #include "QmlObjectListModel.h"
 #include "SettingsFact.h"
 #include "VHFTrackerQGCOptions.h"
+#include "QGCLoggingCategory.h"
 
 #include <QElapsedTimer>
 #include <QGeoCoordinate>
 
 class VHFTrackerSettings;
+
+Q_DECLARE_LOGGING_CATEGORY(VHFTrackerQGCPluginLog)
 
 class VHFTrackerQGCPlugin : public QGCCorePlugin
 {
@@ -19,15 +22,14 @@ public:
     ~VHFTrackerQGCPlugin();
 
     Q_PROPERTY(VHFTrackerSettings*  vhfSettings         MEMBER _vhfSettings         CONSTANT)
-    Q_PROPERTY(int                  beepStrength        MEMBER _beepStrength     NOTIFY beepStrengthChanged)
+    Q_PROPERTY(int                  beepStrength        MEMBER _beepStrength        NOTIFY beepStrengthChanged)
     Q_PROPERTY(int                  bpm                 MEMBER _bpm                 NOTIFY bpmChanged)
-    Q_PROPERTY(double               latitude            MEMBER _latitude            NOTIFY latitudeChanged)
-    Q_PROPERTY(double               longitude           MEMBER _longitude           NOTIFY longitudeChanged)
     Q_PROPERTY(QStringList          angleStrengths      MEMBER _angleStrengths      NOTIFY angleStrengthsChanged)
     Q_PROPERTY(int                  strongestAngle      MEMBER _strongestAngle      NOTIFY strongestAngleChanged)
     Q_PROPERTY(bool                 strengthsAvailable  MEMBER _strengthsAvailable  NOTIFY strengthsAvailableChanged)
 
-    Q_INVOKABLE void startDetection(void);
+    Q_INVOKABLE void startDetection     (void);
+    Q_INVOKABLE void calibrateMaxPulse  (void);
 
     // Overrides from QGCCorePlugin
     QString             brandImageIndoor    (void) const final;
@@ -43,8 +45,6 @@ public:
 signals:
     void beepStrengthChanged        (int beepStrength);
     void bpmChanged                 (int bpm);
-    void latitudeChanged            (double latitude);
-    void longitudeChanged           (double longitude);
     void angleStrengthsChanged      (void);
     void strongestAngleChanged      (int strongestAngle);
     void strengthsAvailableChanged  (bool strengthsAvailable);
@@ -52,6 +52,9 @@ signals:
 private slots:
     void _vehicleStateRawValueChanged   (QVariant rawValue);
     void _nextVehicleState              (void);
+    void _detectComplete                (void);
+    void _vehicleReady                  (bool ready);
+    void _sendFreqToVehicle             (void);
 
 private:
     typedef struct {
@@ -61,9 +64,9 @@ private:
         double  targetVariance;
     } VehicleState_t;
 
-    //bool _handleMemoryVect  (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
     bool _handleDebug   (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
     void _rotateVehicle (Vehicle* vehicle, double headingDegrees);
+    void _say           (QString text);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;
@@ -75,8 +78,6 @@ private:
 
     int                     _beepStrength;
     int                     _bpm;
-    double                  _latitude;
-    double                  _longitude;
     QElapsedTimer           _elapsedTimer;
     VHFTrackerQGCOptions*   _vhfQGCOptions;
     VHFTrackerSettings*     _vhfSettings;    

@@ -14,6 +14,21 @@
     "defaultValue":     16
 },
 {
+    "name":             "Frequency",
+    "shortDescription": "Pulse frequency",
+    "type":             "Int32",
+    "min":              146000,
+    "max":              146999,
+    "defaultValue":     146000
+},
+{
+    "name":             "MaxPulse",
+    "shortDescription": "Maximum pulse value",
+    "type":             "Int32",
+    "min":              1,
+    "defaultValue":     1
+},
+{
     "name":             "Layers",
     "shortDescription": "Number of scan layers.",
     "type":             "uint32",
