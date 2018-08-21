@@ -36,7 +36,7 @@ private:
     SettingsFact* _frequencyFact;
     SettingsFact* _maxPulseFact;
     SettingsFact* _gainFact;
-\
+
     static const char* _settingsGroup;
     static const char* _altitudeFactName;
     static const char* _divisionsFactName;
