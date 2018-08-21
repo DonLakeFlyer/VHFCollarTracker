@@ -21,14 +21,16 @@ public:
     VHFTrackerQGCPlugin(QGCApplication* app, QGCToolbox* toolbox);
     ~VHFTrackerQGCPlugin();
 
-    Q_PROPERTY(VHFTrackerSettings*  vhfSettings         MEMBER _vhfSettings         CONSTANT)
-    Q_PROPERTY(int                  beepStrength        MEMBER _beepStrength        NOTIFY beepStrengthChanged)
-    Q_PROPERTY(int                  bpm                 MEMBER _bpm                 NOTIFY bpmChanged)
-    Q_PROPERTY(QStringList          angleStrengths      MEMBER _angleStrengths      NOTIFY angleStrengthsChanged)
-    Q_PROPERTY(int                  strongestAngle      MEMBER _strongestAngle      NOTIFY strongestAngleChanged)
-    Q_PROPERTY(bool                 strengthsAvailable  MEMBER _strengthsAvailable  NOTIFY strengthsAvailableChanged)
+    Q_PROPERTY(VHFTrackerSettings*  vhfSettings         MEMBER _vhfSettings             CONSTANT)
+    Q_PROPERTY(int                  beepStrength        MEMBER _beepStrength            NOTIFY beepStrengthChanged)
+    Q_PROPERTY(int                  bpm                 MEMBER _bpm                     NOTIFY bpmChanged)
+    Q_PROPERTY(QStringList          angleStrengths      MEMBER _rgStringAngleStrengths  NOTIFY angleStrengthsChanged)
+    Q_PROPERTY(int                  strongestAngle      MEMBER _strongestAngle          NOTIFY strongestAngleChanged)
+    Q_PROPERTY(bool                 strengthsAvailable  MEMBER _strengthsAvailable      NOTIFY strengthsAvailableChanged)
 
+    Q_INVOKABLE void takeoff            (void);
     Q_INVOKABLE void startDetection     (void);
+    Q_INVOKABLE void stopDetection     (void);
     Q_INVOKABLE void calibrateMaxPulse  (void);
 
     // Overrides from QGCCorePlugin
@@ -53,8 +55,7 @@ private slots:
     void _vehicleStateRawValueChanged   (QVariant rawValue);
     void _nextVehicleState              (void);
     void _detectComplete                (void);
-    void _vehicleReady                  (bool ready);
-    void _sendFreqToVehicle             (void);
+    void _singleCaptureComplete         (void);
 
 private:
     typedef struct {
@@ -72,7 +73,9 @@ private:
     QVariantList            _instrumentPages;
     int                     _vehicleStateIndex;
     QList<VehicleState_t>   _vehicleStates;
-    QStringList             _angleStrengths;
+    QList<int>              _rgPulseValues;
+    QList<int>              _rgAngleStrengths;
+    QStringList             _rgStringAngleStrengths;
     int                     _strongestAngle;
     bool                    _strengthsAvailable;
 

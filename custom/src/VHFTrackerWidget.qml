@@ -82,8 +82,18 @@ Column {
     }
 
     QGCButton {
-        text:       qsTr("Start")
+        text:       qsTr("Takeoff")
+        onClicked:  _corePlugin.takeoff()
+    }
+
+    QGCButton {
+        text:       qsTr("Start Capture")
         onClicked:  _corePlugin.startDetection()
+    }
+
+    QGCButton {
+        text:       qsTr("Stop Capture")
+        onClicked:  _corePlugin.stopDetection()
     }
 
     QGCButton {

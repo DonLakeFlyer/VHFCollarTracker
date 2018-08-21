@@ -16,7 +16,7 @@ class VHFTrackerSettings : public SettingsGroup
     Q_OBJECT
     
 public:
-    VHFTrackerSettings(QObject* parent = NULL);
+    VHFTrackerSettings(QObject* parent = nullptr);
 
     Q_PROPERTY(Fact* altitude   READ altitude   CONSTANT)
     Q_PROPERTY(Fact* divisions  READ divisions  CONSTANT)
