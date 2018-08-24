@@ -269,6 +269,7 @@ void VHFTrackerQGCPlugin::_singleCaptureComplete(void)
     foreach(int pulse, _rgPulseValues) {
         maxPulse = qMax(maxPulse, pulse);
     }
+    _rgPulseValues.clear();
     _rgAngleStrengths.append(maxPulse);
     _nextVehicleState();
 }
