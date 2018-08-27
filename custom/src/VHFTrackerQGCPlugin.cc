@@ -265,8 +265,8 @@ void VHFTrackerQGCPlugin::calibrateMaxPulse(void)
 
 void VHFTrackerQGCPlugin::_singleCaptureComplete(void)
 {
-    int maxPulse = 0;
-    foreach(int pulse, _rgPulseValues) {
+    float maxPulse = 0;
+    foreach(float pulse, _rgPulseValues) {
         maxPulse = qMax(maxPulse, pulse);
     }
     _rgPulseValues.clear();
@@ -278,12 +278,12 @@ void VHFTrackerQGCPlugin::_detectComplete(void)
 {
     // Determine strongest angle and convert to string from Qml
 
-    int maxPulse = 0;
+    float maxPulse = 0;
     int currentAngle = 0;
     _strongestAngle = 0;
     _rgStringAngleStrengths.clear();
 
-    foreach(int pulse, _rgAngleStrengths) {
+    foreach(float pulse, _rgAngleStrengths) {
         if (pulse > maxPulse) {
             maxPulse = pulse;
             _strongestAngle = currentAngle;

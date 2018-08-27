@@ -35,7 +35,7 @@ Item {
     property real   _leftMargin:        ScreenTools.defaultFontPixelWidth * 10
     property real   _rightMargin:       ScreenTools.defaultFontPixelWidth * 35
     property int    _pulseCount:        0
-    property int    _pulseStrength:     0
+    property real   _pulseStrength:     0
     property int    _bpm:               _corePlugin.bpm
     property int    _strongestAngle:    _corePlugin.strongestAngle
 
@@ -71,7 +71,7 @@ Item {
                 anchors.horizontalCenter:   parent.horizontalCenter
                 width:                      (ScreenTools.defaultFontPixelWidth * ScreenTools.largeFontPointRatio) * 4
                 horizontalAlignment:        Text.AlignHCenter
-                text:                       _corePlugin.beepStrength
+                text:                       _corePlugin.beepStrength.toFixed(2)
                 color:                      "black"
                 font.pointSize:             ScreenTools.largeFontPointSize
             }
@@ -106,7 +106,7 @@ Item {
                 anchors.fill:           parent
                 color:                  "green"
 
-                property real   _maximumPulse:   78
+                property real   _maximumPulse:   _corePlugin.vhfSettings.maxPulse.rawValue
                 property real   _value:         _pulseStrength
                 property real   _rightMargin:   (parent.width - 2) - ((parent.width - 2) * (Math.min(_pulseStrength, _maximumPulse) / _maximumPulse))
 
