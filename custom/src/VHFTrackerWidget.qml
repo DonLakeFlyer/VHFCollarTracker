@@ -28,10 +28,11 @@ Column {
 
     property bool showSettingsIcon: false
 
-    property var _activeVehicle:    QGroundControl.multiVehicleManager.activeVehicle
-    property var _margins:          ScreenTools.defaultFontPixelWidth
-    property var _corePlugin:       QGroundControl.corePlugin
-    property var _vhfSettings:      _corePlugin.vhfSettings
+    property var    _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
+    property var    _margins:       ScreenTools.defaultFontPixelWidth
+    property var    _corePlugin:    QGroundControl.corePlugin
+    property var    _vhfSettings:   _corePlugin.vhfSettings
+    property bool   _takeoffStage2: false
 
     GridLayout {
         anchors.left:   parent.left
@@ -83,7 +84,26 @@ Column {
 
     QGCButton {
         text:       qsTr("Takeoff")
-        onClicked:  _corePlugin.takeoff()
+        visible:    !_takeoffStage2
+        onClicked:  _takeoffStage2 = true
+    }
+
+    Row {
+        spacing: ScreenTools.defaultFontPixelWidth / 2
+        visible: _takeoffStage2
+
+        QGCButton {
+            text:       qsTr("Really Takeoff")
+            onClicked: {
+                _takeoffStage2 = false
+                _corePlugin.takeoff()
+            }
+        }
+
+        QGCButton {
+            text:       qsTr("Cancel")
+            onClicked:  _takeoffStage2 = false
+        }
     }
 
     QGCButton {
