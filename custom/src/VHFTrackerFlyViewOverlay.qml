@@ -163,7 +163,7 @@ Item {
                     slice.color = Qt.rgba(darkness, darkness, darkness)
                 }
 
-                Item { property int _modelData: modelData }
+                Item { property real _modelData: modelData }
             }
 
             PieSeries {
