@@ -10,12 +10,31 @@
 #include <QPointF>
 #include <QLineF>
 
-static const int DEBUG_TS_COMMAND_ACK =             0;
-static const int DEBUG_INDEX_COMMAND_ACK_START = 	0;
-static const int DEBUG_INDEX_COMMAND_ACK_STOP = 	1;
+// Mavlink DEBUG messages are used to communicate with QGC in both directions.
+// 	DEBUG.time_boot_msg is used to hold a command id
+//	DEBUG.index/value are then command specific
 
-static const int DEBUG_TS_PULSE =       1;
-static const int DEBUG_INDEX_PULSE =	0;
+// Pulse value
+//	DEBUG.index - not used
+//	DEBUG.value = pulse value
+static const int DEBUG_COMMAND_ID_PULSE = 	0;
+
+// Set gain
+//	DEBUG.index - new gain
+//	DEBUG.value = not used
+static const int DEBUG_COMMAND_ID_SET_GAIN = 1;
+
+// Set frequency
+//	DEBUG.index - new frequency
+//	DEBUG.value = not used
+static const int DEBUG_COMMAND_ID_SET_FREQ = 2;
+
+// Ack for SET commands
+//	DEBUG.index - command being acked
+//	DEBUG.value - gain/freq value which was chaned to
+static const int DEBUG_COMMAND_ID_ACK = 			3;
+static const int DEBUG_COMMAND_ACK_SET_GAIN_INDEX =	0;
+static const int DEBUG_COMMAND_ACK_SET_FREQ_INDEX =	1;
 
 QGC_LOGGING_CATEGORY(VHFTrackerQGCPluginLog, "VHFTrackerQGCPluginLog")
 
@@ -94,7 +113,9 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
     mavlink_msg_debug_decode(&message, &debugMsg);
 
     switch (debugMsg.time_boot_ms) {
-    case DEBUG_TS_PULSE:
+    case DEBUG_COMMAND_ID_PULSE:
+        static int count = 0;
+        qDebug() << "DEBUG" << count++ << debugMsg.value;
         _beepStrength = debugMsg.value;
         emit beepStrengthChanged(_beepStrength);
         _rgPulseValues.append(_beepStrength);
@@ -111,14 +132,14 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
             _elapsedTimer.restart();
         }
         break;
-    case DEBUG_TS_COMMAND_ACK:
-        if (debugMsg.ind == DEBUG_INDEX_COMMAND_ACK_START) {
+    case DEBUG_COMMAND_ID_ACK:
+        if (debugMsg.ind == DEBUG_COMMAND_ACK_SET_FREQ_INDEX) {
             int freq = debugMsg.value;
             int numerator = freq / 1000;
             int denominator = freq - (numerator * 1000);
-            _say(QStringLiteral("Start capture %1.%2").arg(numerator).arg(denominator, 3, 10, QChar('0')));
-        } else if (debugMsg.ind == DEBUG_INDEX_COMMAND_ACK_STOP) {
-            _say(QStringLiteral("Stop capture"));
+            _say(QStringLiteral("Frequency changed %1.%2").arg(numerator).arg(denominator, 3, 10, QChar('0')));
+        } else if (debugMsg.ind == DEBUG_COMMAND_ACK_SET_GAIN_INDEX) {
+            _say(QStringLiteral("Gain changed to %2").arg(static_cast<int>(debugMsg.value)));
         }
         break;
     }
@@ -133,8 +154,6 @@ void VHFTrackerQGCPlugin::takeoff(void)
     if (!activeVehicle) {
         return;
     }
-
-    startDetection();
 
     VehicleState_t vehicleState;
     double targetAltitude = _vhfSettings->altitude()->rawValue().toDouble();
@@ -298,20 +317,4 @@ void VHFTrackerQGCPlugin::_detectComplete(void)
 
     _strengthsAvailable = true;
     emit strengthsAvailableChanged(true);
-}
-
-void VHFTrackerQGCPlugin::startDetection(void)
-{
-    Vehicle* vehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
-    if (vehicle) {
-        vehicle->sendCommand(0, MAV_CMD_USER_1, true, _vhfSettings->frequency()->rawValue().toInt());
-    }
-}
-
-void VHFTrackerQGCPlugin::stopDetection(void)
-{
-    Vehicle* vehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
-    if (vehicle) {
-        vehicle->sendCommand(0, MAV_CMD_USER_2, true);
-    }
 }

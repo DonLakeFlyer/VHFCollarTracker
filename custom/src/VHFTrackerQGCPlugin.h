@@ -29,8 +29,6 @@ public:
     Q_PROPERTY(bool                 strengthsAvailable  MEMBER _strengthsAvailable      NOTIFY strengthsAvailableChanged)
 
     Q_INVOKABLE void takeoff            (void);
-    Q_INVOKABLE void startDetection     (void);
-    Q_INVOKABLE void stopDetection     (void);
     Q_INVOKABLE void calibrateMaxPulse  (void);
 
     // Overrides from QGCCorePlugin
