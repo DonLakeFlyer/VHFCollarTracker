@@ -42,6 +42,7 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
     : QGCCorePlugin         (app, toolbox)
     , _vehicleStateIndex    (0)
     , _strengthsAvailable   (false)
+    , _flightMachineActive  (false)
     , _beepStrength         (0)
     , _bpm                  (0)
 {
@@ -147,6 +148,13 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
     return false;
 }
 
+void VHFTrackerQGCPlugin::_updateFlightMachineActive(bool flightMachineActive)
+{
+    _flightMachineActive = flightMachineActive;
+    emit flightMachineActiveChanged(flightMachineActive);
+}
+
+
 void VHFTrackerQGCPlugin::takeoff(void)
 {
     Vehicle* activeVehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
@@ -154,6 +162,8 @@ void VHFTrackerQGCPlugin::takeoff(void)
     if (!activeVehicle) {
         return;
     }
+
+    _updateFlightMachineActive(true);
 
     VehicleState_t vehicleState;
     double targetAltitude = _vhfSettings->altitude()->rawValue().toDouble();
@@ -220,6 +230,7 @@ void VHFTrackerQGCPlugin::_nextVehicleState(void)
 
     if (_vehicleStateIndex != 0 && activeVehicle->flightMode() != "Takeoff" && activeVehicle->flightMode() != "Hold") {
         // User cancel
+        _updateFlightMachineActive(false);
         return;
     }
 
@@ -267,6 +278,8 @@ void VHFTrackerQGCPlugin::_vehicleStateRawValueChanged(QVariant rawValue)
         _vehicleStateIndex++;
         if (_vehicleStateIndex < _vehicleStates.count()) {
             _nextVehicleState();
+        } else {
+            _updateFlightMachineActive(false);
         }
     }
 }
@@ -275,11 +288,6 @@ void VHFTrackerQGCPlugin::_say(QString text)
 {
     qCDebug(VHFTrackerQGCPluginLog) << text;
     _toolbox->audioOutput()->say(text.toLower());
-}
-
-void VHFTrackerQGCPlugin::calibrateMaxPulse(void)
-{
-
 }
 
 void VHFTrackerQGCPlugin::_singleCaptureComplete(void)

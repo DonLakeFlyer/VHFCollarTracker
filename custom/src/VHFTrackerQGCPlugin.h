@@ -27,9 +27,9 @@ public:
     Q_PROPERTY(QStringList          angleStrengths      MEMBER _rgStringAngleStrengths  NOTIFY angleStrengthsChanged)
     Q_PROPERTY(int                  strongestAngle      MEMBER _strongestAngle          NOTIFY strongestAngleChanged)
     Q_PROPERTY(bool                 strengthsAvailable  MEMBER _strengthsAvailable      NOTIFY strengthsAvailableChanged)
+    Q_PROPERTY(bool                 flightMachineActive MEMBER _flightMachineActive     NOTIFY flightMachineActiveChanged)
 
-    Q_INVOKABLE void takeoff            (void);
-    Q_INVOKABLE void calibrateMaxPulse  (void);
+    Q_INVOKABLE void takeoff(void);
 
     // Overrides from QGCCorePlugin
     QString             brandImageIndoor    (void) const final;
@@ -48,12 +48,14 @@ signals:
     void angleStrengthsChanged      (void);
     void strongestAngleChanged      (int strongestAngle);
     void strengthsAvailableChanged  (bool strengthsAvailable);
+    void flightMachineActiveChanged (bool flightMachineActive);
 
 private slots:
     void _vehicleStateRawValueChanged   (QVariant rawValue);
     void _nextVehicleState              (void);
     void _detectComplete                (void);
     void _singleCaptureComplete         (void);
+    void _updateFlightMachineActive     (bool flightMachineActive);
 
 private:
     typedef struct {
@@ -76,6 +78,7 @@ private:
     QStringList             _rgStringAngleStrengths;
     int                     _strongestAngle;
     bool                    _strengthsAvailable;
+    bool                    _flightMachineActive;
 
     float                   _beepStrength;
     int                     _bpm;
