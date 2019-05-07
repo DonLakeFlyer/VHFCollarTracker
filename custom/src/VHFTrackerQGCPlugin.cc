@@ -255,6 +255,7 @@ void VHFTrackerQGCPlugin::_nextVehicleState(void)
         _say(QStringLiteral("Collection complete returning"));
         _vehicleStateIndex++;
         activeVehicle->setFlightMode(activeVehicle->rtlFlightMode());
+        _updateFlightMachineActive(false);
         _detectComplete();
         break;
     default:
