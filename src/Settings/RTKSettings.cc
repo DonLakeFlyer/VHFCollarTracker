@@ -12,35 +12,16 @@
 #include <QQmlEngine>
 #include <QtQml>
 
-const char* RTKSettings::name =                                 "RTK";
-const char* RTKSettings::settingsGroup =                        "RTK";
-
-const char* RTKSettings::surveyInAccuracyLimitName =            "SurveyInAccuracyLimit";
-const char* RTKSettings::surveyInMinObservationDurationName =   "SurveyInMinObservationDuration";
-
-RTKSettings::RTKSettings(QObject* parent)
-    : SettingsGroup(name, settingsGroup, parent)
-    , _surveyInAccuracyLimitFact(NULL)
-    , _surveyInMinObservationDurationFact(NULL)
+DECLARE_SETTINGGROUP(RTK, "RTK")
 {
-    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
-    qmlRegisterUncreatableType<RTKSettings>("QGroundControl.SettingsManager", 1, 0, "RTKSettings", "Reference only");
+    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership); \
+    qmlRegisterUncreatableType<RTKSettings>("QGroundControl.SettingsManager", 1, 0, "RTKSettings", "Reference only"); \
 }
 
-Fact* RTKSettings::surveyInAccuracyLimit(void)
-{
-    if (!_surveyInAccuracyLimitFact) {
-        _surveyInAccuracyLimitFact = _createSettingsFact(surveyInAccuracyLimitName);
-    }
-
-    return _surveyInAccuracyLimitFact;
-}
-
-Fact* RTKSettings::surveyInMinObservationDuration(void)
-{
-    if (!_surveyInMinObservationDurationFact) {
-        _surveyInMinObservationDurationFact = _createSettingsFact(surveyInMinObservationDurationName);
-    }
-
-    return _surveyInMinObservationDurationFact;
-}
+DECLARE_SETTINGSFACT(RTKSettings, surveyInAccuracyLimit)
+DECLARE_SETTINGSFACT(RTKSettings, surveyInMinObservationDuration)
+DECLARE_SETTINGSFACT(RTKSettings, useFixedBasePosition)
+DECLARE_SETTINGSFACT(RTKSettings, fixedBasePositionLatitude)
+DECLARE_SETTINGSFACT(RTKSettings, fixedBasePositionLongitude)
+DECLARE_SETTINGSFACT(RTKSettings, fixedBasePositionAltitude)
+DECLARE_SETTINGSFACT(RTKSettings, fixedBasePositionAccuracy)

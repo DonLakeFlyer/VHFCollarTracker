@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ *   (c) 2009-2018 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -8,8 +8,7 @@
  ****************************************************************************/
 
 
-#ifndef MOCKLINK_H
-#define MOCKLINK_H
+#pragma once
 
 #include <QMap>
 #include <QLoggingCategory>
@@ -71,6 +70,7 @@ public:
     void        saveSettings    (QSettings& settings, const QString& root);
     void        updateSettings  (void);
     QString     settingsURL     () { return "MockLinkSettings.qml"; }
+    QString     settingsTitle   () { return tr("Mock Link Settings"); }
 
 signals:
     void firmwareChanged    ();
@@ -156,6 +156,7 @@ public:
     static MockLink* startAPMArduCopterMockLink  (bool sendStatusText, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
     static MockLink* startAPMArduPlaneMockLink   (bool sendStatusText, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
     static MockLink* startAPMArduSubMockLink     (bool sendStatusText, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
+    static MockLink* startAPMArduRoverMockLink   (bool sendStatusText, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
 
 private slots:
     virtual void _writeBytes(const QByteArray bytes);
@@ -204,6 +205,7 @@ private:
     void _sendADSBVehicles(void);
     void _moveADSBVehicle(void);
 
+    static MockLink* _startMockLinkWorker(QString configName, MAV_AUTOPILOT firmwareType, MAV_TYPE vehicleType, bool sendStatusText, MockConfiguration::FailureMode_t failureMode);
     static MockLink* _startMockLink(MockConfiguration* mockConfig);
 
     MockLinkMissionItemHandler  _missionItemHandler;
@@ -218,8 +220,8 @@ private:
     bool    _inNSH;
     bool    _mavlinkStarted;
 
-    QMap<int, QMap<QString, QVariant> > _mapParamName2Value;
-    QMap<QString, MAV_PARAM_TYPE>       _mapParamName2MavParamType;
+    QMap<int, QMap<QString, QVariant>>          _mapParamName2Value;
+    QMap<int, QMap<QString, MAV_PARAM_TYPE>>    _mapParamName2MavParamType;
 
     uint8_t     _mavBaseMode;
     uint32_t    _mavCustomMode;
@@ -260,4 +262,3 @@ private:
     static const char*  _failParam;
 };
 
-#endif

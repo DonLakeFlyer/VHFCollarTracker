@@ -26,26 +26,26 @@ PowerComponentController::PowerComponentController(void)
 void PowerComponentController::calibrateEsc(void)
 {
     _warningMessages.clear();
-    connect(_uas, &UASInterface::textMessageReceived, this, &PowerComponentController::_handleUASTextMessage);
+    connect(_vehicle, &Vehicle::textMessageReceived, this, &PowerComponentController::_handleUASTextMessage);
     _uas->startCalibration(UASInterface::StartCalibrationEsc);
 }
 
 void PowerComponentController::busConfigureActuators(void)
 {
     _warningMessages.clear();
-    connect(_uas, &UASInterface::textMessageReceived, this, &PowerComponentController::_handleUASTextMessage);
+    connect(_vehicle, &Vehicle::textMessageReceived, this, &PowerComponentController::_handleUASTextMessage);
     _uas->startBusConfig(UASInterface::StartBusConfigActuators);
 }
 
 void PowerComponentController::stopBusConfigureActuators(void)
 {
-    disconnect(_uas, &UASInterface::textMessageReceived, this, &PowerComponentController::_handleUASTextMessage);
+    disconnect(_vehicle, &Vehicle::textMessageReceived, this, &PowerComponentController::_handleUASTextMessage);
     _uas->startBusConfig(UASInterface::EndBusConfigActuators);
 }
 
 void PowerComponentController::_stopCalibration(void)
 {
-    disconnect(_uas, &UASInterface::textMessageReceived, this, &PowerComponentController::_handleUASTextMessage);
+    disconnect(_vehicle, &Vehicle::textMessageReceived, this, &PowerComponentController::_handleUASTextMessage);
 }
 
 void PowerComponentController::_stopBusConfig(void)
@@ -140,7 +140,6 @@ void PowerComponentController::_handleUASTextMessage(int uasId, int compId, int 
         return;
     }
 
-    QString busCompletePrefix("bus conf done:");
     if (text.startsWith(calCompletePrefix)) {
         _stopBusConfig();
         emit calibrationSuccess(_warningMessages);

@@ -185,6 +185,8 @@ QGCSerialPortInfo::BoardType_t QGCSerialPortInfo::_boardClassStringToType(const 
 
 bool QGCSerialPortInfo::getBoardInfo(QGCSerialPortInfo::BoardType_t& boardType, QString& name) const
 {
+    boardType = BoardTypeUnknown;
+
     _loadJsonData();
 
     if (isNull()) {
@@ -220,7 +222,6 @@ bool QGCSerialPortInfo::getBoardInfo(QGCSerialPortInfo::BoardType_t& boardType, 
         }
     }
 
-    boardType = BoardTypeUnknown;
     return false;
 }
 
@@ -251,7 +252,7 @@ QList<QGCSerialPortInfo> QGCSerialPortInfo::availablePorts(void)
 {
     QList<QGCSerialPortInfo>    list;
 
-    foreach(QSerialPortInfo portInfo, QSerialPortInfo::availablePorts()) {
+    for(QSerialPortInfo portInfo: QSerialPortInfo::availablePorts()) {
         if (!isSystemPort(&portInfo)) {
             list << *((QGCSerialPortInfo*)&portInfo);
         }

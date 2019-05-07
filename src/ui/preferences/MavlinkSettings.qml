@@ -15,6 +15,7 @@ import QtQuick.Dialogs          1.2
 
 import QGroundControl                       1.0
 import QGroundControl.FactSystem            1.0
+import QGroundControl.FactControls          1.0
 import QGroundControl.Controls              1.0
 import QGroundControl.ScreenTools           1.0
 import QGroundControl.MultiVehicleManager   1.0
@@ -30,6 +31,7 @@ Rectangle {
     property int  _selectedCount:       0
     property real _columnSpacing:       ScreenTools.defaultFontPixelHeight * 0.25
     property bool _uploadedSelected:    false
+    property var  _activeVehicle:       QGroundControl.multiVehicleManager.activeVehicle
 
     QGCPalette { id: qgcPal }
 
@@ -131,8 +133,7 @@ Rectangle {
                             }
                         }
                     }
-                    //-----------------------------------------------------------------
-                    //-- Mavlink Heartbeats
+
                     QGCCheckBox {
                         text:       qsTr("Emit heartbeat")
                         checked:    QGroundControl.multiVehicleManager.gcsHeartBeatEnabled
@@ -140,13 +141,103 @@ Rectangle {
                             QGroundControl.multiVehicleManager.gcsHeartBeatEnabled = checked
                         }
                     }
-                    //-----------------------------------------------------------------
-                    //-- Mavlink Version Check
+
+                    FactCheckBox {
+                        text:   fact.shortDescription
+                        fact:   QGroundControl.settingsManager.appSettings.apmStartMavlinkStreams
+                    }
+
                     QGCCheckBox {
                         text:       qsTr("Only accept MAVs with same protocol version")
                         checked:    QGroundControl.isVersionCheckEnabled
                         onClicked: {
                             QGroundControl.isVersionCheckEnabled = checked
+                        }
+                    }
+                }
+            }
+            //-----------------------------------------------------------------
+            //-- Mavlink Status
+            Item {
+                width:              __mavlinkRoot.width * 0.8
+                height:             mavStatusLabel.height
+                anchors.margins:    ScreenTools.defaultFontPixelWidth
+                anchors.horizontalCenter: parent.horizontalCenter
+                QGCLabel {
+                    id:             mavStatusLabel
+                    text:           qsTr("MAVLink Link Status (Current Vehicle)")
+                    font.family:    ScreenTools.demiboldFontFamily
+                }
+            }
+            Rectangle {
+                height:         mavStatusColumn.height + (ScreenTools.defaultFontPixelHeight * 2)
+                width:          __mavlinkRoot.width * 0.8
+                color:          qgcPal.windowShade
+                anchors.margins: ScreenTools.defaultFontPixelWidth
+                anchors.horizontalCenter: parent.horizontalCenter
+                Column {
+                    id:         mavStatusColumn
+                    width:      gcsColumn.width
+                    spacing:    _columnSpacing
+                    anchors.centerIn: parent
+                    //-----------------------------------------------------------------
+                    Row {
+                        spacing:    ScreenTools.defaultFontPixelWidth
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        QGCLabel {
+                            width:              _labelWidth
+                            text:               qsTr("Total messages sent (computed):")
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        QGCLabel {
+                            width:              _valueWidth
+                            text:               _activeVehicle ? _activeVehicle.mavlinkSentCount : qsTr("Not Connected")
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                    //-----------------------------------------------------------------
+                    Row {
+                        spacing:    ScreenTools.defaultFontPixelWidth
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        QGCLabel {
+                            width:              _labelWidth
+                            text:               qsTr("Total messages received:")
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        QGCLabel {
+                            width:              _valueWidth
+                            text:               _activeVehicle ? _activeVehicle.mavlinkReceivedCount : qsTr("Not Connected")
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                    //-----------------------------------------------------------------
+                    Row {
+                        spacing:    ScreenTools.defaultFontPixelWidth
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        QGCLabel {
+                            width:              _labelWidth
+                            text:               qsTr("Total message loss:")
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        QGCLabel {
+                            width:              _valueWidth
+                            text:               _activeVehicle ? _activeVehicle.mavlinkLossCount : qsTr("Not Connected")
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                    //-----------------------------------------------------------------
+                    Row {
+                        spacing:    ScreenTools.defaultFontPixelWidth
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        QGCLabel {
+                            width:              _labelWidth
+                            text:               qsTr("Loss rate:")
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        QGCLabel {
+                            width:              _valueWidth
+                            text:               _activeVehicle ? _activeVehicle.mavlinkLossPercent.toFixed(0) + '%' : qsTr("Not Connected")
+                            anchors.verticalCenter: parent.verticalCenter
                         }
                     }
                 }

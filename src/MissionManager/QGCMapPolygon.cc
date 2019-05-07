@@ -12,7 +12,7 @@
 #include "JsonHelper.h"
 #include "QGCQGeoCoordinate.h"
 #include "QGCApplication.h"
-#include "KMLFileHelper.h"
+#include "ShapeFileHelper.h"
 
 #include <QGeoRectangle>
 #include <QDebug>
@@ -58,7 +58,7 @@ const QGCMapPolygon& QGCMapPolygon::operator=(const QGCMapPolygon& other)
 
     QVariantList vertices = other.path();
     QList<QGeoCoordinate> rgCoord;
-    foreach (const QVariant& vertexVar, vertices) {
+    for (const QVariant& vertexVar: vertices) {
         rgCoord.append(vertexVar.value<QGeoCoordinate>());
     }
     appendVertices(rgCoord);
@@ -92,11 +92,11 @@ void QGCMapPolygon::clear(void)
 void QGCMapPolygon::adjustVertex(int vertexIndex, const QGeoCoordinate coordinate)
 {
     _polygonPath[vertexIndex] = QVariant::fromValue(coordinate);
+    _polygonModel.value<QGCQGeoCoordinate*>(vertexIndex)->setCoordinate(coordinate);
     if (!_centerDrag) {
-        // When dragging center we don't signal path changed until add vertices are updated
+        // When dragging center we don't signal path changed until all vertices are updated
         emit pathChanged();
     }
-    _polygonModel.value<QGCQGeoCoordinate*>(vertexIndex)->setCoordinate(coordinate);
     setDirty(true);
 }
 
@@ -162,7 +162,7 @@ void QGCMapPolygon::setPath(const QList<QGeoCoordinate>& path)
 {
     _polygonPath.clear();
     _polygonModel.clearAndDeleteContents();
-    foreach(const QGeoCoordinate& coord, path) {
+    for(const QGeoCoordinate& coord: path) {
         _polygonPath.append(QVariant::fromValue(coord));
         _polygonModel.append(new QGCQGeoCoordinate(coord, this));
     }
@@ -265,7 +265,7 @@ void QGCMapPolygon::appendVertices(const QList<QGeoCoordinate>& coordinates)
 {
     QList<QObject*> objects;
 
-    foreach (const QGeoCoordinate& coordinate, coordinates) {
+    for (const QGeoCoordinate& coordinate: coordinates) {
         objects.append(new QGCQGeoCoordinate(coordinate, this));
         _polygonPath.append(QVariant::fromValue(coordinate));
     }
@@ -340,7 +340,7 @@ void QGCMapPolygon::setCenter(QGeoCoordinate newCenter)
         }
 
         if (_centerDrag) {
-            // When center dragging signals are delayed until all vertices are updated
+            // When center dragging, signals from adjustVertext are not sent. So we need to signal here when all adjusting is complete.
             emit pathChanged();
         }
 
@@ -452,11 +452,11 @@ void QGCMapPolygon::offset(double distance)
     appendVertices(rgNewPolygon);
 }
 
-bool QGCMapPolygon::loadKMLFile(const QString& kmlFile)
+bool QGCMapPolygon::loadKMLOrSHPFile(const QString& file)
 {
     QString errorString;
     QList<QGeoCoordinate> rgCoords;
-    if (!KMLFileHelper::loadPolygonFromFile(kmlFile, rgCoords, errorString)) {
+    if (!ShapeFileHelper::loadPolygonFromFile(file, rgCoords, errorString)) {
         qgcApp()->showMessage(errorString);
         return false;
     }
@@ -485,4 +485,31 @@ double QGCMapPolygon::area(void) const
         }
     }
     return 0.5 * fabs(coveredArea);
+}
+
+void QGCMapPolygon::verifyClockwiseWinding(void)
+{
+    if (_polygonPath.count() <= 2) {
+        return;
+    }
+
+    double sum = 0;
+    for (int i=0; i<_polygonPath.count(); i++) {
+        QGeoCoordinate coord1 = _polygonPath[i].value<QGeoCoordinate>();
+        QGeoCoordinate coord2 = (i == _polygonPath.count() - 1) ? _polygonPath[0].value<QGeoCoordinate>() : _polygonPath[i+1].value<QGeoCoordinate>();
+
+        sum += (coord2.longitude() - coord1.longitude()) * (coord2.latitude() + coord1.latitude());
+    }
+
+    if (sum < 0.0) {
+        // Winding is counter-clockwise and needs reversal
+
+        QList<QGeoCoordinate> rgReversed;
+        for (const QVariant& varCoord: _polygonPath) {
+            rgReversed.prepend(varCoord.value<QGeoCoordinate>());
+        }
+
+        clear();
+        appendVertices(rgReversed);
+    }
 }

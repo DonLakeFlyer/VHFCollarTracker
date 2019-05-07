@@ -131,11 +131,9 @@ Item {
 
         onResetStatusTextArea: statusLog.text = statusTextAreaDefaultText
 
-        onSetCompassRotations: {
-            if (!_sensorsHaveFixedOrientation && (showCompass0Rot || showCompass1Rot || showCompass2Rot)) {
-                setOrientationsDialogShowBoardOrientation = false
-                showDialog(setOrientationsDialogComponent, qsTr("Set Compass Rotation(s)"), qgcView.showDialogDefaultWidth, StandardButton.Ok)
-            }
+        onMagCalComplete: {
+            setOrientationsDialogShowBoardOrientation = false
+            showDialog(setOrientationsDialogComponent, qsTr("Compass Calibration Complete"), qgcView.showDialogDefaultWidth, StandardButton.Ok)
         }
 
         onWaitingForCancelChanged: {
@@ -255,7 +253,24 @@ Item {
                     QGCLabel {
                         width:      parent.width
                         wrapMode:   Text.WordWrap
+                        text:       _sensorsHaveFixedOrientation ?
+                                        qsTr("Make sure to reboot the vehicle prior to flight.") :
+                                        qsTr("Set your compass orientations below and the make sure to reboot the vehicle prior to flight.")
+                    }
+
+                    QGCButton {
+                        text: qsTr("Reboot Vehicle")
+                        onClicked: {
+                            controller.vehicle.rebootVehicle()
+                            hideDialog()
+                        }
+                    }
+
+                    QGCLabel {
+                        width:      parent.width
+                        wrapMode:   Text.WordWrap
                         text:       boardRotationText
+                        visible:    !_sensorsHaveFixedOrientation
                     }
 
                     Column {
@@ -273,8 +288,10 @@ Item {
                         }
                     }
 
+                    // Compass 0 rotation
                     Column {
-                        // Compass 0 rotation
+                        visible: !_sensorsHaveFixedOrientation
+
                         Component {
                             id: compass0ComponentLabel2
 
@@ -298,8 +315,10 @@ Item {
                         Loader { sourceComponent: showCompass0Rot ? compass0ComponentCombo2 : null }
                     }
 
+                    // Compass 1 rotation
                     Column {
-                        // Compass 1 rotation
+                        visible: !_sensorsHaveFixedOrientation
+
                         Component {
                             id: compass1ComponentLabel2
 
@@ -323,10 +342,11 @@ Item {
                         Loader { sourceComponent: showCompass1Rot ? compass1ComponentCombo2 : null }
                     }
 
+                    // Compass 2 rotation
                     Column {
+                        visible: !_sensorsHaveFixedOrientation
                         spacing: ScreenTools.defaultFontPixelWidth
 
-                        // Compass 2 rotation
                         Component {
                             id: compass2ComponentLabel2
 

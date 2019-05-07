@@ -13,11 +13,12 @@ import QtLocation       5.3
 import QtPositioning    5.3
 import QtQuick.Dialogs  1.2
 
-import QGroundControl               1.0
-import QGroundControl.ScreenTools   1.0
-import QGroundControl.Palette       1.0
-import QGroundControl.Controls      1.0
-import QGroundControl.FlightMap     1.0
+import QGroundControl                   1.0
+import QGroundControl.ScreenTools       1.0
+import QGroundControl.Palette           1.0
+import QGroundControl.Controls          1.0
+import QGroundControl.FlightMap         1.0
+import QGroundControl.ShapeFileHelper   1.0
 
 /// QGCMapPolygon map visuals
 Item {
@@ -123,7 +124,6 @@ Item {
         _circle = false
     }
 
-    /// Reset polygon to a circle which fits within initial polygon
     function setCircleRadius(center, radius) {
         var unboundCenter = center.atDistanceAndAzimuth(0, 0)
         _circleRadius = radius
@@ -172,16 +172,17 @@ Item {
     QGCPalette { id: qgcPal }
 
     QGCFileDialog {
-        id:             kmlLoadDialog
+        id:             kmlOrSHPLoadDialog
         qgcView:        _root.qgcView
         folder:         QGroundControl.settingsManager.appSettings.missionSavePath
-        title:          qsTr("Select KML File")
+        title:          qsTr("Select Polygon File")
         selectExisting: true
-        nameFilters:    [ qsTr("KML files (*.kml)") ]
+        nameFilters:    ShapeFileHelper.fileDialogKMLOrSHPFilters
         fileExtension:  QGroundControl.settingsManager.appSettings.kmlFileExtension
+        fileExtension2: QGroundControl.settingsManager.appSettings.shpFileExtension
 
         onAcceptedForLoad: {
-            mapPolygon.loadKMLFile(file)
+            mapPolygon.loadKMLOrSHPFile(file)
             mapFitFunctions.fitMapViewportToMissionItems()
             close()
         }
@@ -190,20 +191,25 @@ Item {
     Menu {
         id: menu
 
-        property int _removeVertexIndex
+        property int _editingVertexIndex: -1
 
-        function popUpWithIndex(curIndex) {
-            _removeVertexIndex = curIndex
-            removeVertexItem.visible = (mapPolygon.count > 3 && _removeVertexIndex >= 0)
+        function popupVertex(curIndex) {
+            menu._editingVertexIndex = curIndex
+            removeVertexItem.visible = (mapPolygon.count > 3 && menu._editingVertexIndex >= 0)
+            menu.popup()
+        }
+
+        function popupCenter() {
             menu.popup()
         }
 
         MenuItem {
             id:             removeVertexItem
+            visible:        !_circle
             text:           qsTr("Remove vertex")
             onTriggered: {
-                if(menu._removeVertexIndex >= 0) {
-                    mapPolygon.removeVertex(menu._removeVertexIndex)
+                if (menu._editingVertexIndex >= 0) {
+                    mapPolygon.removeVertex(menu._editingVertexIndex)
                 }
             }
         }
@@ -230,13 +236,19 @@ Item {
 
         MenuItem {
             text:           qsTr("Edit position..." )
-            enabled:        _circle
-            onTriggered:    qgcView.showDialog(editPositionDialog, qsTr("Edit Position"), qgcView.showDialogDefaultWidth, StandardButton.Close)
+            visible:        _circle
+            onTriggered:    qgcView.showDialog(editCenterPositionDialog, qsTr("Edit Center Position"), qgcView.showDialogDefaultWidth, StandardButton.Close)
         }
 
         MenuItem {
-            text:           qsTr("Load KML...")
-            onTriggered:    kmlLoadDialog.openForLoad()
+            text:           qsTr("Edit position..." )
+            visible:        !_circle && menu._editingVertexIndex >= 0
+            onTriggered:    qgcView.showDialog(editVertexPositionDialog, qsTr("Edit Vertex Position"), qgcView.showDialogDefaultWidth, StandardButton.Close)
+        }
+
+        MenuItem {
+            text:           qsTr("Load KML/SHP...")
+            onTriggered:    kmlOrSHPLoadDialog.openForLoad()
         }
     }
 
@@ -332,6 +344,7 @@ Item {
             mapControl: _root.mapControl
             z:          _zorderDragHandle
             visible:    !_circle
+            onDragStop: mapPolygon.verifyClockwiseWinding()
 
             property int polygonVertex
 
@@ -346,9 +359,7 @@ Item {
                 }
             }
 
-            onClicked: {
-                menu.popUpWithIndex(polygonVertex)
-            }
+            onClicked: menu.popupVertex(polygonVertex)
         }
     }
 
@@ -437,11 +448,29 @@ Item {
     }
 
     Component {
-        id: editPositionDialog
+        id: editCenterPositionDialog
 
         EditPositionDialog {
             coordinate: mapPolygon.center
-            onCoordinateChanged: mapPolygon.center = coordinate
+            onCoordinateChanged: {
+                // Prevent spamming signals on vertex changes by setting centerDrag = true when changing center position.
+                // This also fixes a bug where Qt gets confused by all the signalling and draws a bad visual.
+                mapPolygon.centerDrag = true
+                mapPolygon.center = coordinate
+                mapPolygon.centerDrag = false
+            }
+        }
+    }
+
+    Component {
+        id: editVertexPositionDialog
+
+        EditPositionDialog {
+            coordinate:             mapPolygon.vertexCoordinate(menu._editingVertexIndex)
+            onCoordinateChanged: {
+                mapPolygon.adjustVertex(menu._editingVertexIndex, coordinate)
+                mapPolygon.verifyClockwiseWinding()
+            }
         }
     }
 
@@ -455,12 +484,11 @@ Item {
             onDragStart:                mapPolygon.centerDrag = true
             onDragStop:                 mapPolygon.centerDrag = false
 
-            onClicked: {
-                menu.popUpWithIndex(-1)      //-- Don't offer a choice to delete vertex (cur index == -1)
-            }
+            onClicked: menu.popupCenter()
 
             function setRadiusFromDialog() {
-                setCircleRadius(mapPolygon.center, radiusField.text)
+                var radius = QGroundControl.appSettingsDistanceUnitsToMeters(radiusField.text)
+                setCircleRadius(mapPolygon.center, radius)
                 _editCircleRadius = false
             }
 
@@ -484,7 +512,9 @@ Item {
 
                     QGCTextField {
                         id:                 radiusField
-                        text:               _circleRadius.toFixed(2)
+                        showUnits:          true
+                        unitsLabel:         QGroundControl.appSettingsDistanceUnitsString
+                        text:               QGroundControl.metersToAppSettingsDistanceUnits(_circleRadius).toFixed(2)
                         onEditingFinished:  setRadiusFromDialog()
                         inputMethodHints:   Qt.ImhFormattedNumbersOnly
                     }

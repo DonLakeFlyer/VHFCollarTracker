@@ -13,12 +13,35 @@ import QtMultimedia             5.5
 import QGroundControl           1.0
 
 Rectangle {
-    anchors.fill:       parent
+    id:                 _root
+    width:              parent.width
+    height:             parent.height
     color:              Qt.rgba(0,0,0,0.75)
+    clip:               true
+    anchors.centerIn:   parent
+
+    function adjustAspectRatio()
+    {
+        //-- Set aspect ratio
+        var size = camera.viewfinder.resolution
+        if(size.height > 0 && size.width > 0) {
+            var ar = size.width / size.height
+            _root.height = parent.height * ar
+        }
+    }
+
     Camera {
         id:             camera
         deviceId:       QGroundControl.videoManager.videoSourceID
         captureMode:    Camera.CaptureViewfinder
+        onDeviceIdChanged: {
+            adjustAspectRatio()
+        }
+        onCameraStateChanged: {
+            if(camera.cameraStatus === Camera.ActiveStatus) {
+                adjustAspectRatio()
+            }
+        }
     }
     VideoOutput {
         source:         camera

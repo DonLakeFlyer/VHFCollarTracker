@@ -16,6 +16,7 @@ import QGroundControl               1.0
 import QGroundControl.ScreenTools   1.0
 import QGroundControl.Vehicle       1.0
 import QGroundControl.Controls      1.0
+import QGroundControl.FactSystem    1.0
 import QGroundControl.FactControls  1.0
 import QGroundControl.Palette       1.0
 
@@ -118,9 +119,9 @@ Rectangle {
                 QGCRadioButton {
                     id:                 specifyLandingDistance
                     text:               qsTr("Landing Dist")
-                    checked:            missionItem.valueSetIsDistance
+                    checked:            missionItem.valueSetIsDistance.rawValue
                     exclusiveGroup:     distanceGlideGroup
-                    onClicked:          missionItem.valueSetIsDistance = checked
+                    onClicked:          missionItem.valueSetIsDistance.rawValue = checked
                     Layout.fillWidth:   true
                 }
 
@@ -133,9 +134,9 @@ Rectangle {
                 QGCRadioButton {
                     id:                 specifyGlideSlope
                     text:               qsTr("Glide Slope")
-                    checked:            !missionItem.valueSetIsDistance
+                    checked:            !missionItem.valueSetIsDistance.rawValue
                     exclusiveGroup:     distanceGlideGroup
-                    onClicked:          missionItem.valueSetIsDistance = !checked
+                    onClicked:          missionItem.valueSetIsDistance.rawValue = !checked
                     Layout.fillWidth:   true
                 }
 
@@ -162,6 +163,34 @@ Rectangle {
             checked:        missionItem.altitudesAreRelative
             visible:        QGroundControl.corePlugin.options.showMissionAbsoluteAltitude || !missionItem.altitudesAreRelative
             onClicked:      missionItem.altitudesAreRelative = checked
+        }
+
+        SectionHeader {
+            id:     cameraSection
+            text:   qsTr("Camera")
+        }
+
+        Column {
+            anchors.left:       parent.left
+            anchors.right:      parent.right
+            spacing:            _margin
+            visible:            cameraSection.checked
+
+            Item { width: 1; height: _spacer }
+
+            FactCheckBox {
+                text:       _stopTakingPhotos.shortDescription
+                fact:       _stopTakingPhotos
+
+                property Fact _stopTakingPhotos: missionItem.stopTakingPhotos
+            }
+
+            FactCheckBox {
+                text:       _stopTakingVideo.shortDescription
+                fact:       _stopTakingVideo
+
+                property Fact _stopTakingVideo: missionItem.stopTakingVideo
+            }
         }
     }
 

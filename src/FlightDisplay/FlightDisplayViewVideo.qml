@@ -8,8 +8,8 @@
  ****************************************************************************/
 
 
-import QtQuick                          2.3
-import QtQuick.Controls                 1.2
+import QtQuick                          2.11
+import QtQuick.Controls                 2.4
 
 import QGroundControl                   1.0
 import QGroundControl.FlightDisplay     1.0
@@ -22,12 +22,17 @@ import QGroundControl.Controllers       1.0
 
 Item {
     id: root
-    property double _ar:                QGroundControl.settingsManager.videoSettings.aspectRatio.rawValue
+    property double _ar:                QGroundControl.videoManager.aspectRatio
     property bool   _showGrid:          QGroundControl.settingsManager.videoSettings.gridLines.rawValue > 0
     property var    _videoReceiver:     QGroundControl.videoManager.videoReceiver
     property var    _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
     property var    _dynamicCameras:    _activeVehicle ? _activeVehicle.dynamicCameras : null
     property bool   _connected:         _activeVehicle ? !_activeVehicle.connectionLost : false
+    property int    _curCameraIndex:    _dynamicCameras ? _dynamicCameras.currentCamera : 0
+    property bool   _isCamera:          _dynamicCameras ? _dynamicCameras.cameras.count > 0 : false
+    property var    _camera:            _isCamera ? _dynamicCameras.cameras.get(_curCameraIndex) : null
+    property bool   _hasZoom:           _camera && _camera.hasZoom
+    property int    _fitMode:           QGroundControl.settingsManager.videoSettings.videoFit.rawValue
     Rectangle {
         id:             noVideo
         anchors.fill:   parent
@@ -51,10 +56,26 @@ Item {
         anchors.fill:   parent
         color:          "black"
         visible:        _videoReceiver && _videoReceiver.videoRunning
+        function getWidth() {
+            //-- Fit Width or Stretch
+            if(_fitMode === 0 || _fitMode === 2) {
+                return parent.width
+            }
+            //-- Fit Height
+            return _ar != 0.0 ? parent.height * _ar : parent.width
+        }
+        function getHeight() {
+            //-- Fit Height or Stretch
+            if(_fitMode === 1 || _fitMode === 2) {
+                return parent.height
+            }
+            //-- Fit Width
+            return _ar != 0.0 ? parent.width * (1 / _ar) : parent.height
+        }
         QGCVideoBackground {
             id:             videoContent
-            height:         parent.height
-            width:          _ar != 0.0 ? height * _ar : parent.width
+            height:         parent.getHeight()
+            width:          parent.getWidth()
             anchors.centerIn: parent
             receiver:       _videoReceiver
             display:        _videoReceiver && _videoReceiver.videoSurface
@@ -103,6 +124,26 @@ Item {
             onDoubleClicked: {
                 QGroundControl.videoManager.fullScreen = !QGroundControl.videoManager.fullScreen
             }
+        }
+        PinchArea {
+            id:             pinchZoom
+            enabled:        _hasZoom
+            anchors.fill:   parent
+            onPinchStarted: pinchZoom.zoom = 0
+            onPinchUpdated: {
+                if(_hasZoom) {
+                    var z = 0
+                    if(pinch.scale < 1) {
+                        z = Math.round(pinch.scale * -10)
+                    } else {
+                        z = Math.round(pinch.scale)
+                    }
+                    if(pinchZoom.zoom != z) {
+                        _camera.stepZoom(z)
+                    }
+                }
+            }
+            property int zoom: 0
         }
     }
 }

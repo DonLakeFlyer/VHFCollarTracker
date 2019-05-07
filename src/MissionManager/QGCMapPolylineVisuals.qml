@@ -13,11 +13,12 @@ import QtLocation       5.3
 import QtPositioning    5.3
 import QtQuick.Dialogs  1.2
 
-import QGroundControl               1.0
-import QGroundControl.ScreenTools   1.0
-import QGroundControl.Palette       1.0
-import QGroundControl.Controls      1.0
-import QGroundControl.FlightMap     1.0
+import QGroundControl                   1.0
+import QGroundControl.ScreenTools       1.0
+import QGroundControl.Palette           1.0
+import QGroundControl.Controls          1.0
+import QGroundControl.FlightMap         1.0
+import QGroundControl.ShapeFileHelper   1.0
 
 /// QGCmapPolyline map visuals
 Item {
@@ -118,7 +119,8 @@ Item {
         folder:         QGroundControl.settingsManager.appSettings.missionSavePath
         title:          qsTr("Select KML File")
         selectExisting: true
-        nameFilters:    [ qsTr("KML files (*.kml)") ]
+        nameFilters:    ShapeFileHelper.fileDialogKMLFilters
+        fileExtension:  QGroundControl.settingsManager.appSettings.kmlFileExtension
 
         onAcceptedForLoad: {
             mapPolyline.loadKMLFile(file)
@@ -147,8 +149,22 @@ Item {
         }
 
         MenuItem {
+            text:           qsTr("Edit position..." )
+            onTriggered:    qgcView.showDialog(editPositionDialog, qsTr("Edit Position"), qgcView.showDialogDefaultWidth, StandardButton.Cancel)
+        }
+
+        MenuItem {
             text:           qsTr("Load KML...")
             onTriggered:    kmlLoadDialog.openForLoad()
+        }
+    }
+
+    Component {
+        id: editPositionDialog
+
+        EditPositionDialog {
+            Component.onCompleted: coordinate = mapPolyline.path[menu._removeVertexIndex]
+            onCoordinateChanged:  mapPolyline.adjustVertex(menu._removeVertexIndex,coordinate)
         }
     }
 

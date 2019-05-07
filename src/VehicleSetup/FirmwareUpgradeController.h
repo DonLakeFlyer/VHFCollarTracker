@@ -54,23 +54,22 @@ public:
         } FirmwareType_t;
 
         typedef enum {
-            QuadFirmware,
-            X8Firmware,
-            HexaFirmware,
-            OctoFirmware,
-            YFirmware,
-            Y6Firmware,
-            HeliFirmware,
             CopterFirmware,
+            HeliFirmware,
             PlaneFirmware,
             RoverFirmware,
             SubFirmware,
+            CopterChibiOSFirmware,
+            HeliChibiOSFirmware,
+            PlaneChibiOSFirmware,
+            RoverChibiOSFirmware,
+            SubChibiOSFirmware,
             DefaultVehicleFirmware
         } FirmwareVehicleType_t;
 
-        Q_ENUMS(AutoPilotStackType_t)
-        Q_ENUMS(FirmwareType_t)
-        Q_ENUMS(FirmwareVehicleType_t)
+        Q_ENUM(AutoPilotStackType_t)
+        Q_ENUM(FirmwareType_t)
+        Q_ENUM(FirmwareVehicleType_t)
 
     class FirmwareIdentifier
     {
@@ -200,11 +199,11 @@ private:
     QString _portName;
     QString _portDescription;
 
-    // firmware hashes
-    QHash<FirmwareIdentifier, QString> _rgPX4FMUV5Firmware;
-    QHash<FirmwareIdentifier, QString> _rgPX4FMUV4PROFirmware;
-    QHash<FirmwareIdentifier, QString> _rgPX4FMUV4Firmware;
-    QHash<FirmwareIdentifier, QString> _rgPX4FMUV3Firmware;
+    // Firmware hashes
+    QHash<FirmwareIdentifier, QString> _rgFMUV5Firmware;
+    QHash<FirmwareIdentifier, QString> _rgFMUV4PROFirmware;
+    QHash<FirmwareIdentifier, QString> _rgFMUV4Firmware;
+    QHash<FirmwareIdentifier, QString> _rgFMUV3Firmware;
     QHash<FirmwareIdentifier, QString> _rgPX4FMUV2Firmware;
     QHash<FirmwareIdentifier, QString> _rgAeroCoreFirmware;
     QHash<FirmwareIdentifier, QString> _rgAUAVX2_1Firmware;
@@ -212,9 +211,14 @@ private:
     QHash<FirmwareIdentifier, QString> _rgTAPV1Firmware;
     QHash<FirmwareIdentifier, QString> _rgASCV1Firmware;
     QHash<FirmwareIdentifier, QString> _rgCrazyflie2Firmware;
+    QHash<FirmwareIdentifier, QString> _rgOmnibusF4SDFirmware;
     QHash<FirmwareIdentifier, QString> _rgNXPHliteV3Firmware;
     QHash<FirmwareIdentifier, QString> _rgPX4FLowFirmware;
     QHash<FirmwareIdentifier, QString> _rg3DRRadioFirmware;
+
+    // Hash map for ArduPilot ChibiOS lookup by board name
+    QHash<FirmwareIdentifier, QString> _rgAPMChibiosReplaceNamedBoardFirmware;
+    QHash<FirmwareIdentifier, QString> _rgFirmwareDynamic;
 
     QMap<FirmwareType_t, QMap<FirmwareVehicleType_t, QString> > _apmVersionMap;
     QList<FirmwareVehicleType_t>                                _apmVehicleTypeFromCurrentVersionList;
@@ -261,6 +265,8 @@ private:
 
     QString _px4StableVersion;  // Version strange for latest PX4 stable
     QString _px4BetaVersion;    // Version strange for latest PX4 beta
+
+    const QString _apmBoardDescriptionReplaceText;
 };
 
 // global hashing function

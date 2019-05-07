@@ -22,6 +22,7 @@
 #include "PowerComponentController.h"
 #include "RadioComponentController.h"
 #include "QGCCameraManager.h"
+#include "QGCFileDownload.h"
 
 #include <QDebug>
 
@@ -35,23 +36,24 @@ PX4FirmwarePluginInstanceData::PX4FirmwarePluginInstanceData(QObject* parent)
 }
 
 PX4FirmwarePlugin::PX4FirmwarePlugin(void)
-    : _manualFlightMode(tr("Manual"))
-    , _acroFlightMode(tr("Acro"))
-    , _stabilizedFlightMode(tr("Stabilized"))
-    , _rattitudeFlightMode(tr("Rattitude"))
-    , _altCtlFlightMode(tr("Altitude"))
-    , _posCtlFlightMode(tr("Position"))
-    , _offboardFlightMode(tr("Offboard"))
-    , _readyFlightMode(tr("Ready"))
-    , _takeoffFlightMode(tr("Takeoff"))
-    , _holdFlightMode(tr("Hold"))
-    , _missionFlightMode(tr("Mission"))
-    , _rtlFlightMode(tr("Return"))
-    , _landingFlightMode(tr("Land"))
-    , _preclandFlightMode(tr("Precision Land"))
-    , _rtgsFlightMode(tr("Return to Groundstation"))
-    , _followMeFlightMode(tr("Follow Me"))
-    , _simpleFlightMode(tr("Simple"))
+    : _manualFlightMode     (tr("Manual"))
+    , _acroFlightMode       (tr("Acro"))
+    , _stabilizedFlightMode (tr("Stabilized"))
+    , _rattitudeFlightMode  (tr("Rattitude"))
+    , _altCtlFlightMode     (tr("Altitude"))
+    , _posCtlFlightMode     (tr("Position"))
+    , _offboardFlightMode   (tr("Offboard"))
+    , _readyFlightMode      (tr("Ready"))
+    , _takeoffFlightMode    (tr("Takeoff"))
+    , _holdFlightMode       (tr("Hold"))
+    , _missionFlightMode    (tr("Mission"))
+    , _rtlFlightMode        (tr("Return"))
+    , _landingFlightMode    (tr("Land"))
+    , _preclandFlightMode   (tr("Precision Land"))
+    , _rtgsFlightMode       (tr("Return to Groundstation"))
+    , _followMeFlightMode   (tr("Follow Me"))
+    , _simpleFlightMode     (tr("Simple"))
+    , _orbitFlightMode      (tr("Orbit"))
 {
     qmlRegisterType<PX4AdvancedFlightModesController>   ("QGroundControl.Controllers", 1, 0, "PX4AdvancedFlightModesController");
     qmlRegisterType<PX4SimpleFlightModesController>     ("QGroundControl.Controllers", 1, 0, "PX4SimpleFlightModesController");
@@ -75,15 +77,14 @@ PX4FirmwarePlugin::PX4FirmwarePlugin(void)
         { PX4_CUSTOM_MAIN_MODE_ACRO,        0,                                      true,   true,   true },
         { PX4_CUSTOM_MAIN_MODE_RATTITUDE,   0,                                      true,   true,   true },
         { PX4_CUSTOM_MAIN_MODE_ALTCTL,      0,                                      true,   true,   true },
-        { PX4_CUSTOM_MAIN_MODE_POSCTL,      0,                                      true,   true,   true },
-        // simple can't be set by the user right now
-        { PX4_CUSTOM_MAIN_MODE_SIMPLE,      0,                                      false,   false,  true },
+        { PX4_CUSTOM_MAIN_MODE_OFFBOARD,    0,                                      true,   false,  true },
+        { PX4_CUSTOM_MAIN_MODE_SIMPLE,      0,                                      false,  false,  true },
+        { PX4_CUSTOM_MAIN_MODE_POSCTL,      PX4_CUSTOM_SUB_MODE_POSCTL_POSCTL,      true,   true,   true },
+        { PX4_CUSTOM_MAIN_MODE_POSCTL,      PX4_CUSTOM_SUB_MODE_POSCTL_ORBIT,       false,  false,   false },
         { PX4_CUSTOM_MAIN_MODE_AUTO,        PX4_CUSTOM_SUB_MODE_AUTO_LOITER,        true,   true,   true },
         { PX4_CUSTOM_MAIN_MODE_AUTO,        PX4_CUSTOM_SUB_MODE_AUTO_MISSION,       true,   true,   true },
         { PX4_CUSTOM_MAIN_MODE_AUTO,        PX4_CUSTOM_SUB_MODE_AUTO_RTL,           true,   true,   true },
         { PX4_CUSTOM_MAIN_MODE_AUTO,        PX4_CUSTOM_SUB_MODE_AUTO_FOLLOW_TARGET, true,   false,  true },
-        { PX4_CUSTOM_MAIN_MODE_OFFBOARD,    0,                                      true,   false,  true },
-        // modes that can't be directly set by the user
         { PX4_CUSTOM_MAIN_MODE_AUTO,        PX4_CUSTOM_SUB_MODE_AUTO_LAND,          false,  true,   true },
         { PX4_CUSTOM_MAIN_MODE_AUTO,        PX4_CUSTOM_SUB_MODE_AUTO_PRECLAND,      false,  false,  true },
         { PX4_CUSTOM_MAIN_MODE_AUTO,        PX4_CUSTOM_SUB_MODE_AUTO_READY,         false,  true,   true },
@@ -98,13 +99,14 @@ PX4FirmwarePlugin::PX4FirmwarePlugin(void)
         &_acroFlightMode,
         &_rattitudeFlightMode,
         &_altCtlFlightMode,
-        &_posCtlFlightMode,
+        &_offboardFlightMode,
         &_simpleFlightMode,
+        &_posCtlFlightMode,
+        &_orbitFlightMode,
         &_holdFlightMode,
         &_missionFlightMode,
         &_rtlFlightMode,
         &_followMeFlightMode,
-        &_offboardFlightMode,
         &_landingFlightMode,
         &_preclandFlightMode,
         &_readyFlightMode,
@@ -223,11 +225,6 @@ bool PX4FirmwarePlugin::setFlightMode(const QString& flightMode, uint8_t* base_m
     return found;
 }
 
-int PX4FirmwarePlugin::manualControlReservedButtonCount(void)
-{
-    return 0;   // 0 buttons reserved for rc switch simulation
-}
-
 bool PX4FirmwarePlugin::isCapable(const Vehicle *vehicle, FirmwareCapabilities capabilities)
 {
     int available = SetFlightModeCapability | PauseVehicleCapability | GuidedModeCapability;
@@ -285,7 +282,7 @@ QList<MAV_CMD> PX4FirmwarePlugin::supportedMissionCommands(void)
 
     list << MAV_CMD_NAV_WAYPOINT
          << MAV_CMD_NAV_LOITER_UNLIM << MAV_CMD_NAV_LOITER_TIME << MAV_CMD_NAV_LOITER_TO_ALT
-         << MAV_CMD_NAV_LAND << MAV_CMD_NAV_TAKEOFF
+         << MAV_CMD_NAV_LAND << MAV_CMD_NAV_TAKEOFF << MAV_CMD_NAV_RETURN_TO_LAUNCH
          << MAV_CMD_DO_JUMP
          << MAV_CMD_DO_VTOL_TRANSITION << MAV_CMD_NAV_VTOL_TAKEOFF << MAV_CMD_NAV_VTOL_LAND
          << MAV_CMD_DO_DIGICAM_CONTROL
@@ -428,7 +425,7 @@ void PX4FirmwarePlugin::guidedModeGotoLocation(Vehicle* vehicle, const QGeoCoord
         return;
     }
 
-    if (vehicle->capabilityBits() && MAV_PROTOCOL_CAPABILITY_COMMAND_INT) {
+    if (vehicle->capabilityBits() & MAV_PROTOCOL_CAPABILITY_COMMAND_INT) {
         vehicle->sendMavCommandInt(vehicle->defaultComponentId(),
                                    MAV_CMD_DO_REPOSITION,
                                    MAV_FRAME_GLOBAL,
@@ -596,4 +593,13 @@ uint32_t PX4FirmwarePlugin::highLatencyCustomModeTo32Bits(uint16_t hlCustomMode)
     px4_cm.custom_mode_hl = hlCustomMode;
 
     return px4_cm.data;
+}
+
+QString PX4FirmwarePlugin::_getLatestVersionFileUrl(Vehicle* vehicle){
+    Q_UNUSED(vehicle);
+    return QStringLiteral("https://api.github.com/repos/PX4/Firmware/releases");
+}
+
+QString PX4FirmwarePlugin::_versionRegex() {
+    return QStringLiteral("v([0-9,\\.]*) Stable");
 }

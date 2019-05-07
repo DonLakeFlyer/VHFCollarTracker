@@ -19,14 +19,15 @@ import QtQuick.Window           2.2
 import QtQml.Models             2.1
 
 import QGroundControl               1.0
+import QGroundControl.Airspace      1.0
+import QGroundControl.Controllers   1.0
+import QGroundControl.Controls      1.0
+import QGroundControl.FactSystem    1.0
 import QGroundControl.FlightDisplay 1.0
 import QGroundControl.FlightMap     1.0
-import QGroundControl.ScreenTools   1.0
-import QGroundControl.Controls      1.0
 import QGroundControl.Palette       1.0
+import QGroundControl.ScreenTools   1.0
 import QGroundControl.Vehicle       1.0
-import QGroundControl.Controllers   1.0
-import QGroundControl.FactSystem    1.0
 
 /// Flight Display View
 QGCView {
@@ -118,7 +119,6 @@ QGCView {
 
     Connections {
         target:                     _missionController
-        onResumeMissionReady:       guidedActionsController.confirmAction(guidedActionsController.actionResumeMissionReady)
         onResumeMissionUploadFail:  guidedActionsController.confirmAction(guidedActionsController.actionResumeMissionUploadFail)
     }
 
@@ -163,6 +163,12 @@ QGCView {
         id: missionCompleteDialogComponent
 
         QGCViewDialog {
+            property var activeVehicleCopy: _activeVehicle
+            onActiveVehicleCopyChanged:
+                if (!activeVehicleCopy) {
+                    hideDialog()
+                }
+
             QGCFlickable {
                 anchors.fill:   parent
                 contentHeight:  column.height
@@ -172,29 +178,80 @@ QGCView {
                     anchors.margins:    _margins
                     anchors.left:       parent.left
                     anchors.right:      parent.right
-                    spacing:            ScreenTools.defaultFontPixelHeight
 
-                    QGCLabel {
-                        Layout.fillWidth:       true
-                        text:                   qsTr("%1 Images Taken").arg(_activeVehicle.cameraTriggerPoints.count)
-                        horizontalAlignment:    Text.AlignHCenter
-                        visible:                _activeVehicle.cameraTriggerPoints.count != 0
-                    }
-
-                    QGCButton {
+                    ColumnLayout {
                         Layout.fillWidth:   true
-                        text:               qsTr("Remove plan from vehicle")
-                        onClicked: {
-                            _planMasterController.removeAllFromVehicle()
-                            hideDialog()
+                        spacing:            ScreenTools.defaultFontPixelHeight
+                        visible:            !_activeVehicle.connectionLost || !_guidedController.showResumeMission
+
+                        QGCLabel {
+                            Layout.fillWidth:       true
+                            text:                   qsTr("%1 Images Taken").arg(_activeVehicle.cameraTriggerPoints.count)
+                            horizontalAlignment:    Text.AlignHCenter
+                            visible:                _activeVehicle.cameraTriggerPoints.count != 0
+                        }
+
+                        QGCButton {
+                            Layout.fillWidth:   true
+                            text:               qsTr("Remove plan from vehicle")
+                            onClicked: {
+                                _planMasterController.removeAllFromVehicle()
+                                hideDialog()
+                            }
+                        }
+
+                        QGCButton {
+                            Layout.fillWidth:   true
+                            Layout.alignment:   Qt.AlignHCenter
+                            text:               qsTr("Leave plan on vehicle")
+                            onClicked:          hideDialog()
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth:   true
+                            color:              qgcPal.text
+                            height:             1
+                        }
+
+                        QGCButton {
+                            Layout.fillWidth:   true
+                            Layout.alignment:   Qt.AlignHCenter
+                            text:               qsTr("Resume Mission From Waypoint %1").arg(_guidedController._resumeMissionIndex)
+                            visible:            _guidedController.showResumeMission
+
+                            onClicked: {
+                                guidedController.executeAction(_guidedController.actionResumeMission, null, null)
+                                hideDialog()
+                            }
+                        }
+
+                        QGCLabel {
+                            Layout.fillWidth:   true
+                            wrapMode:           Text.WordWrap
+                            text:               qsTr("Resume Mission will rebuild the current mission from the last flown waypoint and upload it to the vehicle for the next flight.")
+                            visible:            _guidedController.showResumeMission
+                        }
+
+                        QGCLabel {
+                            Layout.fillWidth:   true
+                            wrapMode:           Text.WordWrap
+                            color:              qgcPal.warningText
+                            text:               qsTr("If you are changing batteries for Resume Mission do not disconnect from the vehicle when communication is lost.")
+                            visible:            _guidedController.showResumeMission
                         }
                     }
 
-                    QGCButton {
+                    ColumnLayout {
                         Layout.fillWidth:   true
-                        Layout.alignment:   Qt.AlignHCenter
-                        text:               qsTr("Leave plan on vehicle")
-                        onClicked:          hideDialog()
+                        spacing:            ScreenTools.defaultFontPixelHeight
+                        visible:            _activeVehicle.connectionLost && _guidedController.showResumeMission
+
+                        QGCLabel {
+                            Layout.fillWidth:   true
+                            wrapMode:           Text.WordWrap
+                            color:              qgcPal.warningText
+                            text:               qsTr("If you are changing batteries for Resume Mission do not disconnect from the vehicle.")
+                        }
                     }
                 }
             }
@@ -431,13 +488,13 @@ QGCView {
                 exclusiveGroup: multiVehicleSelectorGroup
                 text:           qsTr("Single")
                 checked:        true
-                color:          mapPal.text
+                textColor:      mapPal.text
             }
 
             QGCRadioButton {
                 exclusiveGroup: multiVehicleSelectorGroup
                 text:           qsTr("Multi-Vehicle")
-                color:          mapPal.text
+                textColor:      mapPal.text
             }
         }
 
@@ -469,13 +526,14 @@ QGCView {
         }
 
         MultiVehicleList {
-            anchors.margins:    _margins
-            anchors.top:        singleMultiSelector.bottom
-            anchors.right:      parent.right
-            anchors.bottom:     parent.bottom
-            width:              ScreenTools.defaultFontPixelWidth * 30
-            visible:            !singleVehicleView.checked && !QGroundControl.videoManager.fullScreen
-            z:                  _panel.z + 4
+            anchors.margins:            _margins
+            anchors.top:                singleMultiSelector.bottom
+            anchors.right:              parent.right
+            anchors.bottom:             parent.bottom
+            width:                      ScreenTools.defaultFontPixelWidth * 30
+            visible:                    !singleVehicleView.checked && !QGroundControl.videoManager.fullScreen
+            z:                          _panel.z + 4
+            guidedActionsController:    _guidedController
         }
 
         //-- Virtual Joystick
@@ -599,7 +657,7 @@ QGCView {
             z:                  _flightVideoPipControl.z + 1
 
             onShowStartMissionChanged: {
-                if (showStartMission && !showResumeMission) {
+                if (showStartMission) {
                     confirmAction(actionStartMission)
                 }
             }
@@ -607,12 +665,6 @@ QGCView {
             onShowContinueMissionChanged: {
                 if (showContinueMission) {
                     confirmAction(actionContinueMission)
-                }
-            }
-
-            onShowResumeMissionChanged: {
-                if (showResumeMission) {
-                    confirmAction(actionResumeMission)
                 }
             }
 
@@ -665,12 +717,57 @@ QGCView {
         }
     }
 
+    //-- Airspace Indicator
+    Rectangle {
+        id:             airspaceIndicator
+        width:          airspaceRow.width + (ScreenTools.defaultFontPixelWidth * 3)
+        height:         airspaceRow.height * 1.25
+        color:          qgcPal.globalTheme === QGCPalette.Light ? Qt.rgba(1,1,1,0.95) : Qt.rgba(0,0,0,0.75)
+        visible:        QGroundControl.airmapSupported && _mainIsMap && flightPermit && flightPermit !== AirspaceFlightPlanProvider.PermitNone && !messageArea.visible && !criticalMmessageArea.visible
+        radius:         3
+        border.width:   1
+        border.color:   qgcPal.globalTheme === QGCPalette.Light ? Qt.rgba(0,0,0,0.35) : Qt.rgba(1,1,1,0.35)
+        anchors.top:    parent.top
+        anchors.topMargin: ScreenTools.toolbarHeight + (ScreenTools.defaultFontPixelHeight * 0.25)
+        anchors.horizontalCenter: parent.horizontalCenter
+        Row {
+            id: airspaceRow
+            spacing: ScreenTools.defaultFontPixelWidth
+            anchors.centerIn: parent
+            QGCLabel { text: airspaceIndicator.providerName+":"; anchors.verticalCenter: parent.verticalCenter; }
+            QGCLabel {
+                text: {
+                    if(airspaceIndicator.flightPermit) {
+                        if(airspaceIndicator.flightPermit === AirspaceFlightPlanProvider.PermitPending)
+                            return qsTr("Approval Pending")
+                        if(airspaceIndicator.flightPermit === AirspaceFlightPlanProvider.PermitAccepted || airspaceIndicator.flightPermit === AirspaceFlightPlanProvider.PermitNotRequired)
+                            return qsTr("Flight Approved")
+                        if(airspaceIndicator.flightPermit === AirspaceFlightPlanProvider.PermitRejected)
+                            return qsTr("Flight Rejected")
+                    }
+                    return ""
+                }
+                color: {
+                    if(airspaceIndicator.flightPermit) {
+                        if(airspaceIndicator.flightPermit === AirspaceFlightPlanProvider.PermitPending)
+                            return qgcPal.colorOrange
+                        if(airspaceIndicator.flightPermit === AirspaceFlightPlanProvider.PermitAccepted || airspaceIndicator.flightPermit === AirspaceFlightPlanProvider.PermitNotRequired)
+                            return qgcPal.colorGreen
+                    }
+                    return qgcPal.colorRed
+                }
+                anchors.verticalCenter: parent.verticalCenter;
+            }
+        }
+        property var  flightPermit: QGroundControl.airmapSupported ? QGroundControl.airspaceManager.flightPlan.flightPermitStatus : null
+        property string  providerName: QGroundControl.airspaceManager.providerName
+    }
+
     //-- Checklist GUI
     Component {
         id: checklistDropPanel
-
         PreFlightCheckList {
             model: preFlightCheckModel
         }
-    } //Component
-} //QGC View
+    }
+}

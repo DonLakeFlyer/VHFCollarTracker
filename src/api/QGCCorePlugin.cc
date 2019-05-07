@@ -16,6 +16,11 @@
 #include "AppMessages.h"
 #include "QmlObjectListModel.h"
 #include "VideoReceiver.h"
+#include "QGCLoggingCategory.h"
+
+#if !defined(__mobile__)
+#include "QGCQmlWidgetHolder.h"
+#endif
 
 #include <QtQml>
 #include <QQmlEngine>
@@ -28,22 +33,6 @@ class QGCCorePlugin_p
 {
 public:
     QGCCorePlugin_p()
-        : pGeneral                  (NULL)
-        , pCommLinks                (NULL)
-        , pOfflineMaps              (NULL)
-        , pMAVLink                  (NULL)
-        , pConsole                  (NULL)
-        , pHelp                     (NULL)
-    #if defined(QT_DEBUG)
-        , pMockLink                 (NULL)
-        , pDebug                    (NULL)
-    #endif
-        , defaultOptions            (NULL)
-        , valuesPageWidgetInfo      (NULL)
-        , cameraPageWidgetInfo      (NULL)
-        , videoPageWidgetInfo       (NULL)
-        , healthPageWidgetInfo      (NULL)
-        , vibrationPageWidgetInfo   (NULL)
     {
     }
 
@@ -55,6 +44,14 @@ public:
             delete pCommLinks;
         if(pOfflineMaps)
             delete pOfflineMaps;
+#if defined(QGC_GST_TAISYNC_ENABLED)
+        if(pTaisync)
+            delete pTaisync;
+#endif
+#if defined(QGC_AIRMAP_ENABLED)
+        if(pAirmap)
+            delete pAirmap;
+#endif
         if(pMAVLink)
             delete pMAVLink;
         if(pConsole)
@@ -69,24 +66,31 @@ public:
             delete defaultOptions;
     }
 
-    QmlComponentInfo* pGeneral;
-    QmlComponentInfo* pCommLinks;
-    QmlComponentInfo* pOfflineMaps;
-    QmlComponentInfo* pMAVLink;
-    QmlComponentInfo* pConsole;
-    QmlComponentInfo* pHelp;
-#if defined(QT_DEBUG)
-    QmlComponentInfo* pMockLink;
-    QmlComponentInfo* pDebug;
+    QmlComponentInfo* pGeneral                  = nullptr;
+    QmlComponentInfo* pCommLinks                = nullptr;
+    QmlComponentInfo* pOfflineMaps              = nullptr;
+#if defined(QGC_GST_TAISYNC_ENABLED)
+    QmlComponentInfo* pTaisync                  = nullptr;
 #endif
-    QVariantList settingsList;
-    QGCOptions*  defaultOptions;
+#if defined(QGC_AIRMAP_ENABLED)
+    QmlComponentInfo* pAirmap                   = nullptr;
+#endif
+    QmlComponentInfo* pMAVLink                  = nullptr;
+    QmlComponentInfo* pConsole                  = nullptr;
+    QmlComponentInfo* pHelp                     = nullptr;
+#if defined(QT_DEBUG)
+    QmlComponentInfo* pMockLink                 = nullptr;
+    QmlComponentInfo* pDebug                    = nullptr;
+#endif
 
-    QmlComponentInfo*   valuesPageWidgetInfo;
-    QmlComponentInfo*   cameraPageWidgetInfo;
-    QmlComponentInfo*   videoPageWidgetInfo;
-    QmlComponentInfo*   healthPageWidgetInfo;
-    QmlComponentInfo*   vibrationPageWidgetInfo;
+    QmlComponentInfo*   valuesPageWidgetInfo    = nullptr;
+    QmlComponentInfo*   cameraPageWidgetInfo    = nullptr;
+    QmlComponentInfo*   videoPageWidgetInfo     = nullptr;
+    QmlComponentInfo*   healthPageWidgetInfo    = nullptr;
+    QmlComponentInfo*   vibrationPageWidgetInfo = nullptr;
+
+    QGCOptions*         defaultOptions          = nullptr;
+    QVariantList        settingsList;
     QVariantList        instrumentPageWidgetList;
 
     QmlObjectListModel _emptyCustomMapItems;
@@ -119,35 +123,47 @@ QVariantList &QGCCorePlugin::settingsPages()
 {
     if(!_p->pGeneral) {
         _p->pGeneral = new QmlComponentInfo(tr("General"),
-                                       QUrl::fromUserInput("qrc:/qml/GeneralSettings.qml"),
-                                       QUrl::fromUserInput("qrc:/res/gear-white.svg"));
-        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pGeneral));
+            QUrl::fromUserInput("qrc:/qml/GeneralSettings.qml"),
+            QUrl::fromUserInput("qrc:/res/gear-white.svg"));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pGeneral)));
         _p->pCommLinks = new QmlComponentInfo(tr("Comm Links"),
-                                         QUrl::fromUserInput("qrc:/qml/LinkSettings.qml"),
-                                         QUrl::fromUserInput("qrc:/res/waves.svg"));
-        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pCommLinks));
+            QUrl::fromUserInput("qrc:/qml/LinkSettings.qml"),
+            QUrl::fromUserInput("qrc:/res/waves.svg"));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pCommLinks)));
         _p->pOfflineMaps = new QmlComponentInfo(tr("Offline Maps"),
-                                           QUrl::fromUserInput("qrc:/qml/OfflineMap.qml"),
-                                           QUrl::fromUserInput("qrc:/res/waves.svg"));
-        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pOfflineMaps));
+            QUrl::fromUserInput("qrc:/qml/OfflineMap.qml"),
+            QUrl::fromUserInput("qrc:/res/waves.svg"));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pOfflineMaps)));
+#if defined(QGC_GST_TAISYNC_ENABLED)
+        _p->pTaisync = new QmlComponentInfo(tr("Taisync"),
+            QUrl::fromUserInput("qrc:/qml/TaisyncSettings.qml"),
+            QUrl::fromUserInput(""));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pTaisync)));
+#endif
+#if defined(QGC_AIRMAP_ENABLED)
+        _p->pAirmap = new QmlComponentInfo(tr("AirMap"),
+            QUrl::fromUserInput("qrc:/qml/AirmapSettings.qml"),
+            QUrl::fromUserInput(""));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pAirmap)));
+#endif
         _p->pMAVLink = new QmlComponentInfo(tr("MAVLink"),
-                                       QUrl::fromUserInput("qrc:/qml/MavlinkSettings.qml"),
-                                       QUrl::fromUserInput("qrc:/res/waves.svg"));
-        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pMAVLink));
+            QUrl::fromUserInput("qrc:/qml/MavlinkSettings.qml"),
+            QUrl::fromUserInput("qrc:/res/waves.svg"));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pMAVLink)));
         _p->pConsole = new QmlComponentInfo(tr("Console"),
-                                       QUrl::fromUserInput("qrc:/qml/QGroundControl/Controls/AppMessages.qml"));
-        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pConsole));
+            QUrl::fromUserInput("qrc:/qml/QGroundControl/Controls/AppMessages.qml"));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pConsole)));
         _p->pHelp = new QmlComponentInfo(tr("Help"),
-                                       QUrl::fromUserInput("qrc:/qml/HelpSettings.qml"));
-        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pHelp));
+            QUrl::fromUserInput("qrc:/qml/HelpSettings.qml"));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pHelp)));
 #if defined(QT_DEBUG)
         //-- These are always present on Debug builds
         _p->pMockLink = new QmlComponentInfo(tr("Mock Link"),
-                                        QUrl::fromUserInput("qrc:/qml/MockLink.qml"));
-        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pMockLink));
+            QUrl::fromUserInput("qrc:/qml/MockLink.qml"));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pMockLink)));
         _p->pDebug = new QmlComponentInfo(tr("Debug"),
-                                     QUrl::fromUserInput("qrc:/qml/DebugWindow.qml"));
-        _p->settingsList.append(QVariant::fromValue((QmlComponentInfo*)_p->pDebug));
+            QUrl::fromUserInput("qrc:/qml/DebugWindow.qml"));
+        _p->settingsList.append(QVariant::fromValue(reinterpret_cast<QmlComponentInfo*>(_p->pDebug)));
 #endif
     }
     return _p->settingsList;
@@ -297,3 +313,32 @@ VideoReceiver* QGCCorePlugin::createVideoReceiver(QObject* parent)
 {
     return new VideoReceiver(parent);
 }
+
+bool QGCCorePlugin::guidedActionsControllerLogging(void) const
+{
+    return GuidedActionsControllerLog().isDebugEnabled();
+}
+
+QString QGCCorePlugin::stableVersionCheckFileUrl(void) const
+{
+#ifdef QGC_CUSTOM_BUILD
+    // Custom builds must override to turn on and provide their own location
+    return QString();
+#else
+    return QString("https://s3-us-west-2.amazonaws.com/qgroundcontrol/latest/QGC.version.txt");
+#endif
+}
+
+#if !defined(__mobile__)
+QGCQmlWidgetHolder* QGCCorePlugin::createMainQmlWidgetHolder(QLayout *mainLayout, QWidget* parent)
+{
+    QGCQmlWidgetHolder* pMainQmlWidgetHolder = new QGCQmlWidgetHolder(QString(), nullptr, parent);
+    mainLayout->addWidget(pMainQmlWidgetHolder);
+    pMainQmlWidgetHolder->setVisible(true);
+    QQmlEngine::setObjectOwnership(parent, QQmlEngine::CppOwnership);
+    pMainQmlWidgetHolder->setContextPropertyObject("controller", parent);
+    pMainQmlWidgetHolder->setContextPropertyObject("debugMessageModel", AppMessages::getModel());
+    pMainQmlWidgetHolder->setSource(QUrl::fromUserInput("qrc:qml/MainWindowHybrid.qml"));
+    return pMainQmlWidgetHolder;
+}
+#endif

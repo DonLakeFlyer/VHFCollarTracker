@@ -42,6 +42,7 @@ public:
     QString             rtlFlightMode                   (void) const override { return _rtlFlightMode; }
     QString             landFlightMode                  (void) const override { return _landingFlightMode; }
     QString             takeControlFlightMode           (void) const override { return _manualFlightMode; }
+    QString             gotoFlightMode                  (void) const override { return _holdFlightMode; }
     void                pauseVehicle                    (Vehicle* vehicle) override;
     void                guidedModeRTL                   (Vehicle* vehicle) override;
     void                guidedModeLand                  (Vehicle* vehicle) override;
@@ -51,7 +52,6 @@ public:
     double              minimumTakeoffAltitude          (Vehicle* vehicle) override;
     void                startMission                    (Vehicle* vehicle) override;
     bool                isGuidedMode                    (const Vehicle* vehicle) const override;
-    int                 manualControlReservedButtonCount(void) override;
     void                initializeVehicle               (Vehicle* vehicle) override;
     bool                sendHomePositionToVehicle       (void) override;
     void                addMetaDataToFact               (QObject* parameterMetaData, Fact* fact, MAV_TYPE vehicleType) override;
@@ -105,12 +105,15 @@ protected:
     QString _rtgsFlightMode;
     QString _followMeFlightMode;
     QString _simpleFlightMode;
+    QString _orbitFlightMode;
 
 private slots:
     void _mavCommandResult(int vehicleId, int component, int command, int result, bool noReponseFromVehicle);
 
 private:
     void _handleAutopilotVersion(Vehicle* vehicle, mavlink_message_t* message);
+    QString _getLatestVersionFileUrl(Vehicle* vehicle) override;
+    QString _versionRegex() override;
 
     // Any instance data here must be global to all vehicles
     // Vehicle specific data should go into PX4FirmwarePluginInstanceData

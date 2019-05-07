@@ -181,9 +181,6 @@ void UAS::receiveMessage(mavlink_message_t message)
     // and we already got one attitude packet
     if (message.sysid == uasId && (!attitudeStamped || lastAttitude != 0 || message.msgid == MAVLINK_MSG_ID_ATTITUDE))
     {
-        QString uasState;
-        QString stateDescription;
-
         bool multiComponentSourceDetected = false;
         bool wrongComponent = false;
 
@@ -305,32 +302,6 @@ void UAS::receiveMessage(mavlink_message_t message)
             emit valueChanged(uasId, "roll sp", "rad", roll, time);
             emit valueChanged(uasId, "pitch sp", "rad", pitch, time);
             emit valueChanged(uasId, "yaw sp", "rad", yaw, time);
-        }
-            break;
-
-        case MAVLINK_MSG_ID_STATUSTEXT:
-        {
-            QByteArray b;
-            b.resize(MAVLINK_MSG_STATUSTEXT_FIELD_TEXT_LEN+1);
-            mavlink_msg_statustext_get_text(&message, b.data());
-
-            // Ensure NUL-termination
-            b[b.length()-1] = '\0';
-            QString text = QString(b);
-            int severity = mavlink_msg_statustext_get_severity(&message);
-
-        // If the message is NOTIFY or higher severity, or starts with a '#',
-        // then read it aloud.
-            if (text.startsWith("#") || severity <= MAV_SEVERITY_NOTICE)
-            {
-                text.remove("#");
-                emit textMessageReceived(uasId, message.compid, severity, text);
-                _say(text.toLower(), severity);
-            }
-            else
-            {
-                emit textMessageReceived(uasId, message.compid, severity, text);
-            }
         }
             break;
 
@@ -1611,12 +1582,6 @@ void UAS::unsetRCToParameterMap()
                                            0.0f);
         _vehicle->sendMessageOnLink(_vehicle->priorityLink(), message);
     }
-}
-
-void UAS::_say(const QString& text, int severity)
-{
-    Q_UNUSED(severity);
-    qgcApp()->toolbox()->audioOutput()->say(text);
 }
 
 void UAS::shutdownVehicle(void)

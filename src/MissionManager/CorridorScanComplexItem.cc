@@ -124,9 +124,13 @@ bool CorridorScanComplexItem::load(const QJsonObject& complexObject, int sequenc
 
     _entryPoint = complexObject[_jsonEntryPointKey].toInt();
 
-    _rebuildTransects();
-
     _ignoreRecalc = false;
+
+    _recalcComplexDistance();
+    if (_cameraShots == 0) {
+        // Shot count was possibly not available from plan file
+        _recalcCameraShots();
+    }
 
     return true;
 }
@@ -149,7 +153,7 @@ void CorridorScanComplexItem::_appendLoadedMissionItems(QList<MissionItem*>& ite
 
     int seqNum = _sequenceNumber;
 
-    foreach (const MissionItem* loadedMissionItem, _loadedMissionItems) {
+    for (const MissionItem* loadedMissionItem: _loadedMissionItems) {
         MissionItem* item = new MissionItem(*loadedMissionItem, missionItemParent);
         item->setSequenceNumber(seqNum++);
         items.append(item);
@@ -171,11 +175,11 @@ void CorridorScanComplexItem::_buildAndAppendMissionItems(QList<MissionItem*>& i
     MAV_FRAME mavFrame = followTerrain() || !_cameraCalc.distanceToSurfaceRelative() ? MAV_FRAME_GLOBAL : MAV_FRAME_GLOBAL_RELATIVE_ALT;
 
     //qDebug() << "_buildAndAppendMissionItems";
-    foreach (const QList<TransectStyleComplexItem::CoordInfo_t>& transect, _transects) {
-        bool entryPoint = true;
+    for (const QList<TransectStyleComplexItem::CoordInfo_t>& transect: _transects) {
+        bool transectEntry = true;
 
         //qDebug() << "start transect";
-        foreach (const CoordInfo_t& transectCoordInfo, transect) {
+        for (const CoordInfo_t& transectCoordInfo: transect) {
             //qDebug() << transectCoordInfo.coordType;
 
             item = new MissionItem(seqNum++,
@@ -193,7 +197,7 @@ void CorridorScanComplexItem::_buildAndAppendMissionItems(QList<MissionItem*>& i
                                    missionItemParent);
             items.append(item);
 
-            if (firstOverallPoint && addTriggerAtBeginning) {
+            if (triggerCamera() && firstOverallPoint && addTriggerAtBeginning) {
                 // Start triggering
                 addTriggerAtBeginning = false;
                 item = new MissionItem(seqNum++,
@@ -210,9 +214,12 @@ void CorridorScanComplexItem::_buildAndAppendMissionItems(QList<MissionItem*>& i
             }
             firstOverallPoint = false;
 
-            if (transectCoordInfo.coordType == TransectStyleComplexItem::CoordTypeSurveyEdge && !imagesEverywhere) {
-                if (entryPoint) {
-                    // Start of transect, start triggering
+            // Possibly add trigger start/stop to survey area entrance/exit
+            if (triggerCamera() && transectCoordInfo.coordType == TransectStyleComplexItem::CoordTypeSurveyEdge) {
+                if (transectEntry) {
+                    // Start of transect, always start triggering. We do this even if we are taking images everywhere.
+                    // This allows a restart of the mission in mid-air without losing images from the entire mission.
+                    // At most you may lose part of a transect.
                     item = new MissionItem(seqNum++,
                                            MAV_CMD_DO_SET_CAM_TRIGG_DIST,
                                            MAV_FRAME_MISSION,
@@ -224,7 +231,8 @@ void CorridorScanComplexItem::_buildAndAppendMissionItems(QList<MissionItem*>& i
                                            false,                                                           // isCurrentItem
                                            missionItemParent);
                     items.append(item);
-                } else {
+                    transectEntry = false;
+                } else if (!imagesEverywhere && !transectEntry){
                     // End of transect, stop triggering
                     item = new MissionItem(seqNum++,
                                            MAV_CMD_DO_SET_CAM_TRIGG_DIST,
@@ -238,7 +246,6 @@ void CorridorScanComplexItem::_buildAndAppendMissionItems(QList<MissionItem*>& i
                                            missionItemParent);
                     items.append(item);
                 }
-                entryPoint = !entryPoint;
             }
         }
     }
@@ -309,7 +316,7 @@ void CorridorScanComplexItem::_rebuildCorridorPolygon(void)
     _surveyAreaPolygon.clear();
 
     QList<QGeoCoordinate> rgCoord;
-    foreach (const QGeoCoordinate& vertex, firstSideVertices) {
+    for (const QGeoCoordinate& vertex: firstSideVertices) {
         rgCoord.append(vertex);
     }
     for (int i=secondSideVertices.count() - 1; i >= 0; i--) {
@@ -386,7 +393,7 @@ void CorridorScanComplexItem::_rebuildTransectsPhase1(void)
 
 #if 0
             qDebug() << "transect debug";
-            foreach (const TransectStyleComplexItem::CoordInfo_t& coordInfo, transect) {
+            for (const TransectStyleComplexItem::CoordInfo_t& coordInfo: transect) {
                 qDebug() << coordInfo.coordType;
             }
 #endif
@@ -423,7 +430,7 @@ void CorridorScanComplexItem::_rebuildTransectsPhase1(void)
         }
         if (reverseTransects) {
             QList<QList<TransectStyleComplexItem::CoordInfo_t>> reversedTransects;
-            foreach (const QList<TransectStyleComplexItem::CoordInfo_t>& transect, _transects) {
+            for (const QList<TransectStyleComplexItem::CoordInfo_t>& transect: _transects) {
                 reversedTransects.prepend(transect);
             }
             _transects = reversedTransects;
@@ -431,7 +438,7 @@ void CorridorScanComplexItem::_rebuildTransectsPhase1(void)
         if (reverseVertices) {
             for (int i=0; i<_transects.count(); i++) {
                 QList<TransectStyleComplexItem::CoordInfo_t> reversedVertices;
-                foreach (const TransectStyleComplexItem::CoordInfo_t& vertex, _transects[i]) {
+                for (const TransectStyleComplexItem::CoordInfo_t& vertex: _transects[i]) {
                     reversedVertices.prepend(vertex);
                 }
                 _transects[i] = reversedVertices;
@@ -458,28 +465,29 @@ void CorridorScanComplexItem::_rebuildTransectsPhase1(void)
     }
 }
 
-void CorridorScanComplexItem::_rebuildTransectsPhase2(void)
+void CorridorScanComplexItem::_recalcComplexDistance(void)
 {
-    // Calculate distance flown for complex item
     _complexDistance = 0;
     for (int i=0; i<_visualTransectPoints.count() - 1; i++) {
         _complexDistance += _visualTransectPoints[i].value<QGeoCoordinate>().distanceTo(_visualTransectPoints[i+1].value<QGeoCoordinate>());
     }
-
-    if (_cameraTriggerInTurnAroundFact.rawValue().toBool()) {
-        _cameraShots = qCeil(_complexDistance / _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble());
-    } else {
-        int singleTransectImageCount = qCeil(_corridorPolyline.length() / _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble());
-        _cameraShots = singleTransectImageCount * _transectCount();
-    }
-
-    _coordinate = _visualTransectPoints.count() ? _visualTransectPoints.first().value<QGeoCoordinate>() : QGeoCoordinate();
-    _exitCoordinate = _visualTransectPoints.count() ? _visualTransectPoints.last().value<QGeoCoordinate>() : QGeoCoordinate();
-
-    emit cameraShotsChanged();
     emit complexDistanceChanged();
-    emit coordinateChanged(_coordinate);
-    emit exitCoordinateChanged(_exitCoordinate);
+}
+
+void CorridorScanComplexItem::_recalcCameraShots(void)
+{
+    double triggerDistance = _cameraCalc.adjustedFootprintFrontal()->rawValue().toDouble();
+    if (triggerDistance == 0) {
+        _cameraShots = 0;
+    } else {
+        if (_cameraTriggerInTurnAroundFact.rawValue().toBool()) {
+            _cameraShots = qCeil(_complexDistance / triggerDistance);
+        } else {
+            int singleTransectImageCount = qCeil(_corridorPolyline.length() / triggerDistance);
+            _cameraShots = singleTransectImageCount * _transectCount();
+        }
+    }
+    emit cameraShotsChanged();
 }
 
 bool CorridorScanComplexItem::readyForSave(void) const

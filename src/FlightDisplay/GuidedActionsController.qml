@@ -40,10 +40,11 @@ Item {
     readonly property string takeoffTitle:                  qsTr("Takeoff")
     readonly property string landTitle:                     qsTr("Land")
     readonly property string startMissionTitle:             qsTr("Start Mission")
+    readonly property string mvStartMissionTitle:           qsTr("Start Mission (MV)")
     readonly property string continueMissionTitle:          qsTr("Continue Mission")
-    readonly property string resumeMissionTitle:            qsTr("Resume Mission")
     readonly property string resumeMissionUploadFailTitle:  qsTr("Resume FAILED")
     readonly property string pauseTitle:                    qsTr("Pause")
+    readonly property string mvPauseTitle:                  qsTr("Pause (MV)")
     readonly property string changeAltTitle:                qsTr("Change Altitude")
     readonly property string orbitTitle:                    qsTr("Orbit")
     readonly property string landAbortTitle:                qsTr("Land Abort")
@@ -57,9 +58,7 @@ Item {
     readonly property string takeoffMessage:                    qsTr("Takeoff from ground and hold position.")
     readonly property string startMissionMessage:               qsTr("Takeoff from ground and start the current mission.")
     readonly property string continueMissionMessage:            qsTr("Continue the mission from the current waypoint.")
-             property string resumeMissionMessage:              qsTr("Resume the current mission. This will re-generate the mission from waypoint %1, takeoff and continue the mission.").arg(_resumeMissionIndex)
-             property string resumeMissionUploadFailMessage:    qsTr("Upload of resume mission failed. Confirm to retry upload")
-    readonly property string resumeMissionReadyMessage:         qsTr("Review the modified mission. Confirm if you want to takeoff and begin mission.")
+    readonly property string resumeMissionUploadFailMessage:    qsTr("Upload of resume mission failed. Confirm to retry upload")
     readonly property string landMessage:                       qsTr("Land the vehicle at the current position.")
     readonly property string rtlMessage:                        qsTr("Return to the home position of the vehicle.")
     readonly property string changeAltMessage:                  qsTr("Change the altitude of the vehicle up or down.")
@@ -86,7 +85,7 @@ Item {
     readonly property int actionStartMission:               12
     readonly property int actionContinueMission:            13
     readonly property int actionResumeMission:              14
-    readonly property int actionResumeMissionReady:         15
+    readonly property int _actionUnused:                    15
     readonly property int actionResumeMissionUploadFail:    16
     readonly property int actionPause:                      17
     readonly property int actionMVPause:                    18
@@ -101,18 +100,19 @@ Item {
     property bool showTakeoff:          _guidedActionsEnabled && _activeVehicle.takeoffVehicleSupported && !_vehicleFlying
     property bool showLand:             _guidedActionsEnabled && _activeVehicle.guidedModeSupported && _vehicleArmed && !_activeVehicle.fixedWing && !_vehicleInLandMode
     property bool showStartMission:     _guidedActionsEnabled && _missionAvailable && !_missionActive && !_vehicleFlying
-    property bool showContinueMission:  _guidedActionsEnabled && _missionAvailable && !_missionActive && _vehicleArmed && _vehicleFlying && (_currentMissionIndex < missionController.visualItems.count - 1)
+    property bool showContinueMission:  _guidedActionsEnabled && _missionAvailable && !_missionActive && _vehicleArmed && _vehicleFlying && (_currentMissionIndex < _missionItemCount - 1)
     property bool showPause:            _guidedActionsEnabled && _vehicleArmed && _activeVehicle.pauseVehicleSupported && _vehicleFlying && !_vehiclePaused
     property bool showChangeAlt:        _guidedActionsEnabled && _vehicleFlying && _activeVehicle.guidedModeSupported && _vehicleArmed && !_missionActive
     property bool showOrbit:            _guidedActionsEnabled && !_hideOrbit && _vehicleFlying && _activeVehicle.orbitModeSupported && !_missionActive
     property bool showLandAbort:        _guidedActionsEnabled && _vehicleFlying && _activeVehicle.fixedWing && _vehicleLanding
     property bool showGotoLocation:     _guidedActionsEnabled && _vehicleFlying
 
-    // Note: The 'missionController.visualItems.count - 3' is a hack to not trigger resume mission when a mission ends with an RTL item
-    property bool showResumeMission:    _activeVehicle && !_vehicleArmed && _vehicleWasFlying && _missionAvailable && _resumeMissionIndex > 0 && (_resumeMissionIndex < missionController.visualItems.count - 3)
+    // Note: The '_missionItemCount - 2' is a hack to not trigger resume mission when a mission ends with an RTL item
+    property bool showResumeMission:    _activeVehicle && !_vehicleArmed && _vehicleWasFlying && _missionAvailable && _resumeMissionIndex > 0 && (_resumeMissionIndex < _missionItemCount - 2)
 
     property bool guidedUIVisible:      guidedActionConfirm.visible || guidedActionList.visible
 
+    property var    _corePlugin:            QGroundControl.corePlugin
     property bool   _guidedActionsEnabled:  (!ScreenTools.isDebug && QGroundControl.corePlugin.options.guidedActionsRequireRCRSSI && _activeVehicle) ? _rcRSSIAvailable : _activeVehicle
     property var    _activeVehicle:         QGroundControl.multiVehicleManager.activeVehicle
     property string _flightMode:            _activeVehicle ? _activeVehicle.flightMode : ""
@@ -125,6 +125,7 @@ Item {
     property bool   _vehicleInMissionMode:  false
     property bool   _vehicleInRTLMode:      false
     property bool   _vehicleInLandMode:     false
+    property int    _missionItemCount:      missionController.missionItemCount
     property int    _currentMissionIndex:   missionController.currentMissionIndex
     property int    _resumeMissionIndex:    missionController.resumeMissionIndex
     property bool   _hideEmergenyStop:      !QGroundControl.corePlugin.options.guidedBarShowEmergencyStop
@@ -132,15 +133,14 @@ Item {
     property bool   _vehicleWasFlying:      false
     property bool   _rcRSSIAvailable:       _activeVehicle ? _activeVehicle.rcRSSI > 0 && _activeVehicle.rcRSSI <= 100 : false
 
-    //Handy code for debugging state problems
-    property bool __debugGuidedStates:      false
+    // You can turn on log output for GuidedActionsController by turning on GuidedActionsControllerLog category
     property bool __guidedModeSupported:    _activeVehicle ? _activeVehicle.guidedModeSupported : false
     property bool __pauseVehicleSupported:  _activeVehicle ? _activeVehicle.pauseVehicleSupported : false
     property bool __flightMode:             _flightMode
 
     function _outputState() {
-        if (__debugGuidedStates) {
-            console.log(qsTr("_activeVehicle(%1) _vehicleArmed(%2) guidedModeSupported(%3) _vehicleFlying(%4) _vehicleInRTLMode(%5) pauseVehicleSupported(%6) _vehiclePaused(%7) _flightMode(%8)").arg(_activeVehicle ? 1 : 0).arg(_vehicleArmed ? 1 : 0).arg(__guidedModeSupported ? 1 : 0).arg(_vehicleFlying ? 1 : 0).arg(_vehicleInRTLMode ? 1 : 0).arg(__pauseVehicleSupported ? 1 : 0).arg(_vehiclePaused ? 1 : 0).arg(_flightMode))
+        if (_corePlugin.guidedActionsControllerLogging()) {
+            console.log(qsTr("_activeVehicle(%1) _vehicleArmed(%2) guidedModeSupported(%3) _vehicleFlying(%4) _vehicleWasFlying(%5) _vehicleInRTLMode(%6) pauseVehicleSupported(%7) _vehiclePaused(%8) _flightMode(%9) _missionItemCount(%10)").arg(_activeVehicle ? 1 : 0).arg(_vehicleArmed ? 1 : 0).arg(__guidedModeSupported ? 1 : 0).arg(_vehicleFlying ? 1 : 0).arg(_vehicleWasFlying ? 1 : 0).arg(_vehicleInRTLMode ? 1 : 0).arg(__pauseVehicleSupported ? 1 : 0).arg(_vehiclePaused ? 1 : 0).arg(_flightMode).arg(_missionItemCount))
         }
     }
 
@@ -152,32 +152,39 @@ Item {
     on__FlightModeChanged:              _outputState()
     on__GuidedModeSupportedChanged:     _outputState()
     on__PauseVehicleSupportedChanged:   _outputState()
+    on_MissionItemCountChanged:         _outputState()
 
     on_CurrentMissionIndexChanged: {
-        if (__debugGuidedStates) {
+        if (_corePlugin.guidedActionsControllerLogging()) {
             console.log("_currentMissionIndex", _currentMissionIndex)
         }
     }
     on_ResumeMissionIndexChanged: {
-        if (__debugGuidedStates) {
+        if (_corePlugin.guidedActionsControllerLogging()) {
             console.log("_resumeMissionIndex", _resumeMissionIndex)
         }
     }
     onShowResumeMissionChanged: {
-        if (__debugGuidedStates) {
+        if (_corePlugin.guidedActionsControllerLogging()) {
             console.log("showResumeMission", showResumeMission)
         }
         _outputState()
     }
     onShowStartMissionChanged: {
-        if (__debugGuidedStates) {
+        if (_corePlugin.guidedActionsControllerLogging()) {
             console.log("showStartMission", showStartMission)
         }
         _outputState()
     }
     onShowContinueMissionChanged: {
-        if (__debugGuidedStates) {
+        if (_corePlugin.guidedActionsControllerLogging()) {
             console.log("showContinueMission", showContinueMission)
+        }
+        _outputState()
+    }
+    onShowRTLChanged: {
+        if (_corePlugin.guidedActionsControllerLogging()) {
+            console.log("showRTL", showRTL)
         }
         _outputState()
     }
@@ -202,12 +209,13 @@ Item {
     }
 
     // Called when an action is about to be executed in order to confirm
-    function confirmAction(actionCode, actionData) {
+    function confirmAction(actionCode, actionData, mapIndicator) {
         var showImmediate = true
         closeAll()
         confirmDialog.action = actionCode
         confirmDialog.actionData = actionData
         confirmDialog.hideTrigger = true
+        confirmDialog.mapIndicator = mapIndicator
         _actionData = actionData
         switch (actionCode) {
         case actionArm:
@@ -245,7 +253,7 @@ Item {
             confirmDialog.hideTrigger = Qt.binding(function() { return !showStartMission })
             break;
         case actionMVStartMission:
-            confirmDialog.title = startMissionTitle
+            confirmDialog.title = mvStartMissionTitle
             confirmDialog.message = startMissionMessage
             confirmDialog.hideTrigger = true
             break;
@@ -256,20 +264,12 @@ Item {
             confirmDialog.hideTrigger = Qt.binding(function() { return !showContinueMission })
             break;
         case actionResumeMission:
-            showImmediate = false
-            confirmDialog.title = resumeMissionTitle
-            confirmDialog.message = resumeMissionMessage
-            confirmDialog.hideTrigger = Qt.binding(function() { return !showResumeMission })
-            break;
+            // Resume Mission is handled in mission end dialog
+            return
         case actionResumeMissionUploadFail:
             confirmDialog.title = resumeMissionUploadFailTitle
             confirmDialog.message = resumeMissionUploadFailMessage
             confirmDialog.hideTrigger = Qt.binding(function() { return !showResumeMission })
-            break;
-        case actionResumeMissionReady:
-            confirmDialog.title = resumeMissionTitle
-            confirmDialog.message = resumeMissionReadyMessage
-            confirmDialog.hideTrigger = false
             break;
         case actionLand:
             confirmDialog.title = landTitle
@@ -317,7 +317,7 @@ Item {
             altitudeSlider.visible = true
             break;
         case actionMVPause:
-            confirmDialog.title = pauseTitle
+            confirmDialog.title = mvPauseTitle
             confirmDialog.message = mvPauseMessage
             confirmDialog.hideTrigger = true
             break;
@@ -356,10 +356,6 @@ Item {
         case actionResumeMissionUploadFail:
             missionController.resumeMission(missionController.resumeMissionIndex)
             break
-        case actionResumeMissionReady:
-            _vehicleWasFlying = false
-            _activeVehicle.startMission()
-            break
         case actionStartMission:
         case actionContinueMission:
             _activeVehicle.startMission()
@@ -389,8 +385,7 @@ Item {
             _activeVehicle.setCurrentMissionSequence(actionData)
             break
         case actionOrbit:
-            _activeVehicle.guidedModeOrbit(orbitMapCircle.center, orbitMapCircle.radius(), _activeVehicle.altitudeAMSL.rawValue + actionAltitudeChange)
-            orbitMapCircle.hide()
+            _activeVehicle.guidedModeOrbit(orbitMapCircle.center, orbitMapCircle.radius() * (orbitMapCircle.clockwiseRotation ? 1 : -1), _activeVehicle.altitudeAMSL.rawValue + actionAltitudeChange)
             break
         case actionLandAbort:
             _activeVehicle.abortLanding(50)     // hardcoded value for climbOutAltitude that is currently ignored

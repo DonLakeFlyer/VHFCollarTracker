@@ -35,20 +35,20 @@ const char* TransectStyleComplexItem::_jsonCameraCalcKey =                  "Cam
 const char* TransectStyleComplexItem::_jsonVisualTransectPointsKey =        "VisualTransectPoints";
 const char* TransectStyleComplexItem::_jsonItemsKey =                       "Items";
 const char* TransectStyleComplexItem::_jsonFollowTerrainKey =               "FollowTerrain";
+const char* TransectStyleComplexItem::_jsonCameraShotsKey =                 "CameraShots";
 
 const int   TransectStyleComplexItem::_terrainQueryTimeoutMsecs =           1000;
 
 TransectStyleComplexItem::TransectStyleComplexItem(Vehicle* vehicle, bool flyView, QString settingsGroup, QObject* parent)
     : ComplexMissionItem                (vehicle, flyView, parent)
     , _sequenceNumber                   (0)
-    , _dirty                            (false)
-    , _terrainPolyPathQuery             (NULL)
+    , _terrainPolyPathQuery             (nullptr)
     , _ignoreRecalc                     (false)
     , _complexDistance                  (0)
     , _cameraShots                      (0)
     , _cameraCalc                       (vehicle, settingsGroup)
     , _followTerrain                    (false)
-    , _loadedMissionItemsParent         (NULL)
+    , _loadedMissionItemsParent         (nullptr)
     , _metaDataMap                      (FactMetaData::createMapFromJsonFile(QStringLiteral(":/json/TransectStyle.SettingsGroup.json"), this))
     , _turnAroundDistanceFact           (settingsGroup, _metaDataMap[_vehicle->multiRotor() ? turnAroundDistanceMultiRotorName : turnAroundDistanceName])
     , _cameraTriggerInTurnAroundFact    (settingsGroup, _metaDataMap[cameraTriggerInTurnAroundName])
@@ -140,6 +140,7 @@ void TransectStyleComplexItem::_save(QJsonObject& complexObject)
     innerObject[hoverAndCaptureName] =              _hoverAndCaptureFact.rawValue().toBool();
     innerObject[refly90DegreesName] =               _refly90DegreesFact.rawValue().toBool();
     innerObject[_jsonFollowTerrainKey] =            _followTerrain;
+    innerObject[_jsonCameraShotsKey] =              _cameraShots;
 
     if (_followTerrain) {
         innerObject[terrainAdjustToleranceName] =       _terrainAdjustToleranceFact.rawValue().toDouble();
@@ -162,7 +163,7 @@ void TransectStyleComplexItem::_save(QJsonObject& complexObject)
     QObject* missionItemParent = new QObject();
     QList<MissionItem*> missionItems;
     appendMissionItems(missionItems, missionItemParent);
-    foreach (const MissionItem* missionItem, missionItems) {
+    for (const MissionItem* missionItem: missionItems) {
         QJsonObject missionItemJsonObject;
         missionItem->save(missionItemJsonObject);
         missionItemsJsonArray.append(missionItemJsonObject);
@@ -210,9 +211,10 @@ bool TransectStyleComplexItem::_load(const QJsonObject& complexObject, QString& 
         { hoverAndCaptureName,              QJsonValue::Bool,   true },
         { refly90DegreesName,               QJsonValue::Bool,   true },
         { _jsonCameraCalcKey,               QJsonValue::Object, true },
-        { _jsonVisualTransectPointsKey,           QJsonValue::Array,  true },
+        { _jsonVisualTransectPointsKey,     QJsonValue::Array,  true },
         { _jsonItemsKey,                    QJsonValue::Array,  true },
         { _jsonFollowTerrainKey,            QJsonValue::Bool,   true },
+        { _jsonCameraShotsKey,              QJsonValue::Double, false },    // Not required since it was missing from initial implementation
     };
     if (!JsonHelper::validateKeys(innerObject, innerKeyInfoList, errorString)) {
         return false;
@@ -228,7 +230,7 @@ bool TransectStyleComplexItem::_load(const QJsonObject& complexObject, QString& 
     // Load generated mission items
     _loadedMissionItemsParent = new QObject(this);
     QJsonArray missionItemsJsonArray = innerObject[_jsonItemsKey].toArray();
-    foreach (const QJsonValue& missionItemJson, missionItemsJsonArray) {
+    for (const QJsonValue& missionItemJson: missionItemsJsonArray) {
         MissionItem* missionItem = new MissionItem(_loadedMissionItemsParent);
         if (!missionItem->load(missionItemJson.toObject(), 0 /* sequenceNumber */, errorString)) {
             _loadedMissionItemsParent->deleteLater();
@@ -249,6 +251,12 @@ bool TransectStyleComplexItem::_load(const QJsonObject& complexObject, QString& 
     _hoverAndCaptureFact.setRawValue            (innerObject[hoverAndCaptureName].toBool());
     _refly90DegreesFact.setRawValue             (innerObject[refly90DegreesName].toBool());
     _followTerrain = innerObject[_jsonFollowTerrainKey].toBool();
+
+    // These two keys where not included in initial implementation so they are optional. Without them the values will be
+    // incorrect when loaded though.
+    if (innerObject.contains(_jsonCameraShotsKey)) {
+        _cameraShots = innerObject[_jsonCameraShotsKey].toInt();
+    }
 
     if (_followTerrain) {
         QList<JsonHelper::KeyValidateInfo> followTerrainKeyInfoList = {
@@ -362,13 +370,32 @@ void TransectStyleComplexItem::_rebuildTransects(void)
         }
     }
 
+    // Calc bounding cube
+    double north = 0.0;
+    double south = 180.0;
+    double east  = 0.0;
+    double west  = 360.0;
+    double bottom = 100000.;
+    double top = 0.;
     // Generate the visuals transect representation
     _visualTransectPoints.clear();
-    foreach (const QList<CoordInfo_t>& transect, _transects) {
-        foreach (const CoordInfo_t& coordInfo, transect) {
+    for (const QList<CoordInfo_t>& transect: _transects) {
+        for (const CoordInfo_t& coordInfo: transect) {
             _visualTransectPoints.append(QVariant::fromValue(coordInfo.coord));
+            double lat = coordInfo.coord.latitude()  + 90.0;
+            double lon = coordInfo.coord.longitude() + 180.0;
+            north   = fmax(north, lat);
+            south   = fmin(south, lat);
+            east    = fmax(east,  lon);
+            west    = fmin(west,  lon);
+            bottom  = fmin(bottom, coordInfo.coord.altitude());
+            top     = fmax(top, coordInfo.coord.altitude());
         }
     }
+    //-- Update bounding cube for airspace management control
+    _setBoundingCube(QGCGeoBoundingCube(
+        QGeoCoordinate(north - 90.0, west - 180.0, bottom),
+        QGeoCoordinate(south - 90.0, east - 180.0, top)));
     emit visualTransectPointsChanged();
 
     _coordinate = _visualTransectPoints.count() ? _visualTransectPoints.first().value<QGeoCoordinate>() : QGeoCoordinate();
@@ -376,20 +403,17 @@ void TransectStyleComplexItem::_rebuildTransects(void)
     emit coordinateChanged(_coordinate);
     emit exitCoordinateChanged(_exitCoordinate);
 
-    _rebuildTransectsPhase2();
+    _recalcComplexDistance();
+    _recalcCameraShots();
 
     emit lastSequenceNumberChanged(lastSequenceNumber());
     emit timeBetweenShotsChanged();
+    emit additionalTimeDelayChanged();
 }
 
 void TransectStyleComplexItem::_queryTransectsPathHeightInfo(void)
 {
     _transectsPathHeightInfo.clear();
-    if (_terrainPolyPathQuery) {
-        // Toss previous query
-        _terrainPolyPathQuery->deleteLater();
-        _terrainPolyPathQuery = NULL;
-    }
 
     if (_transects.count()) {
         // We don't actually send the query until this timer times out. This way we only send
@@ -400,12 +424,26 @@ void TransectStyleComplexItem::_queryTransectsPathHeightInfo(void)
 
 void TransectStyleComplexItem::_reallyQueryTransectsPathHeightInfo(void)
 {
+    // Clear any previous query
+    if (_terrainPolyPathQuery) {
+        // FIXME: We should really be blowing away any previous query here. But internally that is difficult to implement so instead we let
+        // it complete and drop the results.
+#if 0
+        // Toss previous query
+        _terrainPolyPathQuery->deleteLater();
+#else
+        // Let the signal fall on the floor
+        disconnect(_terrainPolyPathQuery, &TerrainPolyPathQuery::terrainDataReceived, this, &TransectStyleComplexItem::_polyPathTerrainData);
+#endif
+        _terrainPolyPathQuery = NULL;
+    }
+
     // Append all transects into a single PolyPath query
 
     QList<QGeoCoordinate> transectPoints;
 
-    foreach (const QList<CoordInfo_t>& transect, _transects) {
-        foreach (const CoordInfo_t& coordInfo, transect) {
+    for (const QList<CoordInfo_t>& transect: _transects) {
+        for (const CoordInfo_t& coordInfo: transect) {
             transectPoints.append(coordInfo.coord);
         }
     }
@@ -436,6 +474,12 @@ void TransectStyleComplexItem::_polyPathTerrainData(bool success, const QList<Te
         // Now that we have terrain data we can adjust
         _adjustTransectsForTerrain();
     }
+
+    if (_terrainPolyPathQuery != sender()) {
+        qWarning() << "TransectStyleComplexItem::_polyPathTerrainData _terrainPolyPathQuery != sender()";
+    }
+    disconnect(_terrainPolyPathQuery, &TerrainPolyPathQuery::terrainDataReceived, this, &TransectStyleComplexItem::_polyPathTerrainData);
+    _terrainPolyPathQuery = NULL;
 }
 
 bool TransectStyleComplexItem::readyForSave(void) const
@@ -603,7 +647,7 @@ void TransectStyleComplexItem::_adjustForTolerance(QList<CoordInfo_t>& transect)
 
 #if 0
     qDebug() << "_adjustForTolerance";
-    foreach (const TransectStyleComplexItem::CoordInfo_t& coordInfo, adjustedPoints) {
+    for (const TransectStyleComplexItem::CoordInfo_t& coordInfo: adjustedPoints) {
         qDebug() << coordInfo.coordType;
     }
 #endif
@@ -656,7 +700,7 @@ void TransectStyleComplexItem::_addInterstitialTerrainPoints(QList<CoordInfo_t>&
 
 #if 0
     qDebug() << "_addInterstitialTerrainPoints";
-    foreach (const TransectStyleComplexItem::CoordInfo_t& coordInfo, adjustedTransect) {
+    for (const TransectStyleComplexItem::CoordInfo_t& coordInfo: adjustedTransect) {
         qDebug() << coordInfo.coordType;
     }
 #endif
@@ -681,15 +725,17 @@ int TransectStyleComplexItem::lastSequenceNumber(void) const
         // We have to determine from transects
         int itemCount = 0;
 
-        foreach (const QList<CoordInfo_t>& rgCoordInfo, _transects) {
+        for (const QList<CoordInfo_t>& rgCoordInfo: _transects) {
             itemCount += rgCoordInfo.count() * (hoverAndCaptureEnabled() ? 2 : 1);
         }
 
 
-        if (!hoverAndCaptureEnabled()) {
+        if (!hoverAndCaptureEnabled() && triggerCamera()) {
             if (_cameraTriggerInTurnAroundFact.rawValue().toBool()) {
-                // Only one camera start and on camera stop
+                // One camera start/stop for beginning/end of entire survey
                 itemCount += 2;
+                // One camera start for each transect
+                itemCount += _transects.count();
             } else {
                 // Each transect will have a camera start and stop in it
                 itemCount += _transects.count() * 2;

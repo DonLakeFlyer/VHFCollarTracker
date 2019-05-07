@@ -11,6 +11,7 @@
 #define ComplexMissionItem_H
 
 #include "VisualMissionItem.h"
+#include "QGCGeo.h"
 
 class ComplexMissionItem : public VisualMissionItem
 {
@@ -43,12 +44,9 @@ public:
     /// This mission item attribute specifies the type of the complex item.
     static const char* jsonComplexItemTypeKey;
 
-    // Overrides from VisualMissionItem
-    double additionalTimeDelay(void) const final { return 0; }
-
-
 signals:
     void complexDistanceChanged     (void);
+    void boundingCubeChanged        (void);
     void greatestDistanceToChanged  (void);
 };
 

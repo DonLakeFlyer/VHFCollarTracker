@@ -22,6 +22,9 @@
 #ifdef __android__
 //#define ANDDROID_GST_DEBUG
 #endif
+#if defined(__ios__)
+#include "gst_ios_init.h"
+#endif
 #endif
 
 #include "VideoStreaming.h"
@@ -49,7 +52,7 @@
 #endif
 
 #if defined(QGC_GST_STREAMING)
-#if (defined(__macos__) && defined(QGC_INSTALL_RELEASE)) || defined(Q_OS_WIN)
+#if (defined(Q_OS_MAC) && defined(QGC_INSTALL_RELEASE)) || defined(Q_OS_WIN)
 static void qgcputenv(const QString& key, const QString& root, const QString& path)
 {
     QString value = root + path;
@@ -104,7 +107,7 @@ int start_logger(const char *app_name)
 void initializeVideoStreaming(int &argc, char* argv[], char* logpath, char* debuglevel)
 {
 #if defined(QGC_GST_STREAMING)
-    #ifdef __macos__
+    #ifdef Q_OS_MAC
         #ifdef QGC_INSTALL_RELEASE
             QString currentDir = QCoreApplication::applicationDirPath();
             qgcputenv("GST_PLUGIN_SCANNER",           currentDir, "/../Frameworks/GStreamer.framework/Versions/1.0/libexec/gstreamer-1.0/gst-plugin-scanner");
@@ -120,27 +123,32 @@ void initializeVideoStreaming(int &argc, char* argv[], char* logpath, char* debu
         qgcputenv("GST_PLUGIN_PATH", currentDir, "/gstreamer-plugins");
     #endif
 
-
-        // Initialize GStreamer
+    // Initialize GStreamer
+    #if defined(__ios__)
+        //-- iOS specific initialization
+        gst_ios_init();
+    #else
+        //-- Generic initialization
         if (logpath) {
+            QString gstDebugFile = QString("%1/%2").arg(logpath).arg("gstreamer-log.txt");
+            qDebug() << "GStreamer debug output:" << gstDebugFile;
             if (debuglevel) {
                 qputenv("GST_DEBUG", debuglevel);
             }
             qputenv("GST_DEBUG_NO_COLOR", "1");
-            qputenv("GST_DEBUG_FILE", QString("%1/%2").arg(logpath).arg("gstreamer-log.txt").toUtf8());
+            qputenv("GST_DEBUG_FILE", gstDebugFile.toUtf8());
             qputenv("GST_DEBUG_DUMP_DOT_DIR", logpath);
         }
-
-
-        GError* error = NULL;
+        GError* error = nullptr;
         if (!gst_init_check(&argc, &argv, &error)) {
             qCritical() << "gst_init_check() failed: " << error->message;
             g_error_free(error);
         }
+    #endif
         // Our own plugin
         GST_PLUGIN_STATIC_REGISTER(QGC_VIDEOSINK_PLUGIN);
         // The static plugins we use
-    #if defined(__mobile__) && !defined(__macos__)
+    #if defined(__android__)
         GST_PLUGIN_STATIC_REGISTER(coreelements);
         GST_PLUGIN_STATIC_REGISTER(libav);
         GST_PLUGIN_STATIC_REGISTER(rtp);

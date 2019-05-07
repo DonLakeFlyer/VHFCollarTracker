@@ -14,23 +14,14 @@
 class RTKSettings : public SettingsGroup
 {
     Q_OBJECT
-    
 public:
-    RTKSettings(QObject* parent = NULL);
-
-    Q_PROPERTY(Fact* surveyInAccuracyLimit          READ surveyInAccuracyLimit          CONSTANT)
-    Q_PROPERTY(Fact* surveyInMinObservationDuration READ surveyInMinObservationDuration CONSTANT)
-
-    Fact* surveyInAccuracyLimit         (void);
-    Fact* surveyInMinObservationDuration(void);
-
-    static const char* name;
-    static const char* settingsGroup;
-
-    static const char* surveyInAccuracyLimitName;
-    static const char* surveyInMinObservationDurationName;
-
-private:
-    SettingsFact* _surveyInAccuracyLimitFact;
-    SettingsFact* _surveyInMinObservationDurationFact;
+    RTKSettings(QObject* parent = nullptr);
+    DEFINE_SETTING_NAME_GROUP()
+    DEFINE_SETTINGFACT(surveyInAccuracyLimit)
+    DEFINE_SETTINGFACT(surveyInMinObservationDuration)
+    DEFINE_SETTINGFACT(useFixedBasePosition)
+    DEFINE_SETTINGFACT(fixedBasePositionLatitude)
+    DEFINE_SETTINGFACT(fixedBasePositionLongitude)
+    DEFINE_SETTINGFACT(fixedBasePositionAltitude)
+    DEFINE_SETTINGFACT(fixedBasePositionAccuracy)
 };

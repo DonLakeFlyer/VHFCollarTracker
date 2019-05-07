@@ -23,16 +23,16 @@ Fact::Fact(QObject* parent)
     , _componentId              (-1)
     , _rawValue                 (0)
     , _type                     (FactMetaData::valueTypeInt32)
-    , _metaData                 (NULL)
+    , _metaData                 (nullptr)
     , _sendValueChangedSignals  (true)
     , _deferredValueChangeSignal(false)
-    , _valueSliderModel         (NULL)
+    , _valueSliderModel         (nullptr)
+    , _ignoreQGCRebootRequired  (false)
 {    
     FactMetaData* metaData = new FactMetaData(_type, this);
     setMetaData(metaData);
 
-    // Better safe than sorry on object ownership
-    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
+    _init();
 }
 
 Fact::Fact(int componentId, QString name, FactMetaData::ValueType_t type, QObject* parent)
@@ -41,14 +41,16 @@ Fact::Fact(int componentId, QString name, FactMetaData::ValueType_t type, QObjec
     , _componentId              (componentId)
     , _rawValue                 (0)
     , _type                     (type)
-    , _metaData                 (NULL)
+    , _metaData                 (nullptr)
     , _sendValueChangedSignals  (true)
     , _deferredValueChangeSignal(false)
-    , _valueSliderModel         (NULL)
+    , _valueSliderModel         (nullptr)
+    , _ignoreQGCRebootRequired  (false)
 {
     FactMetaData* metaData = new FactMetaData(_type, this);
     setMetaData(metaData);
-    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
+
+    _init();
 }
 
 Fact::Fact(const QString& settingsGroup, FactMetaData* metaData, QObject* parent)
@@ -57,20 +59,30 @@ Fact::Fact(const QString& settingsGroup, FactMetaData* metaData, QObject* parent
     , _componentId              (0)
     , _rawValue                 (0)
     , _type                     (metaData->type())
-    , _metaData                 (NULL)
+    , _metaData                 (nullptr)
     , _sendValueChangedSignals  (true)
     , _deferredValueChangeSignal(false)
-    , _valueSliderModel         (NULL)
+    , _valueSliderModel         (nullptr)
+    , _ignoreQGCRebootRequired  (false)
 {
     qgcApp()->toolbox()->corePlugin()->adjustSettingMetaData(settingsGroup, *metaData);
     setMetaData(metaData, true /* setDefaultFromMetaData */);
+
+    _init();
 }
 
 Fact::Fact(const Fact& other, QObject* parent)
     : QObject(parent)
 {
     *this = other;
+
+    _init();
+}
+
+void Fact::_init(void)
+{
     QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
+    connect(this, &Fact::_containerRawValueChanged, this, &Fact::_checkForRebootMessaging);
 }
 
 const Fact& Fact::operator=(const Fact& other)
@@ -81,11 +93,12 @@ const Fact& Fact::operator=(const Fact& other)
     _type                       = other._type;
     _sendValueChangedSignals    = other._sendValueChangedSignals;
     _deferredValueChangeSignal  = other._deferredValueChangeSignal;
-    _valueSliderModel       = NULL;
+    _valueSliderModel           = nullptr;
+    _ignoreQGCRebootRequired    = other._ignoreQGCRebootRequired;
     if (_metaData && other._metaData) {
         *_metaData = *other._metaData;
     } else {
-        _metaData = NULL;
+        _metaData = nullptr;
     }
     
     return *this;
@@ -138,15 +151,20 @@ void Fact::setCookedValue(const QVariant& value)
     }
 }
 
-void Fact::setEnumStringValue(const QString& value)
+int Fact::valueIndex(const QString& value)
 {
     if (_metaData) {
-        int index = _metaData->enumStrings().indexOf(value);
-        if (index != -1) {
-            setCookedValue(_metaData->enumValues()[index]);
-        }
-    } else {
-        qWarning() << kMissingMetadata << name();
+        return _metaData->enumStrings().indexOf(value);
+    }
+    qWarning() << kMissingMetadata << name();
+    return -1;
+}
+
+void Fact::setEnumStringValue(const QString& value)
+{
+    int index = valueIndex(value);
+    if (index != -1) {
+        setCookedValue(_metaData->enumValues()[index]);
     }
 }
 
@@ -212,7 +230,7 @@ int Fact::enumIndex(void)
         //-- Only enums have an index
         if(_metaData->enumValues().count()) {
             int index = 0;
-            foreach (QVariant enumValue, _metaData->enumValues()) {
+            for (QVariant enumValue: _metaData->enumValues()) {
                 if (enumValue == rawValue()) {
                     return index;
                 }
@@ -309,6 +327,9 @@ QString Fact::_variantToString(const QVariant& variant, int decimalPlaces) const
             valueString = QString("%1").arg(dValue, 0, 'f', decimalPlaces);
         }
     }
+        break;
+    case FactMetaData::valueTypeBool:
+        valueString = variant.toBool() ? tr("true") : tr("false");
         break;
     case FactMetaData::valueTypeElapsedTimeInSeconds:
     {
@@ -586,10 +607,22 @@ QVariant Fact::clamp(const QString& cookedValue)
     return QVariant();
 }
 
-bool Fact::rebootRequired(void) const
+bool Fact::vehicleRebootRequired(void) const
 {
     if (_metaData) {
-        return _metaData->rebootRequired();
+        return _metaData->vehicleRebootRequired();
+    } else {
+        qWarning() << kMissingMetadata << name();
+        return false;
+    }
+}
+
+bool Fact::qgcRebootRequired(void) const
+{
+    if (_ignoreQGCRebootRequired) {
+        return false;
+    } else if (_metaData) {
+        return _metaData->qgcRebootRequired();
     } else {
         qWarning() << kMissingMetadata << name();
         return false;
@@ -702,4 +735,22 @@ FactValueSliderListModel* Fact::valueSliderModel(void)
         _valueSliderModel = new FactValueSliderListModel(*this);
     }
     return _valueSliderModel;
+}
+
+void Fact::_checkForRebootMessaging(void)
+{
+    if(qgcApp()) {
+        if (!qgcApp()->runningUnitTests()) {
+            if (vehicleRebootRequired()) {
+                qgcApp()->showMessage(tr("Change of parameter %1 requires a Vehicle reboot to take effect.").arg(name()));
+            } else if (qgcRebootRequired()) {
+                qgcApp()->showMessage(tr("Change of '%1' value requires restart of %2 to take effect.").arg(shortDescription()).arg(qgcApp()->applicationName()));
+            }
+        }
+    }
+}
+
+void Fact::_setIgnoreQGCRebootRequired(bool ignore)
+{
+    _ignoreQGCRebootRequired = ignore;
 }

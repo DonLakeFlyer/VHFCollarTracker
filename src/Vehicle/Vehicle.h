@@ -20,6 +20,7 @@
 #include "MAVLinkProtocol.h"
 #include "UASMessageHandler.h"
 #include "SettingsFact.h"
+#include "QGCMapCircle.h"
 
 class UAS;
 class UASInterface;
@@ -35,6 +36,9 @@ class UASMessage;
 class SettingsManager;
 class ADSBVehicle;
 class QGCCameraManager;
+#if defined(QGC_AIRMAP_ENABLED)
+class AirspaceVehicleManager;
+#endif
 
 Q_DECLARE_LOGGING_CATEGORY(VehicleLog)
 
@@ -45,7 +49,7 @@ class VehicleDistanceSensorFactGroup : public FactGroup
     Q_OBJECT
 
 public:
-    VehicleDistanceSensorFactGroup(QObject* parent = NULL);
+    VehicleDistanceSensorFactGroup(QObject* parent = nullptr);
 
     Q_PROPERTY(Fact* rotationNone       READ rotationNone       CONSTANT)
     Q_PROPERTY(Fact* rotationYaw45      READ rotationYaw45      CONSTANT)
@@ -106,7 +110,7 @@ class VehicleSetpointFactGroup : public FactGroup
     Q_OBJECT
 
 public:
-    VehicleSetpointFactGroup(QObject* parent = NULL);
+    VehicleSetpointFactGroup(QObject* parent = nullptr);
 
     Q_PROPERTY(Fact* roll       READ roll       CONSTANT)
     Q_PROPERTY(Fact* pitch      READ pitch      CONSTANT)
@@ -143,7 +147,7 @@ class VehicleVibrationFactGroup : public FactGroup
     Q_OBJECT
 
 public:
-    VehicleVibrationFactGroup(QObject* parent = NULL);
+    VehicleVibrationFactGroup(QObject* parent = nullptr);
 
     Q_PROPERTY(Fact* xAxis      READ xAxis      CONSTANT)
     Q_PROPERTY(Fact* yAxis      READ yAxis      CONSTANT)
@@ -180,7 +184,7 @@ class VehicleWindFactGroup : public FactGroup
     Q_OBJECT
 
 public:
-    VehicleWindFactGroup(QObject* parent = NULL);
+    VehicleWindFactGroup(QObject* parent = nullptr);
 
     Q_PROPERTY(Fact* direction      READ direction      CONSTANT)
     Q_PROPERTY(Fact* speed          READ speed          CONSTANT)
@@ -205,7 +209,7 @@ class VehicleGPSFactGroup : public FactGroup
     Q_OBJECT
 
 public:
-    VehicleGPSFactGroup(QObject* parent = NULL);
+    VehicleGPSFactGroup(QObject* parent = nullptr);
 
     Q_PROPERTY(Fact* lat                READ lat                CONSTANT)
     Q_PROPERTY(Fact* lon                READ lon                CONSTANT)
@@ -246,7 +250,7 @@ class VehicleBatteryFactGroup : public FactGroup
     Q_OBJECT
 
 public:
-    VehicleBatteryFactGroup(QObject* parent = NULL);
+    VehicleBatteryFactGroup(QObject* parent = nullptr);
 
     Q_PROPERTY(Fact* voltage            READ voltage            CONSTANT)
     Q_PROPERTY(Fact* percentRemaining   READ percentRemaining   CONSTANT)
@@ -305,7 +309,7 @@ class VehicleTemperatureFactGroup : public FactGroup
     Q_OBJECT
 
 public:
-    VehicleTemperatureFactGroup(QObject* parent = NULL);
+    VehicleTemperatureFactGroup(QObject* parent = nullptr);
 
     Q_PROPERTY(Fact* temperature1       READ temperature1       CONSTANT)
     Q_PROPERTY(Fact* temperature2       READ temperature2       CONSTANT)
@@ -334,7 +338,7 @@ class VehicleClockFactGroup : public FactGroup
     Q_OBJECT
 
 public:
-    VehicleClockFactGroup(QObject* parent = NULL);
+    VehicleClockFactGroup(QObject* parent = nullptr);
 
     Q_PROPERTY(Fact* currentTime        READ currentTime        CONSTANT)
     Q_PROPERTY(Fact* currentDate        READ currentDate        CONSTANT)
@@ -355,6 +359,131 @@ private:
     Fact            _currentDateFact;
 };
 
+class VehicleEstimatorStatusFactGroup : public FactGroup
+{
+    Q_OBJECT
+
+public:
+    VehicleEstimatorStatusFactGroup(QObject* parent = nullptr);
+
+    Q_PROPERTY(Fact* goodAttitudeEstimate           READ goodAttitudeEstimate           CONSTANT)
+    Q_PROPERTY(Fact* goodHorizVelEstimate           READ goodHorizVelEstimate           CONSTANT)
+    Q_PROPERTY(Fact* goodVertVelEstimate            READ goodVertVelEstimate            CONSTANT)
+    Q_PROPERTY(Fact* goodHorizPosRelEstimate        READ goodHorizPosRelEstimate        CONSTANT)
+    Q_PROPERTY(Fact* goodHorizPosAbsEstimate        READ goodHorizPosAbsEstimate        CONSTANT)
+    Q_PROPERTY(Fact* goodVertPosAbsEstimate         READ goodVertPosAbsEstimate         CONSTANT)
+    Q_PROPERTY(Fact* goodVertPosAGLEstimate         READ goodVertPosAGLEstimate         CONSTANT)
+    Q_PROPERTY(Fact* goodConstPosModeEstimate       READ goodConstPosModeEstimate       CONSTANT)
+    Q_PROPERTY(Fact* goodPredHorizPosRelEstimate    READ goodPredHorizPosRelEstimate    CONSTANT)
+    Q_PROPERTY(Fact* goodPredHorizPosAbsEstimate    READ goodPredHorizPosAbsEstimate    CONSTANT)
+    Q_PROPERTY(Fact* gpsGlitch                      READ gpsGlitch                      CONSTANT)
+    Q_PROPERTY(Fact* accelError                     READ accelError                     CONSTANT)
+    Q_PROPERTY(Fact* velRatio                       READ velRatio                       CONSTANT)
+    Q_PROPERTY(Fact* horizPosRatio                  READ horizPosRatio                  CONSTANT)
+    Q_PROPERTY(Fact* vertPosRatio                   READ vertPosRatio                   CONSTANT)
+    Q_PROPERTY(Fact* magRatio                       READ magRatio                       CONSTANT)
+    Q_PROPERTY(Fact* haglRatio                      READ haglRatio                      CONSTANT)
+    Q_PROPERTY(Fact* tasRatio                       READ tasRatio                       CONSTANT)
+    Q_PROPERTY(Fact* horizPosAccuracy               READ horizPosAccuracy               CONSTANT)
+    Q_PROPERTY(Fact* vertPosAccuracy                READ vertPosAccuracy                CONSTANT)
+
+    Fact* goodAttitudeEstimate          (void) { return &_goodAttitudeEstimateFact; }
+    Fact* goodHorizVelEstimate          (void) { return &_goodHorizVelEstimateFact; }
+    Fact* goodVertVelEstimate           (void) { return &_goodVertVelEstimateFact; }
+    Fact* goodHorizPosRelEstimate       (void) { return &_goodHorizPosRelEstimateFact; }
+    Fact* goodHorizPosAbsEstimate       (void) { return &_goodHorizPosAbsEstimateFact; }
+    Fact* goodVertPosAbsEstimate        (void) { return &_goodVertPosAbsEstimateFact; }
+    Fact* goodVertPosAGLEstimate        (void) { return &_goodVertPosAGLEstimateFact; }
+    Fact* goodConstPosModeEstimate      (void) { return &_goodConstPosModeEstimateFact; }
+    Fact* goodPredHorizPosRelEstimate   (void) { return &_goodPredHorizPosRelEstimateFact; }
+    Fact* goodPredHorizPosAbsEstimate   (void) { return &_goodPredHorizPosAbsEstimateFact; }
+    Fact* gpsGlitch                     (void) { return &_gpsGlitchFact; }
+    Fact* accelError                    (void) { return &_accelErrorFact; }
+    Fact* velRatio                      (void) { return &_velRatioFact; }
+    Fact* horizPosRatio                 (void) { return &_horizPosRatioFact; }
+    Fact* vertPosRatio                  (void) { return &_vertPosRatioFact; }
+    Fact* magRatio                      (void) { return &_magRatioFact; }
+    Fact* haglRatio                     (void) { return &_haglRatioFact; }
+    Fact* tasRatio                      (void) { return &_tasRatioFact; }
+    Fact* horizPosAccuracy              (void) { return &_horizPosAccuracyFact; }
+    Fact* vertPosAccuracy               (void) { return &_vertPosAccuracyFact; }
+
+    static const char* _goodAttitudeEstimateFactName;
+    static const char* _goodHorizVelEstimateFactName;
+    static const char* _goodVertVelEstimateFactName;
+    static const char* _goodHorizPosRelEstimateFactName;
+    static const char* _goodHorizPosAbsEstimateFactName;
+    static const char* _goodVertPosAbsEstimateFactName;
+    static const char* _goodVertPosAGLEstimateFactName;
+    static const char* _goodConstPosModeEstimateFactName;
+    static const char* _goodPredHorizPosRelEstimateFactName;
+    static const char* _goodPredHorizPosAbsEstimateFactName;
+    static const char* _gpsGlitchFactName;
+    static const char* _accelErrorFactName;
+    static const char* _velRatioFactName;
+    static const char* _horizPosRatioFactName;
+    static const char* _vertPosRatioFactName;
+    static const char* _magRatioFactName;
+    static const char* _haglRatioFactName;
+    static const char* _tasRatioFactName;
+    static const char* _horizPosAccuracyFactName;
+    static const char* _vertPosAccuracyFactName;
+
+private:
+    Fact _goodAttitudeEstimateFact;
+    Fact _goodHorizVelEstimateFact;
+    Fact _goodVertVelEstimateFact;
+    Fact _goodHorizPosRelEstimateFact;
+    Fact _goodHorizPosAbsEstimateFact;
+    Fact _goodVertPosAbsEstimateFact;
+    Fact _goodVertPosAGLEstimateFact;
+    Fact _goodConstPosModeEstimateFact;
+    Fact _goodPredHorizPosRelEstimateFact;
+    Fact _goodPredHorizPosAbsEstimateFact;
+    Fact _gpsGlitchFact;
+    Fact _accelErrorFact;
+    Fact _velRatioFact;
+    Fact _horizPosRatioFact;
+    Fact _vertPosRatioFact;
+    Fact _magRatioFact;
+    Fact _haglRatioFact;
+    Fact _tasRatioFact;
+    Fact _horizPosAccuracyFact;
+    Fact _vertPosAccuracyFact;
+
+#if 0
+    typedef enum ESTIMATOR_STATUS_FLAGS
+    {
+       ESTIMATOR_ATTITUDE=1, /* True if the attitude estimate is good | */
+       ESTIMATOR_VELOCITY_HORIZ=2, /* True if the horizontal velocity estimate is good | */
+       ESTIMATOR_VELOCITY_VERT=4, /* True if the  vertical velocity estimate is good | */
+       ESTIMATOR_POS_HORIZ_REL=8, /* True if the horizontal position (relative) estimate is good | */
+       ESTIMATOR_POS_HORIZ_ABS=16, /* True if the horizontal position (absolute) estimate is good | */
+       ESTIMATOR_POS_VERT_ABS=32, /* True if the vertical position (absolute) estimate is good | */
+       ESTIMATOR_POS_VERT_AGL=64, /* True if the vertical position (above ground) estimate is good | */
+       ESTIMATOR_CONST_POS_MODE=128, /* True if the EKF is in a constant position mode and is not using external measurements (eg GPS or optical flow) | */
+       ESTIMATOR_PRED_POS_HORIZ_REL=256, /* True if the EKF has sufficient data to enter a mode that will provide a (relative) position estimate | */
+       ESTIMATOR_PRED_POS_HORIZ_ABS=512, /* True if the EKF has sufficient data to enter a mode that will provide a (absolute) position estimate | */
+       ESTIMATOR_GPS_GLITCH=1024, /* True if the EKF has detected a GPS glitch | */
+       ESTIMATOR_ACCEL_ERROR=2048, /* True if the EKF has detected bad accelerometer data | */
+
+        typedef struct __mavlink_estimator_status_t {
+         uint64_t time_usec; /*< Timestamp (micros since boot or Unix epoch)*/
+         float vel_ratio; /*< Velocity innovation test ratio*/
+         float pos_horiz_ratio; /*< Horizontal position innovation test ratio*/
+         float pos_vert_ratio; /*< Vertical position innovation test ratio*/
+         float mag_ratio; /*< Magnetometer innovation test ratio*/
+         float hagl_ratio; /*< Height above terrain innovation test ratio*/
+         float tas_ratio; /*< True airspeed innovation test ratio*/
+         float pos_horiz_accuracy; /*< Horizontal position 1-STD accuracy relative to the EKF local origin (m)*/
+         float pos_vert_accuracy; /*< Vertical position 1-STD accuracy relative to the EKF local origin (m)*/
+         uint16_t flags; /*< Integer bitmask indicating which EKF outputs are valid. See definition for ESTIMATOR_STATUS_FLAGS.*/
+        } mavlink_estimator_status_t;
+    };
+#endif
+};
+
+
 class Vehicle : public FactGroup
 {
     Q_OBJECT
@@ -372,7 +501,7 @@ public:
     Vehicle(MAV_AUTOPILOT           firmwareType,
             MAV_TYPE                vehicleType,
             FirmwarePluginManager*  firmwarePluginManager,
-            QObject*                parent = NULL);
+            QObject*                parent = nullptr);
 
     ~Vehicle();
 
@@ -497,15 +626,24 @@ public:
     Q_PROPERTY(QString              priorityLinkName        READ priorityLinkName       WRITE setPriorityLinkByName     NOTIFY priorityLinkNameChanged)
     Q_PROPERTY(QVariantList         links                   READ links                                                  NOTIFY linksChanged)
     Q_PROPERTY(LinkInterface*       priorityLink            READ priorityLink                                           NOTIFY priorityLinkNameChanged)
+    Q_PROPERTY(quint64              mavlinkSentCount        READ mavlinkSentCount                                       NOTIFY mavlinkStatusChanged)
+    Q_PROPERTY(quint64              mavlinkReceivedCount    READ mavlinkReceivedCount                                   NOTIFY mavlinkStatusChanged)
+    Q_PROPERTY(quint64              mavlinkLossCount        READ mavlinkLossCount                                       NOTIFY mavlinkStatusChanged)
+    Q_PROPERTY(float                mavlinkLossPercent      READ mavlinkLossPercent                                     NOTIFY mavlinkStatusChanged)
+
+    // The following properties relate to Orbit status
+    Q_PROPERTY(bool             orbitActive     READ orbitActive        NOTIFY orbitActiveChanged)
+    Q_PROPERTY(QGCMapCircle*    orbitMapCircle  READ orbitMapCircle     CONSTANT)
 
     // Vehicle state used for guided control
-    Q_PROPERTY(bool flying                  READ flying NOTIFY flyingChanged)                               ///< Vehicle is flying
-    Q_PROPERTY(bool landing                 READ landing NOTIFY landingChanged)                             ///< Vehicle is in landing pattern (DO_LAND_START)
-    Q_PROPERTY(bool guidedMode              READ guidedMode WRITE setGuidedMode NOTIFY guidedModeChanged)   ///< Vehicle is in Guided mode and can respond to guided commands
-    Q_PROPERTY(bool guidedModeSupported     READ guidedModeSupported CONSTANT)                              ///< Guided mode commands are supported by this vehicle
-    Q_PROPERTY(bool pauseVehicleSupported   READ pauseVehicleSupported CONSTANT)                            ///< Pause vehicle command is supported
-    Q_PROPERTY(bool orbitModeSupported      READ orbitModeSupported CONSTANT)                               ///< Orbit mode is supported by this vehicle
-    Q_PROPERTY(bool takeoffVehicleSupported READ takeoffVehicleSupported CONSTANT)                          ///< Guided takeoff supported
+    Q_PROPERTY(bool     flying                  READ flying                                         NOTIFY flyingChanged)       ///< Vehicle is flying
+    Q_PROPERTY(bool     landing                 READ landing                                        NOTIFY landingChanged)      ///< Vehicle is in landing pattern (DO_LAND_START)
+    Q_PROPERTY(bool     guidedMode              READ guidedMode                 WRITE setGuidedMode NOTIFY guidedModeChanged)   ///< Vehicle is in Guided mode and can respond to guided commands
+    Q_PROPERTY(bool     guidedModeSupported     READ guidedModeSupported                            CONSTANT)                   ///< Guided mode commands are supported by this vehicle
+    Q_PROPERTY(bool     pauseVehicleSupported   READ pauseVehicleSupported                          CONSTANT)                   ///< Pause vehicle command is supported
+    Q_PROPERTY(bool     orbitModeSupported      READ orbitModeSupported                             CONSTANT)                   ///< Orbit mode is supported by this vehicle
+    Q_PROPERTY(bool     takeoffVehicleSupported READ takeoffVehicleSupported                        CONSTANT)                   ///< Guided takeoff supported
+    Q_PROPERTY(QString  gotoFlightMode          READ gotoFlightMode                                 CONSTANT)                   ///< Flight mode vehicle is in while performing goto
 
     Q_PROPERTY(ParameterManager* parameterManager READ parameterManager CONSTANT)
 
@@ -524,16 +662,19 @@ public:
     Q_PROPERTY(Fact* altitudeAMSL       READ altitudeAMSL       CONSTANT)
     Q_PROPERTY(Fact* flightDistance     READ flightDistance     CONSTANT)
     Q_PROPERTY(Fact* distanceToHome     READ distanceToHome     CONSTANT)
+    Q_PROPERTY(Fact* headingToHome      READ headingToHome      CONSTANT)
+    Q_PROPERTY(Fact* distanceToGCS      READ distanceToGCS      CONSTANT)
     Q_PROPERTY(Fact* hobbs              READ hobbs              CONSTANT)
 
-    Q_PROPERTY(FactGroup* gps         READ gpsFactGroup         CONSTANT)
-    Q_PROPERTY(FactGroup* battery     READ battery1FactGroup    CONSTANT)
-    Q_PROPERTY(FactGroup* battery2    READ battery2FactGroup    CONSTANT)
-    Q_PROPERTY(FactGroup* wind        READ windFactGroup        CONSTANT)
-    Q_PROPERTY(FactGroup* vibration   READ vibrationFactGroup   CONSTANT)
-    Q_PROPERTY(FactGroup* temperature READ temperatureFactGroup CONSTANT)
-    Q_PROPERTY(FactGroup* clock       READ clockFactGroup       CONSTANT)
-    Q_PROPERTY(FactGroup* setpoint    READ setpointFactGroup    CONSTANT)
+    Q_PROPERTY(FactGroup* gps               READ gpsFactGroup               CONSTANT)
+    Q_PROPERTY(FactGroup* battery           READ battery1FactGroup          CONSTANT)
+    Q_PROPERTY(FactGroup* battery2          READ battery2FactGroup          CONSTANT)
+    Q_PROPERTY(FactGroup* wind              READ windFactGroup              CONSTANT)
+    Q_PROPERTY(FactGroup* vibration         READ vibrationFactGroup         CONSTANT)
+    Q_PROPERTY(FactGroup* temperature       READ temperatureFactGroup       CONSTANT)
+    Q_PROPERTY(FactGroup* clock             READ clockFactGroup             CONSTANT)
+    Q_PROPERTY(FactGroup* setpoint          READ setpointFactGroup          CONSTANT)
+    Q_PROPERTY(FactGroup* estimatorStatus   READ estimatorStatusFactGroup   CONSTANT)
 
     Q_PROPERTY(int      firmwareMajorVersion        READ firmwareMajorVersion       NOTIFY firmwareVersionChanged)
     Q_PROPERTY(int      firmwareMinorVersion        READ firmwareMinorVersion       NOTIFY firmwareVersionChanged)
@@ -549,12 +690,6 @@ public:
 
     /// Resets link status counters
     Q_INVOKABLE void resetCounters  ();
-
-    /// Returns the number of buttons which are reserved for firmware use in the MANUAL_CONTROL mavlink
-    /// message. For example PX4 Flight Stack reserves the first 8 buttons to simulate rc switches.
-    /// The remainder can be assigned to Vehicle actions.
-    /// @return -1: reserver all buttons, >0 number of buttons to reserve
-    Q_PROPERTY(int manualControlReservedButtonCount READ manualControlReservedButtonCount CONSTANT)
 
     // Called when the message drop-down is invoked to clear current count
     Q_INVOKABLE void        resetMessages();
@@ -611,19 +746,21 @@ public:
     Q_INVOKABLE void triggerCamera(void);
     Q_INVOKABLE void sendPlan(QString planFile);
 
-#if 0
-    // Temporarily removed, waiting for new command implementation
+    /// Used to check if running current version is equal or higher than the one being compared.
+    //  returns 1 if current > compare, 0 if current == compare, -1 if current < compare
+    Q_INVOKABLE int versionCompare(QString& compare);
+    Q_INVOKABLE int versionCompare(int major, int minor, int patch);
+
     /// Test motor
     ///     @param motor Motor number, 1-based
     ///     @param percent 0-no power, 100-full power
-    ///     @param timeoutSecs Number of seconds for motor to run
-    Q_INVOKABLE void motorTest(int motor, int percent, int timeoutSecs);
-#endif
+    Q_INVOKABLE void motorTest(int motor, int percent);
 
-    bool guidedModeSupported    (void) const;
-    bool pauseVehicleSupported  (void) const;
-    bool orbitModeSupported     (void) const;
-    bool takeoffVehicleSupported(void) const;
+    bool    guidedModeSupported     (void) const;
+    bool    pauseVehicleSupported   (void) const;
+    bool    orbitModeSupported      (void) const;
+    bool    takeoffVehicleSupported (void) const;
+    QString gotoFlightMode          (void) const;
 
     // Property accessors
 
@@ -677,8 +814,6 @@ public:
 
     /// Provides access to the Firmware Plugin for this Vehicle
     FirmwarePlugin* firmwarePlugin(void) { return _firmwarePlugin; }
-
-    int manualControlReservedButtonCount(void);
 
     MissionManager*     missionManager(void)    { return _missionManager; }
     GeoFenceManager*    geoFenceManager(void)   { return _geoFenceManager; }
@@ -751,9 +886,9 @@ public:
     QString         formatedMessages        ();
     QString         formatedMessage         () { return _formatedMessage; }
     QString         latestError             () { return _latestError; }
-    float           latitude                () { return _coordinate.latitude(); }
-    float           longitude               () { return _coordinate.longitude(); }
-    bool            mavPresent              () { return _mav != NULL; }
+    float           latitude                () { return static_cast<float>(_coordinate.latitude()); }
+    float           longitude               () { return static_cast<float>(_coordinate.longitude()); }
+    bool            mavPresent              () { return _mav != nullptr; }
     int             rcRSSI                  () { return _rcRSSI; }
     bool            px4Firmware             () const { return _firmwareType == MAV_AUTOPILOT_PX4; }
     bool            apmFirmware             () const { return _firmwareType == MAV_AUTOPILOT_ARDUPILOTMEGA; }
@@ -795,6 +930,9 @@ public:
     int             telemetryRNoise         () { return _telemetryRNoise; }
     bool            autoDisarm              ();
     bool            highLatencyLink         () const { return _highLatencyLink; }
+    bool            orbitActive             () const { return _orbitActive; }
+    QGCMapCircle*   orbitMapCircle          () { return &_orbitMapCircle; }
+
     /// Get the maximum MAVLink protocol version supported
     /// @return the maximum version
     unsigned        maxProtoVersion         () const { return _maxProtoVersion; }
@@ -812,6 +950,8 @@ public:
     Fact* altitudeAMSL      (void) { return &_altitudeAMSLFact; }
     Fact* flightDistance    (void) { return &_flightDistanceFact; }
     Fact* distanceToHome    (void) { return &_distanceToHomeFact; }
+    Fact* headingToHome     (void) { return &_headingToHomeFact; }
+    Fact* distanceToGCS     (void) { return &_distanceToGCSFact; }
     Fact* hobbs             (void) { return &_hobbsFact; }
 
     FactGroup* gpsFactGroup             (void) { return &_gpsFactGroup; }
@@ -823,6 +963,7 @@ public:
     FactGroup* clockFactGroup           (void) { return &_clockFactGroup; }
     FactGroup* setpointFactGroup        (void) { return &_setpointFactGroup; }
     FactGroup* distanceSensorFactGroup  (void) { return &_distanceSensorFactGroup; }
+    FactGroup* estimatorStatusFactGroup (void) { return &_estimatorStatusFactGroup; }
 
     void setConnectionLostEnabled(bool connectionLostEnabled);
 
@@ -843,8 +984,19 @@ public:
     void sendMavCommandInt(int component, MAV_CMD command, MAV_FRAME frame, bool showError, float param1, float param2, float param3, float param4, double param5, double param6, float param7);
 
     /// Same as sendMavCommand but available from Qml.
-    Q_INVOKABLE void sendCommand(int component, int command, bool showError, double param1 = 0.0f, double param2 = 0.0f, double param3 = 0.0f, double param4 = 0.0f, double param5 = 0.0f, double param6 = 0.0f, double param7 = 0.0f)
-        { sendMavCommand(component, (MAV_CMD)command, showError, param1, param2, param3, param4, param5, param6, param7); }
+    Q_INVOKABLE void sendCommand(int component, int command, bool showError, double param1 = 0.0, double param2 = 0.0, double param3 = 0.0, double param4 = 0.0, double param5 = 0.0, double param6 = 0.0, double param7 = 0.0)
+    {
+        sendMavCommand(
+            component, static_cast<MAV_CMD>(command),
+            showError,
+            static_cast<float>(param1),
+            static_cast<float>(param2),
+            static_cast<float>(param3),
+            static_cast<float>(param4),
+            static_cast<float>(param5),
+            static_cast<float>(param6),
+            static_cast<float>(param7));
+    }
 
     int firmwareMajorVersion(void) const { return _firmwareMajorVersion; }
     int firmwareMinorVersion(void) const { return _firmwareMinorVersion; }
@@ -917,6 +1069,11 @@ public:
     /// Vehicle is about to be deleted
     void prepareDelete();
 
+    quint64     mavlinkSentCount        () { return _mavlinkSentCount; }        /// Calculated total number of messages sent to us
+    quint64     mavlinkReceivedCount    () { return _mavlinkReceivedCount; }    /// Total number of sucessful messages received
+    quint64     mavlinkLossCount        () { return _mavlinkLossCount; }        /// Total number of lost messages
+    float       mavlinkLossPercent      () { return _mavlinkLossPercent; }      /// Running loss rate
+
 signals:
     void allLinksInactive(Vehicle* vehicle);
     void coordinateChanged(QGeoCoordinate coordinate);
@@ -954,6 +1111,7 @@ signals:
     void priorityLinkNameChanged(const QString& priorityLinkName);
     void linksChanged(void);
     void linksPropertiesChanged(void);
+    void textMessageReceived(int uasid, int componentid, int severity, QString text);
 
     void messagesReceivedChanged    ();
     void messagesSentChanged        ();
@@ -985,6 +1143,7 @@ signals:
     void sensorsEnabledBitsChanged  (int sensorsEnabledBits);
     void sensorsHealthBitsChanged   (int sensorsHealthBits);
     void sensorsUnhealthyBitsChanged(int sensorsUnhealthyBits);
+    void orbitActiveChanged         (bool orbitActive);
 
     void firmwareVersionChanged(void);
     void firmwareCustomVersionChanged(void);
@@ -1020,6 +1179,7 @@ signals:
 
     // MAVLink protocol version
     void requestProtocolVersion(unsigned version);
+    void mavlinkStatusChanged();
 
 private slots:
     void _mavlinkMessageReceived(LinkInterface* link, mavlink_message_t message);
@@ -1048,10 +1208,16 @@ private slots:
     void _sendMavCommandAgain(void);
     void _clearTrajectoryPoints(void);
     void _clearCameraTriggerPoints(void);
-    void _updateDistanceToHome(void);
+    void _updateDistanceHeadingToHome(void);
+    void _updateDistanceToGCS(void);
     void _updateHobbsMeter(void);
     void _vehicleParamLoaded(bool ready);
     void _sendQGCTimeToVehicle(void);
+    void _mavlinkMessageStatus(int uasId, uint64_t totalSent, uint64_t totalReceived, uint64_t totalLoss, float lossPercent);
+
+    void _trafficUpdate         (bool alert, QString traffic_id, QString vehicle_id, QGeoCoordinate location, float heading);
+    void _adsbTimerTimeout      ();
+    void _orbitTelemetryTimeout (void);
 
 private:
     bool _containsLink(LinkInterface* link);
@@ -1088,6 +1254,9 @@ private:
     void _handleAttitudeQuaternion(mavlink_message_t& message);
     void _handleAttitudeTarget(mavlink_message_t& message);
     void _handleDistanceSensor(mavlink_message_t& message);
+    void _handleEstimatorStatus(mavlink_message_t& message);
+    void _handleStatusText(mavlink_message_t& message, bool longVersion);
+    void _handleOrbitExecutionStatus(const mavlink_message_t& message);
     // ArduPilot dialect messages
 #if !defined(NO_ARDUPILOT_DIALECT)
     void _handleCameraFeedback(const mavlink_message_t& message);
@@ -1214,7 +1383,11 @@ private:
     RallyPointManager*  _rallyPointManager;
     bool                _rallyPointManagerInitialRequestSent;
 
-    ParameterManager*    _parameterManager;
+    ParameterManager*   _parameterManager;
+
+#if defined(QGC_AIRMAP_ENABLED)
+    AirspaceVehicleManager* _airspaceVehicleManager;
+#endif
 
     bool    _armed;         ///< true: vehicle is armed
     uint8_t _base_mode;     ///< base_mode from HEARTBEAT
@@ -1245,6 +1418,8 @@ private:
 
     QmlObjectListModel              _adsbVehicles;
     QMap<uint32_t, ADSBVehicle*>    _adsbICAOMap;
+    QMap<QString, ADSBVehicle*>     _trafficVehicleMap;
+    QTimer                          _adsbTimer;
 
     // Toolbox references
     FirmwarePluginManager*      _firmwarePluginManager;
@@ -1277,6 +1452,19 @@ private:
     SharedLinkInterfacePointer _priorityLink;  // We always keep a reference to the priority link to manage shutdown ordering
     bool _priorityLinkCommanded;
 
+    uint64_t    _mavlinkSentCount       = 0;
+    uint64_t    _mavlinkReceivedCount   = 0;
+    uint64_t    _mavlinkLossCount       = 0;
+    float       _mavlinkLossPercent     = 0.0f;
+
+    QMap<QString, QTime> _noisySpokenPrearmMap; ///< Used to prevent PreArm messages from being spoken too often
+
+    // Orbit status values
+    bool            _orbitActive;
+    QGCMapCircle    _orbitMapCircle;
+    QTimer          _orbitTelemetryTimer;
+    static const int _orbitTelemetryTimeoutMsecs = 3000; // No telemetry for this amount and orbit will go inactive
+
     // FactGroup facts
 
     Fact _rollFact;
@@ -1293,6 +1481,8 @@ private:
     Fact _flightDistanceFact;
     Fact _flightTimeFact;
     Fact _distanceToHomeFact;
+    Fact _headingToHomeFact;
+    Fact _distanceToGCSFact;
     Fact _hobbsFact;
 
     VehicleGPSFactGroup             _gpsFactGroup;
@@ -1304,6 +1494,7 @@ private:
     VehicleClockFactGroup           _clockFactGroup;
     VehicleSetpointFactGroup        _setpointFactGroup;
     VehicleDistanceSensorFactGroup  _distanceSensorFactGroup;
+    VehicleEstimatorStatusFactGroup _estimatorStatusFactGroup;
 
     static const char* _rollFactName;
     static const char* _pitchFactName;
@@ -1319,6 +1510,8 @@ private:
     static const char* _flightDistanceFactName;
     static const char* _flightTimeFactName;
     static const char* _distanceToHomeFactName;
+    static const char* _headingToHomeFactName;
+    static const char* _distanceToGCSFactName;
     static const char* _hobbsFactName;
 
     static const char* _gpsFactGroupName;
@@ -1329,6 +1522,7 @@ private:
     static const char* _temperatureFactGroupName;
     static const char* _clockFactGroupName;
     static const char* _distanceSensorFactGroupName;
+    static const char* _estimatorStatusFactGroupName;
 
     static const int _vehicleUIUpdateRateMSecs = 100;
 

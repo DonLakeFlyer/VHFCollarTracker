@@ -26,13 +26,35 @@ GPSManager::~GPSManager()
     disconnectGPS();
 }
 
-void GPSManager::connectGPS(const QString& device)
+void GPSManager::connectGPS(const QString& device, const QString& gps_type)
 {
     RTKSettings* rtkSettings = qgcApp()->toolbox()->settingsManager()->rtkSettings();
 
+    GPSProvider::GPSType type;
+    if (gps_type.contains("trimble",  Qt::CaseInsensitive)) {
+        type = GPSProvider::GPSType::trimble;
+        qCDebug(RTKGPSLog) << "Connecting Trimble device";
+    } else if (gps_type.contains("septentrio",  Qt::CaseInsensitive)) {
+        type = GPSProvider::GPSType::septentrio;
+        qCDebug(RTKGPSLog) << "Connecting Septentrio device";
+    } else {
+        type = GPSProvider::GPSType::u_blox;
+        qCDebug(RTKGPSLog) << "Connecting U-blox device";
+    }
+
     disconnectGPS();
     _requestGpsStop = false;
-    _gpsProvider = new GPSProvider(device, true, rtkSettings->surveyInAccuracyLimit()->rawValue().toDouble(), rtkSettings->surveyInMinObservationDuration()->rawValue().toInt(), _requestGpsStop);
+    _gpsProvider = new GPSProvider(device,
+                                   type,
+                                   true,    /* enableSatInfo */
+                                   rtkSettings->surveyInAccuracyLimit()->rawValue().toDouble(),
+                                   rtkSettings->surveyInMinObservationDuration()->rawValue().toInt(),
+                                   rtkSettings->useFixedBasePosition()->rawValue().toBool(),
+                                   rtkSettings->fixedBasePositionLatitude()->rawValue().toDouble(),
+                                   rtkSettings->fixedBasePositionLongitude()->rawValue().toDouble(),
+                                   rtkSettings->fixedBasePositionAltitude()->rawValue().toFloat(),
+                                   rtkSettings->fixedBasePositionAccuracy()->rawValue().toFloat(),
+                                   _requestGpsStop);
     _gpsProvider->start();
 
     //create RTCM device
@@ -41,10 +63,10 @@ void GPSManager::connectGPS(const QString& device)
     connect(_gpsProvider, &GPSProvider::RTCMDataUpdate, _rtcmMavlink, &RTCMMavlink::RTCMDataUpdate);
 
     //test: connect to position update
-    connect(_gpsProvider, &GPSProvider::positionUpdate, this, &GPSManager::GPSPositionUpdate);
-    connect(_gpsProvider, &GPSProvider::satelliteInfoUpdate, this, &GPSManager::GPSSatelliteUpdate);
-    connect(_gpsProvider, &GPSProvider::finished, this, &GPSManager::onDisconnect);
-    connect(_gpsProvider, &GPSProvider::surveyInStatus, this, &GPSManager::surveyInStatus);
+    connect(_gpsProvider, &GPSProvider::positionUpdate,         this, &GPSManager::GPSPositionUpdate);
+    connect(_gpsProvider, &GPSProvider::satelliteInfoUpdate,    this, &GPSManager::GPSSatelliteUpdate);
+    connect(_gpsProvider, &GPSProvider::finished,               this, &GPSManager::onDisconnect);
+    connect(_gpsProvider, &GPSProvider::surveyInStatus,         this, &GPSManager::surveyInStatus);
 
     emit onConnect();
 }

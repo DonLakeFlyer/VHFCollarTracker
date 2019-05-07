@@ -17,6 +17,8 @@
 
 Q_DECLARE_LOGGING_CATEGORY(FixedWingLandingComplexItemLog)
 
+class FWLandingPatternTest;
+
 class FixedWingLandingComplexItem : public ComplexMissionItem
 {
     Q_OBJECT
@@ -28,11 +30,13 @@ public:
     Q_PROPERTY(Fact*            loiterRadius            READ    loiterRadius                                            CONSTANT)
     Q_PROPERTY(Fact*            landingAltitude         READ    landingAltitude                                         CONSTANT)
     Q_PROPERTY(Fact*            landingHeading          READ    landingHeading                                          CONSTANT)
-    Q_PROPERTY(bool             valueSetIsDistance      MEMBER  _valueSetIsDistance                                     NOTIFY valueSetIsDistanceChanged)
+    Q_PROPERTY(Fact*            valueSetIsDistance      READ    valueSetIsDistance                                      CONSTANT)
     Q_PROPERTY(Fact*            landingDistance         READ    landingDistance                                         CONSTANT)
     Q_PROPERTY(Fact*            glideSlope              READ    glideSlope                                              CONSTANT)
     Q_PROPERTY(bool             loiterClockwise         MEMBER  _loiterClockwise                                        NOTIFY loiterClockwiseChanged)
     Q_PROPERTY(bool             altitudesAreRelative    MEMBER  _altitudesAreRelative                                   NOTIFY altitudesAreRelativeChanged)
+    Q_PROPERTY(Fact*            stopTakingPhotos        READ    stopTakingPhotos                                        CONSTANT)
+    Q_PROPERTY(Fact*            stopTakingVideo         READ    stopTakingVideo                                         CONSTANT)
     Q_PROPERTY(QGeoCoordinate   loiterCoordinate        READ    loiterCoordinate            WRITE setLoiterCoordinate   NOTIFY loiterCoordinateChanged)
     Q_PROPERTY(QGeoCoordinate   loiterTangentCoordinate READ    loiterTangentCoordinate                                 NOTIFY loiterTangentCoordinateChanged)
     Q_PROPERTY(QGeoCoordinate   landingCoordinate       READ    landingCoordinate           WRITE setLandingCoordinate  NOTIFY landingCoordinateChanged)
@@ -44,6 +48,9 @@ public:
     Fact*           landingDistance         (void) { return &_landingDistanceFact; }
     Fact*           landingHeading          (void) { return &_landingHeadingFact; }
     Fact*           glideSlope              (void) { return &_glideSlopeFact; }
+    Fact*           stopTakingPhotos        (void) { return &_stopTakingPhotosFact; }
+    Fact*           stopTakingVideo         (void) { return &_stopTakingVideoFact; }
+    Fact*           valueSetIsDistance      (void) { return &_valueSetIsDistanceFact; }
     QGeoCoordinate  landingCoordinate       (void) const { return _landingCoordinate; }
     QGeoCoordinate  loiterCoordinate        (void) const { return _loiterCoordinate; }
     QGeoCoordinate  loiterTangentCoordinate (void) const { return _loiterTangentCoordinate; }
@@ -53,6 +60,10 @@ public:
 
     /// Scans the loaded items for a landing pattern complex item
     static bool scanForItem(QmlObjectListModel* visualItems, bool flyView, Vehicle* vehicle);
+
+    static MissionItem* createDoLandStartItem   (int seqNum, QObject* parent);
+    static MissionItem* createLoiterToAltItem   (int seqNum, bool altRel, double loiterRaidus, double lat, double lon, double alt, QObject* parent);
+    static MissionItem* createLandItem          (int seqNum, bool altRel, double lat, double lon, double alt, QObject* parent);
 
     // Overrides from ComplexMissionItem
 
@@ -80,6 +91,7 @@ public:
     double          specifiedGimbalPitch    (void) final { return std::numeric_limits<double>::quiet_NaN(); }
     void            appendMissionItems      (QList<MissionItem*>& items, QObject* missionItemParent) final;
     void            applyNewAltitude        (double newAltitude) final;
+    double          additionalTimeDelay     (void) const final { return 0; }
 
     bool coordinateHasRelativeAltitude      (void) const final { return _altitudesAreRelative; }
     bool exitCoordinateHasRelativeAltitude  (void) const final { return _altitudesAreRelative; }
@@ -92,12 +104,16 @@ public:
 
     static const char* jsonComplexItemTypeValue;
 
+    static const char* settingsGroup;
     static const char* loiterToLandDistanceName;
     static const char* loiterAltitudeName;
     static const char* loiterRadiusName;
     static const char* landingHeadingName;
     static const char* landingAltitudeName;
     static const char* glideSlopeName;
+    static const char* stopTakingPhotosName;
+    static const char* stopTakingVideoName;
+    static const char* valueSetIsDistanceName;
 
 signals:
     void loiterCoordinateChanged        (QGeoCoordinate coordinate);
@@ -118,6 +134,7 @@ private slots:
     double  _headingToMathematicAngle               (double heading);
     void    _setDirty                               (void);
     void    _glideSlopeChanged                      (void);
+    void    _signalLastSequenceNumberChanged        (void);
 
 private:
     QPointF _rotatePoint    (const QPointF& point, const QPointF& origin, double angle);
@@ -139,23 +156,28 @@ private:
     Fact            _landingHeadingFact;
     Fact            _landingAltitudeFact;
     Fact            _glideSlopeFact;
+    Fact            _stopTakingPhotosFact;
+    Fact            _stopTakingVideoFact;
+    Fact            _valueSetIsDistanceFact;
 
     bool            _loiterClockwise;
     bool            _altitudesAreRelative;
-    bool            _valueSetIsDistance;
 
-    static const char* settingsGroup;
     static const char* _jsonLoiterCoordinateKey;
     static const char* _jsonLoiterRadiusKey;
     static const char* _jsonLoiterClockwiseKey;
     static const char* _jsonLandingCoordinateKey;
     static const char* _jsonValueSetIsDistanceKey;
     static const char* _jsonAltitudesAreRelativeKey;
+    static const char* _jsonStopTakingPhotosKey;
+    static const char* _jsonStopTakingVideoKey;
 
     // Only in older file formats
     static const char* _jsonLandingAltitudeRelativeKey;
     static const char* _jsonLoiterAltitudeRelativeKey;
     static const char* _jsonFallRateKey;
+
+    friend FWLandingPatternTest;
 };
 
 #endif

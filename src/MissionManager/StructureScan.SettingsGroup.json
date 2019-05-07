@@ -10,18 +10,16 @@
     "defaultValue":     0
 },
 {
-    "name":             "GimbalYaw",
-    "shortDescription": "Gimbal yaw rotation.",
+    "name":             "EntranceAltitude",
+    "shortDescription": "Vehicle will fly to/from the structure at this altitude.",
     "type":             "double",
-    "units":            "deg",
-    "min":              -180.0,
-    "max":              180.0,
-    "decimalPlaces":    0,
-    "defaultValue":     90
+    "units":            "m",
+    "decimalPlaces":    1,
+    "defaultValue":     50
 },
 {
-    "name":             "Altitude",
-    "shortDescription": "Altitude for the bottom layer of the structure scan.",
+    "name":             "ScanBottomAlt",
+    "shortDescription": "Altitude for the bottomost covered area of the scan. You can adjust this value such that the Bottom Layer Alt will fly above obstacles on the ground.",
     "type":             "double",
     "units":            "m",
     "decimalPlaces":    1,
@@ -38,35 +36,15 @@
     "name":             "StructureHeight",
     "shortDescription": "Height of structure being scanned.",
     "type":             "double",
+    "decimalPlaces":    2,
     "units":            "m",
     "min":              1,
     "defaultValue":     100
 },
 {
-    "name":             "Layer distance",
-    "shortDescription": "Distance between each layer.",
-    "type":             "double",
-    "decimalPlaces":    2,
-    "min":              0,
-    "units":            "m",
-    "defaultValue":     25
-},
-{
-    "name":             "Scan distance",
-    "shortDescription": "Scan distance away from structure.",
-    "type":             "double",
-    "decimalPlaces":    2,
-    "min":              0,
-    "units":            "m",
-    "defaultValue":     25
-},
-{
-    "name":             "Trigger distance",
-    "shortDescription": "Distance between each triggering of the camera. 0 specifies not camera trigger.",
-    "type":             "double",
-    "decimalPlaces":    2,
-    "min":              0,
-    "units":            "m",
-    "defaultValue":     25
+    "name":             "StartFromTop",
+    "shortDescription": "Start scanning from top of structure.",
+    "type":             "bool",
+    "defaultValue":     true
 }
 ]

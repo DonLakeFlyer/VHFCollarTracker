@@ -84,12 +84,12 @@ public:
     QString             flightMode                      (uint8_t base_mode, uint32_t custom_mode) const override;
     bool                setFlightMode                   (const QString& flightMode, uint8_t* base_mode, uint32_t* custom_mode) override;
     bool                isGuidedMode                    (const Vehicle* vehicle) const override;
+    QString             gotoFlightMode                  (void) const override { return QStringLiteral("Guided"); }
     QString             rtlFlightMode                   (void) const override { return QString("RTL"); }
     QString             missionFlightMode               (void) const override { return QString("Auto"); }
     void                pauseVehicle                    (Vehicle* vehicle) override;
     void                guidedModeRTL                   (Vehicle* vehicle) override;
     void                guidedModeChangeAltitude        (Vehicle* vehicle, double altitudeChange) override;
-    int                 manualControlReservedButtonCount(void) override;
     bool                adjustIncomingMavlinkMessage    (Vehicle* vehicle, mavlink_message_t* message) override;
     void                adjustOutgoingMavlinkMessage    (Vehicle* vehicle, LinkInterface* outgoingLink, mavlink_message_t* message) override;
     virtual void        initializeStreamRates           (Vehicle* vehicle);
@@ -119,14 +119,18 @@ private:
     void _adjustSeverity(mavlink_message_t* message) const;
     void _adjustCalibrationMessageSeverity(mavlink_message_t* message) const;
     static bool _isTextSeverityAdjustmentNeeded(const APMFirmwareVersion& firmwareVersion);
-    void _setInfoSeverity(mavlink_message_t* message) const;
-    QString _getMessageText(mavlink_message_t* message) const;
+    void _setInfoSeverity(mavlink_message_t* message, bool longVersion) const;
+    QString _getMessageText(mavlink_message_t* message, bool longVersion) const;
     void _handleIncomingParamValue(Vehicle* vehicle, mavlink_message_t* message);
-    bool _handleIncomingStatusText(Vehicle* vehicle, mavlink_message_t* message);
+    bool _handleIncomingStatusText(Vehicle* vehicle, mavlink_message_t* message, bool longVersion);
     void _handleIncomingHeartbeat(Vehicle* vehicle, mavlink_message_t* message);
     void _handleOutgoingParamSet(Vehicle* vehicle, LinkInterface* outgoingLink, mavlink_message_t* message);
     void _soloVideoHandshake(Vehicle* vehicle, bool originalSoloFirmware);
     bool _guidedModeTakeoff(Vehicle* vehicle, double altitudeRel);
+    void _handleRCChannels(Vehicle* vehicle, mavlink_message_t* message);
+    void _handleRCChannelsRaw(Vehicle* vehicle, mavlink_message_t* message);
+    QString _getLatestVersionFileUrl(Vehicle* vehicle) override;
+    QString _versionRegex() override;
 
     // Any instance data here must be global to all vehicles
     // Vehicle specific data should go into APMFirmwarePluginInstanceData
@@ -145,7 +149,6 @@ public:
     APMFirmwarePluginInstanceData(QObject* parent = NULL);
 
     bool                    textSeverityAdjustmentNeeded;
-    QMap<QString, QTime>    noisyPrearmMap;
 };
 
 #endif

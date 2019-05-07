@@ -1,14 +1,13 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ *   (c) 2009-2018 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
  *
  ****************************************************************************/
 
-#ifndef LINKCONFIGURATION_H
-#define LINKCONFIGURATION_H
+#pragma once
 
 #include <QSettings>
 
@@ -19,7 +18,6 @@ class LinkInterface;
 class LinkConfiguration : public QObject
 {
     Q_OBJECT
-    Q_ENUMS(LinkType)
 
 public:
     LinkConfiguration(const QString& name);
@@ -33,6 +31,7 @@ public:
     Q_PROPERTY(bool             autoConnect         READ isAutoConnect  WRITE setAutoConnect    NOTIFY autoConnectChanged)
     Q_PROPERTY(bool             autoConnectAllowed  READ isAutoConnectAllowed                   CONSTANT)
     Q_PROPERTY(QString          settingsURL         READ settingsURL                            CONSTANT)
+    Q_PROPERTY(QString          settingsTitle       READ settingsTitle                          CONSTANT)
     Q_PROPERTY(bool             highLatency         READ isHighLatency  WRITE setHighLatency    NOTIFY highLatencyChanged)
     Q_PROPERTY(bool             highLatencyAllowed  READ isHighLatencyAllowed                   CONSTANT)
 
@@ -63,6 +62,7 @@ public:
 #endif
         TypeLast        // Last type value (type >= TypeLast == invalid)
     };
+    Q_ENUM(LinkType)
 
     /*!
      *
@@ -147,7 +147,14 @@ public:
      *
      * Pure virtual method providing the URL for the (QML) settings dialog
      */
-    virtual QString settingsURL() = 0;
+    virtual QString settingsURL     () = 0;
+
+    /*!
+     * @brief Settings Title
+     *
+     * Pure virtual method providing the Title for the (QML) settings dialog
+     */
+    virtual QString settingsTitle   () = 0;
 
     /*!
      * @brief Update settings
@@ -208,4 +215,3 @@ private:
 
 typedef QSharedPointer<LinkConfiguration> SharedLinkConfigurationPointer;
 
-#endif // LINKCONFIGURATION_H

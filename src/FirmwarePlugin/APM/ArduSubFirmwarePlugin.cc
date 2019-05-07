@@ -112,13 +112,24 @@ ArduSubFirmwarePlugin::ArduSubFirmwarePlugin(void):
 
         FirmwarePlugin::remapParamNameMap_t& remapV3_6 = _remapParamName[3][6];
 
-        remapV3_6["ARMING_VOLT_MIN"] = QStringLiteral("ARMING_MIN_VOLT");
-        remapV3_6["ARMING_VOLT2_MIN"] = QStringLiteral("ARMING_MIN_VOLT2");
+        remapV3_6["BATT_ARM_VOLT"] = QStringLiteral("ARMING_MIN_VOLT");
+        remapV3_6["BATT2_ARM_VOLT"] = QStringLiteral("ARMING_MIN_VOLT2");
+        remapV3_6["BATT_AMP_PERVLT"] =  QStringLiteral("BATT_AMP_PERVOLT");
+        remapV3_6["BATT2_AMP_PERVLT"] = QStringLiteral("BATT2_AMP_PERVOL");
+        remapV3_6["BATT_LOW_MAH"] = QStringLiteral("FS_BATT_MAH");
+        remapV3_6["BATT_LOW_VOLT"] = QStringLiteral("FS_BATT_VOLTAGE");
+        remapV3_6["BATT_FS_LOW_ACT"] = QStringLiteral("FS_BATT_ENABLE");
 
         _remapParamNameIntialized = true;
     }
 
     _nameToFactGroupMap.insert("APMSubInfo", &_infoFactGroup);
+
+    _factRenameMap[QStringLiteral("altitudeRelative")] = QStringLiteral("Depth");
+    _factRenameMap[QStringLiteral("flightTime")] = QStringLiteral("Dive Time");
+    _factRenameMap[QStringLiteral("altitudeAMSL")] = QStringLiteral("");
+    _factRenameMap[QStringLiteral("hobbs")] = QStringLiteral("");
+    _factRenameMap[QStringLiteral("airSpeed")] = QStringLiteral("");
 }
 
 QList<MAV_CMD> ArduSubFirmwarePlugin::supportedMissionCommands(void)
@@ -159,11 +170,6 @@ int ArduSubFirmwarePlugin::remapParamNameHigestMinorVersionNumber(int majorVersi
     return majorVersionNumber == 3 ? 6 : Vehicle::versionNotSetValue;
 }
 
-int ArduSubFirmwarePlugin::manualControlReservedButtonCount(void)
-{
-    return 0;
-}
-
 void ArduSubFirmwarePlugin::initializeStreamRates(Vehicle* vehicle) {
     vehicle->requestDataStream(MAV_DATA_STREAM_RAW_SENSORS,     2);
     vehicle->requestDataStream(MAV_DATA_STREAM_EXTENDED_STATUS, 2);
@@ -174,6 +180,12 @@ void ArduSubFirmwarePlugin::initializeStreamRates(Vehicle* vehicle) {
     vehicle->requestDataStream(MAV_DATA_STREAM_EXTRA3,          3);
 }
 
+bool ArduSubFirmwarePlugin::isCapable(const Vehicle* vehicle, FirmwareCapabilities capabilities)
+{
+    Q_UNUSED(vehicle);
+    uint32_t available = SetFlightModeCapability | PauseVehicleCapability;
+    return (capabilities & available) == capabilities;
+}
 
 bool ArduSubFirmwarePlugin::supportsThrottleModeCenterZero(void)
 {
@@ -303,4 +315,15 @@ QString ArduSubFirmwarePlugin::vehicleImageOpaque(const Vehicle* vehicle) const
 QString ArduSubFirmwarePlugin::vehicleImageOutline(const Vehicle* vehicle) const
 {
     return vehicleImageOpaque(vehicle);
+}
+
+void ArduSubFirmwarePlugin::adjustMetaData(MAV_TYPE vehicleType, FactMetaData* metaData)
+{
+    Q_UNUSED(vehicleType);
+    if (!metaData) {
+        return;
+    }
+    if (_factRenameMap.contains(metaData->name())) {
+        metaData->setShortDescription(QString(_factRenameMap[metaData->name()]));
+    }
 }

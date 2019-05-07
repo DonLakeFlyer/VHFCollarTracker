@@ -61,7 +61,8 @@ public:
     Q_PROPERTY(QString      minString               READ cookedMinString                                    CONSTANT)
     Q_PROPERTY(bool         minIsDefaultForType     READ minIsDefaultForType                                CONSTANT)
     Q_PROPERTY(QString      name                    READ name                                               CONSTANT)
-    Q_PROPERTY(bool         rebootRequired          READ rebootRequired                                     CONSTANT)
+    Q_PROPERTY(bool         vehicleRebootRequired   READ vehicleRebootRequired                              CONSTANT)
+    Q_PROPERTY(bool         qgcRebootRequired       READ qgcRebootRequired                                  CONSTANT)
     Q_PROPERTY(QString      shortDescription        READ shortDescription                                   CONSTANT)
     Q_PROPERTY(QString      units                   READ cookedUnits                                        CONSTANT)
     Q_PROPERTY(QVariant     value                   READ cookedValue            WRITE setCookedValue        NOTIFY valueChanged)
@@ -116,7 +117,8 @@ public:
     QString         rawValueString          (void) const;
     QString         cookedValueString       (void) const;
     bool            valueEqualsDefault      (void) const;
-    bool            rebootRequired          (void) const;
+    bool            vehicleRebootRequired   (void) const;
+    bool            qgcRebootRequired       (void) const;
     QString         enumOrValueString       (void);         // This is not const, since an unknown value can modify the enum lists
     double          rawIncrement            (void) const;
     double          cookedIncrement         (void) const;
@@ -127,6 +129,10 @@ public:
     bool            writeOnly               (void) const;
     bool            volatileValue           (void) const;
 
+    // Internal hack to allow changes to fact which do not signal reboot. Currently used by font point size
+    // code in ScreenTools.qml to set initial sizing at first boot.
+    Q_INVOKABLE void _setIgnoreQGCRebootRequired(bool ignore);
+
     Q_INVOKABLE FactValueSliderListModel* valueSliderModel(void);
 
     /// Returns the values as a string with full 18 digit precision if float/double.
@@ -136,6 +142,7 @@ public:
     void setCookedValue     (const QVariant& value);
     void setEnumIndex       (int index);
     void setEnumStringValue (const QString& value);
+    int  valueIndex         (const QString& value);
 
     // The following methods allow you to defer sending of the valueChanged signals in order to implement
     // rate limited signalling for ui performance. Used by FactGroup for example.
@@ -186,6 +193,12 @@ signals:
     ///
     /// This signal is meant for use by Fact container implementations. Used to send changed values to vehicle.
     void _containerRawValueChanged(const QVariant& value);
+
+private slots:
+    void _checkForRebootMessaging(void);
+
+private:
+    void _init(void);
     
 protected:
     QString _variantToString(const QVariant& variant, int decimalPlaces) const;
@@ -199,6 +212,7 @@ protected:
     bool                        _sendValueChangedSignals;
     bool                        _deferredValueChangeSignal;
     FactValueSliderListModel*   _valueSliderModel;
+    bool                        _ignoreQGCRebootRequired;
 };
 
 #endif

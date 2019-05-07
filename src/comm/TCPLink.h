@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ *   (c) 2009-2018 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
  * COPYING.md in the root of the source code directory.
@@ -13,8 +13,7 @@
 ///
 ///     @author Don Gagne <don@thegagnes.com>
 
-#ifndef TCPLINK_H
-#define TCPLINK_H
+#pragma once
 
 #include <QString>
 #include <QList>
@@ -102,6 +101,7 @@ public:
     void        saveSettings    (QSettings& settings, const QString& root);
     void        updateSettings  ();
     QString     settingsURL     () { return "TcpSettings.qml"; }
+    QString     settingsTitle   () { return tr("TCP Link Settings"); }
 
 signals:
     void portChanged();
@@ -188,4 +188,3 @@ private:
     QMutex  _statisticsMutex;
 };
 
-#endif // TCPLINK_H
