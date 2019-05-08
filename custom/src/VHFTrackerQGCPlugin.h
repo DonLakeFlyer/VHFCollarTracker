@@ -65,9 +65,9 @@ private:
         double  targetVariance;
     } VehicleState_t;
 
-    bool _handleDebug   (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
-    void _rotateVehicle (Vehicle* vehicle, double headingDegrees);
-    void _say           (QString text);
+    bool _handleDebugVect   (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
+    void _rotateVehicle     (Vehicle* vehicle, double headingDegrees);
+    void _say               (QString text);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;

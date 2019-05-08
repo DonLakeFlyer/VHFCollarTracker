@@ -97,27 +97,27 @@ bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, 
     case MAVLINK_MSG_ID_MEMORY_VECT:
         return _handleMemoryVect(vehicle, link, message);
 #endif
-    case MAVLINK_MSG_ID_DEBUG:
-        return _handleDebug(vehicle,link, message);
+    case MAVLINK_MSG_ID_DEBUG_VECT:
+        return _handleDebugVect(vehicle,link, message);
     }
 
     return true;
 }
 
-bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
+bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
 {
     Q_UNUSED(vehicle);
     Q_UNUSED(link);
 
-    mavlink_debug_t debugMsg;
+    mavlink_debug_vect_t debugVect;
 
-    mavlink_msg_debug_decode(&message, &debugMsg);
+    mavlink_msg_debug_vect_decode(&message, &debugVect);
 
-    switch (debugMsg.time_boot_ms) {
+    switch (static_cast<int>(debugVect.x)) {
     case DEBUG_COMMAND_ID_PULSE:
         static int count = 0;
-        qDebug() << "DEBUG" << count++ << debugMsg.value;
-        _beepStrength = debugMsg.value;
+        qDebug() << "DEBUG" << count++ << debugVect.y;
+        _beepStrength = debugVect.y;
         emit beepStrengthChanged(_beepStrength);
         _rgPulseValues.append(_beepStrength);
         if (_beepStrength == 0) {
@@ -134,13 +134,15 @@ bool VHFTrackerQGCPlugin::_handleDebug(Vehicle* vehicle, LinkInterface* link, ma
         }
         break;
     case DEBUG_COMMAND_ID_ACK:
-        if (debugMsg.ind == DEBUG_COMMAND_ACK_SET_FREQ_INDEX) {
-            int freq = debugMsg.value;
+        int ackCommand =    static_cast<int>(debugVect.y);
+        int ackValue =      static_cast<int>(debugVect.z);
+        if (ackCommand == DEBUG_COMMAND_ACK_SET_FREQ_INDEX) {
+            int freq = ackValue;
             int numerator = freq / 1000;
             int denominator = freq - (numerator * 1000);
             _say(QStringLiteral("Frequency changed %1.%2").arg(numerator).arg(denominator, 3, 10, QChar('0')));
-        } else if (debugMsg.ind == DEBUG_COMMAND_ACK_SET_GAIN_INDEX) {
-            _say(QStringLiteral("Gain changed to %2").arg(static_cast<int>(debugMsg.value)));
+        } else if (ackCommand== DEBUG_COMMAND_ACK_SET_GAIN_INDEX) {
+            _say(QStringLiteral("Gain changed to %2").arg(ackValue));
         }
         break;
     }
