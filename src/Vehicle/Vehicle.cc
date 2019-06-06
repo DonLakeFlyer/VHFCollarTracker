@@ -3259,6 +3259,12 @@ void Vehicle::_sendMavCommandAgain(void)
 
     _mavCommandAckTimer.start();
 
+#if 0
+    if (queuedCommand.command == MAV_CMD_DO_REPOSITION) {
+        return;
+    }
+#endif
+
     mavlink_message_t       msg;
     if (queuedCommand.commandInt) {
         mavlink_command_int_t  cmd;

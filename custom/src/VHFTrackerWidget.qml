@@ -127,7 +127,7 @@ Column {
         QGCButton {
             Layout.fillWidth:   true
             text:               qsTr("Cancel And Return")
-            onClicked:         _activeVehicle.flightMode = _activeVehicle.rtlFlightMode
+            onClicked:         _corePlugin.cancelAndReturn()
         }
 
         QGCLabel {
