@@ -204,10 +204,13 @@ void VHFTrackerQGCPlugin::takeoff(void)
     double nextHeading = vehicle->heading()->rawValue().toDouble() - headingIncrement;
     for (int i=0; i<subDivide; i++) {
         nextHeading += headingIncrement;
+        if (nextHeading > 360) {
+            nextHeading -= 360;
+        }
 
         vehicleState.command =              CommandSetHeading;
         vehicleState.fact =                 vehicle->heading();
-        vehicleState.targetValueWaitSecs =  5;
+        vehicleState.targetValueWaitSecs =  10;
         vehicleState.targetValue =          nextHeading;
         vehicleState.targetVariance =       1;
         _vehicleStates.append(vehicleState);
@@ -325,6 +328,7 @@ void VHFTrackerQGCPlugin::_nextVehicleState(void)
     if (_vehicleStateIndex >= _vehicleStates.count()) {
         _say(QStringLiteral("Collection complete. returning."));
         _resetStateAndRTL();
+        _detectComplete();
         return;
     }
 
@@ -440,7 +444,7 @@ bool VHFTrackerQGCPlugin::_armVehicleAndValidate(Vehicle* vehicle)
         vehicle->setArmed(true);
 
         // Wait for vehicle to return armed state
-        for (int i=0; i<3; i++) {
+        for (int i=0; i<10; i++) {
             if (vehicle->armed()) {
                 armedChanged = true;
                 break;
@@ -475,7 +479,7 @@ bool VHFTrackerQGCPlugin::_setRTLFlightModeAndValidate(Vehicle* vehicle)
         vehicle->setFlightMode(rtlFlightMode);
 
         // Wait for vehicle to return flight mode
-        for (int i=0; i<3; i++) {
+        for (int i=0; i<10; i++) {
             if (vehicle->flightMode() == rtlFlightMode) {
                 flightModeChanged = true;
                 break;
