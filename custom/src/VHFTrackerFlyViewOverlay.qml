@@ -21,16 +21,18 @@ import QGroundControl.ScreenTools       1.0
 import QGroundControl.Controllers       1.0
 import QGroundControl.SettingsManager   1.0
 
-Item {
-    id:             flyOVerlay
+Rectangle {
+    id:             flyOverlay
     anchors.fill:   parent
+    color:          qgcPal.window
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
 
     readonly property string scaleState: "topMode"
 
     property var    _corePlugin:        QGroundControl.corePlugin
-    property var    _divisions:         QGroundControl.corePlugin.vhfSettings.divisions.rawValue
+    property var    _vhfSettings:       _corePlugin.vhfSettings
+    property var    _divisions:         _vhfSettings.divisions.rawValue
     property real   _margins:           ScreenTools.defaultFontPixelWidth
     property real   _leftMargin:        ScreenTools.defaultFontPixelWidth * 10
     property real   _rightMargin:       ScreenTools.defaultFontPixelWidth * 35
@@ -38,8 +40,13 @@ Item {
     property real   _pulseStrength:     0
     property int    _bpm:               _corePlugin.bpm
     property int    _strongestAngle:    _corePlugin.strongestAngle
+    property bool   _takeoffStage2:     false
+    property var    _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
+    property real   _altitude:          _activeVehicle ? _activeVehicle.altitudeRelative.rawValue : 0
 
     readonly property real _sliceSize: 360 / _divisions
+
+    DeadMouseArea { anchors.fill: parent }
 
     Connections {
         target: QGroundControl.corePlugin
@@ -50,128 +57,251 @@ Item {
         }
     }
 
-    Rectangle {
-        id:                     signalIndicator
-        anchors.topMargin:      _margins
-        anchors.leftMargin:     _leftMargin
-        anchors.rightMargin:    _rightMargin
-        anchors.top:            parent.top
-        anchors.left:           parent.left
-        anchors.right:          parent.right
-        height:                 valueColumn.y +  valueColumn.height + _margins
-        color:                  "white"
+    RowLayout {
+        anchors.margins:    _margins
+        anchors.fill:       parent
+        spacing:            _margins
 
-        Column {
-            id:                 valueColumn
-            anchors.margins:    _margins
-            anchors.top:        parent.top
-            anchors.right:      parent.right
+        ColumnLayout {
+            Layout.fillHeight:  true
 
             QGCLabel {
-                anchors.horizontalCenter:   parent.horizontalCenter
-                width:                      (ScreenTools.defaultFontPixelWidth * ScreenTools.largeFontPointRatio) * 4
-                horizontalAlignment:        Text.AlignHCenter
-                text:                       _corePlugin.beepStrength.toFixed(2)
-                color:                      "black"
-                font.pointSize:             ScreenTools.largeFontPointSize
+                id:     altLabel
+                text:   "Altitude"
             }
 
-            Row {
-                spacing: _margins
+            Rectangle {
+                width:              altLabel.width
+                Layout.fillHeight:  true
+                border.width:       1
+                border.color:       qgcPal.text
 
-                QGCLabel {
-                    text:                       _bpm
-                    color:                      "black"
-                    font.pointSize:             ScreenTools.largeFontPointSize
-                }
-
-                QGCLabel {
-                    text:                       _pulseCount
-                    color:                      "black"
+                Rectangle {
+                    anchors.left:   parent.left
+                    anchors.right:  parent.right
+                    anchors.bottom: parent.bottom
+                    height:         parent.height * (_altitude / _vhfSettings.altitude.rawValue)
+                    color:          qgcPal.text
                 }
             }
         }
 
-        Rectangle {
-            anchors.margins:        _margins
-            anchors.left:           parent.left
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.right:          valueColumn.left
-            height:                 ScreenTools.defaultFontPixelHeight * 2
-            border.color:           "green"
+        ColumnLayout {
+            Layout.fillWidth:   true
+            Layout.fillHeight:  true
 
-            Rectangle {
-                anchors.margins:        1
-                anchors.rightMargin:    _rightMargin
-                anchors.fill:           parent
-                color:                  "green"
+            RowLayout {
+                Layout.fillWidth: true
 
-                property real   _maximumPulse:   _corePlugin.vhfSettings.maxPulse.rawValue
-                property real   _value:         _pulseStrength
-                property real   _rightMargin:   (parent.width - 2) - ((parent.width - 2) * (Math.min(_pulseStrength, _maximumPulse) / _maximumPulse))
+                Rectangle {
+                    Layout.fillWidth:   true
+                    height:             ScreenTools.defaultFontPixelHeight * 2
+                    border.color:       "green"
 
-                on_ValueChanged: pulseResetTimer.start()
+                    Rectangle {
+                        anchors.margins:        1
+                        anchors.rightMargin:    _rightMargin
+                        anchors.fill:           parent
+                        color:                  "green"
 
-                Behavior on _value {
-                    PropertyAnimation {
-                        duration:       250
-                        easing.type:    Easing.InOutQuad
+                        property real   _maximumPulse:   _corePlugin.vhfSettings.maxPulse.rawValue
+                        property real   _value:         _pulseStrength
+                        property real   _rightMargin:   (parent.width - 2) - ((parent.width - 2) * (Math.min(_pulseStrength, _maximumPulse) / _maximumPulse))
+
+                        on_ValueChanged: pulseResetTimer.start()
+
+                        Behavior on _value {
+                            PropertyAnimation {
+                                duration:       250
+                                easing.type:    Easing.InOutQuad
+                            }
+                        }
+
+                        Timer {
+                            id:             pulseResetTimer
+                            interval:       500
+                            repeat:         false
+                            onTriggered:    _pulseStrength = 0
+                        }
                     }
                 }
 
-                Timer {
-                    id:             pulseResetTimer
-                    interval:       500
-                    repeat:         false
-                    onTriggered:    _pulseStrength = 0
+                ColumnLayout {
+                    QGCLabel {
+                        width:                      (ScreenTools.defaultFontPixelWidth * ScreenTools.largeFontPointRatio) * 4
+                        text:                       _corePlugin.beepStrength.toFixed(2)
+                        color:                      "black"
+                        font.pointSize:             ScreenTools.largeFontPointSize
+                    }
+
+                    RowLayout {
+                        spacing: _margins
+
+                        QGCLabel {
+                            text:                       _bpm
+                            color:                      "black"
+                            font.pointSize:             ScreenTools.largeFontPointSize
+                        }
+
+                        QGCLabel {
+                            text:                       _pulseCount
+                            color:                      "black"
+                        }
+                    }
+                }
+            }
+
+            Item {
+                Layout.fillHeight:  true
+                Layout.fillWidth:   true
+
+                Item {
+                    anchors.centerIn:   parent
+                    height:             parent.height
+                    width:              height
+
+                    QGCLabel {
+                        anchors.top:                parent.top
+                        anchors.horizontalCenter:   parent.horizontalCenter
+                        text:                       "N"
+                        font.pointSize:             ScreenTools.largeFontPointSize
+                    }
+
+                    QGCLabel {
+                        anchors.bottom:             parent.bottom
+                        anchors.horizontalCenter:   parent.horizontalCenter
+                        text:                       "S"
+                        font.pointSize:             ScreenTools.largeFontPointSize
+                    }
+
+                    QGCLabel {
+                        anchors.left:               parent.left
+                        anchors.verticalCenter:     parent.verticalCenter
+                        text:                       "E"
+                        font.pointSize:             ScreenTools.largeFontPointSize
+                    }
+
+                    QGCLabel {
+                        anchors.right:          parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text:                   "W"
+                        font.pointSize:         ScreenTools.largeFontPointSize
+                    }
+
+                    Rectangle {
+                        anchors.margins:    (ScreenTools.defaultFontPixelHeight * ScreenTools.largeFontPointRatio) + 10
+                        anchors.fill:       parent
+                        border.color:       "black"
+                        radius:             width / 2
+
+                        Repeater {
+                            model: _divisions
+
+                            Canvas {
+                                id:             arcCanvas
+                                anchors.fill:   parent
+                                visible:        !isNaN(strengthRatio)
+
+                                onPaint: {
+                                    var ctx = getContext("2d");
+                                    ctx.reset();
+
+                                    ctx.beginPath();
+                                    ctx.fillStyle = "black";
+                                    ctx.strokeStyle = "red";
+                                    ctx.moveTo(centerX, centerY);
+                                    ctx.arc(centerX, centerY, (width / 2) * arcCanvas.strengthRatio, 0, arcRadians, false);
+                                    ctx.lineTo(centerX, centerY);
+                                    ctx.fill();
+                                    ctx.stroke();
+                                }
+
+                                transform: Rotation {
+                                    origin.x:   arcCanvas.centerX
+                                    origin.y:   arcCanvas.centerY
+                                    angle:      -90 - (360 / _divisions / 2) + ((360 / _divisions) * index)
+                                }
+
+                                property real centerX:      width / 2
+                                property real centerY:      height / 2
+                                property real arcRadians:   (Math.PI * 2) / _divisions
+                                property real strengthRatio:    _corePlugin.angleRatios[index]
+
+                                Connections {
+                                    target:                 _corePlugin
+                                    onAngleRatiosChanged:   arcCanvas.requestPaint()
+                                }
+                            }
+                        }
+                    }
+
+                    Image {
+                        id:                 vehicleIcon
+                        anchors.centerIn:   parent
+                        width:              _uavSize
+                        source:             "/qmlimages/vehicleArrowOpaque.svg"
+                        mipmap:             true
+                        sourceSize.width:   _uavSize
+                        fillMode:           Image.PreserveAspectFit
+                        visible:            _activeVehicle
+
+                        transform: Rotation {
+                            origin.x:       vehicleIcon.width  / 2
+                            origin.y:       vehicleIcon.height / 2
+                            angle:          isNaN(_heading) ? 0 : _heading
+
+                            property real   _heading:   _activeVehicle ? _activeVehicle.heading.rawValue : 0
+                        }
+
+                        property real   _uavSize:   ScreenTools.defaultFontPixelHeight * 5
+                    }
                 }
             }
         }
-    }
 
-    Loader {
-        id:                     strengthLoader
-        anchors.margins:        _margins
-        anchors.leftMargin:     _leftMargin
-        anchors.rightMargin:    _rightMargin
-        anchors.top:            signalIndicator.bottom
-        anchors.bottom:         parent.bottom
-        anchors.left:           parent.left
-        anchors.right:          parent.right
-        sourceComponent:        _corePlugin.strengthsAvailable ? strengthChart : undefined
-    }
+        Column {
+            width:      ScreenTools.defaultFontPixelWidth * 25
+            spacing:    _margins
 
-    Component {
-        id: strengthChart
-
-        ChartView {
-            antialiasing:       true
-            legend.alignment:   Qt.AlignRight
-
-            Instantiator {
-                model:  _corePlugin.angleStrengths
-
-                onObjectAdded: {
-                    var strongest = index == _strongestAngle
-                    var strength = object._modelData
-                    var slice = pieSeries.append(qsTr("%1 - %2%3").arg(index * _sliceSize).arg(strength).arg(strongest ? "*" : ""), _sliceSize)
-                    slice.borderColor = "black"
-                    slice.borderWidth = 2
-                    slice.labelVisible = true
-                    slice.exploded = strongest
-                    var darkness = 1 - (strength / 100.0)
-                    slice.color = Qt.rgba(darkness, darkness, darkness)
-                }
-
-                Item { property real _modelData: modelData }
+            QGCButton {
+                width:      parent.width
+                text:       qsTr("Takeoff")
+                visible:    !_takeoffStage2
+                enabled:    !_corePlugin.flightMachineActive
+                onClicked:  _takeoffStage2 = true
             }
 
-            PieSeries {
-                id:         pieSeries
-                startAngle: _startAngle
-                endAngle:   360 + _startAngle
+            RowLayout {
+                width:      parent.width
+                spacing:    ScreenTools.defaultFontPixelWidth / 2
+                visible:    _takeoffStage2
 
-                property real _startAngle: -_sliceSize / 2
+                QGCButton {
+                    Layout.fillWidth:   true
+                    text:               qsTr("Really Takeoff")
+                    onClicked: {
+                        _takeoffStage2 = false
+                        _corePlugin.start()
+                    }
+                }
+
+                QGCButton {
+                    text:       qsTr("Cancel")
+                    onClicked:  _takeoffStage2 = false
+                }
+            }
+
+            QGCButton {
+                width:      parent.width
+                text:       qsTr("Cancel And Return")
+                enabled:    _corePlugin.flightMachineActive
+                onClicked:  _corePlugin.cancelAndReturn()
+            }
+
+            QGCButton {
+                width:      parent.width
+                text:       "Close"
+                onClicked:  flyOverlay.visible = false
             }
         }
     }

@@ -25,21 +25,21 @@ public:
     Q_PROPERTY(VHFTrackerSettings*  vhfSettings         MEMBER _vhfSettings             CONSTANT)
     Q_PROPERTY(float                beepStrength        MEMBER _beepStrength            NOTIFY beepStrengthChanged)
     Q_PROPERTY(int                  bpm                 MEMBER _bpm                     NOTIFY bpmChanged)
-    Q_PROPERTY(QStringList          angleStrengths      MEMBER _rgStringAngleStrengths  NOTIFY angleStrengthsChanged)
+    Q_PROPERTY(QVariantList         angleRatios         MEMBER _rgAngleRatios           NOTIFY angleRatiosChanged)
     Q_PROPERTY(int                  strongestAngle      MEMBER _strongestAngle          NOTIFY strongestAngleChanged)
-    Q_PROPERTY(bool                 strengthsAvailable  MEMBER _strengthsAvailable      NOTIFY strengthsAvailableChanged)
     Q_PROPERTY(bool                 flightMachineActive MEMBER _flightMachineActive     NOTIFY flightMachineActiveChanged)
 
-    Q_INVOKABLE void takeoff            (void);
-    Q_INVOKABLE void cancelAndReturn    (void);
+    Q_INVOKABLE void start          (void);
+    Q_INVOKABLE void cancelAndReturn(void);
 
     // Overrides from QGCCorePlugin
-    QString             brandImageIndoor    (void) const final;
-    QString             brandImageOutdoor   (void) const final;
-    QVariantList&       settingsPages       (void) final;
-    QVariantList&       instrumentPages     (void) final;
-    bool                mavlinkMessage      (Vehicle* vehicle, LinkInterface* link, mavlink_message_t message) final;
-    QGCOptions*         options             (void) final { return qobject_cast<QGCOptions*>(_vhfQGCOptions); }
+    QString             brandImageIndoor        (void) const final;
+    QString             brandImageOutdoor       (void) const final;
+    QVariantList&       settingsPages           (void) final;
+    QVariantList&       instrumentPages         (void) final;
+    bool                mavlinkMessage          (Vehicle* vehicle, LinkInterface* link, mavlink_message_t message) final;
+    QGCOptions*         options                 (void) final { return qobject_cast<QGCOptions*>(_vhfQGCOptions); }
+    bool                adjustSettingMetaData   (const QString& settingsGroup, FactMetaData& metaData) final;
 
     // Overrides from QGCTool
     void setToolbox(QGCToolbox* toolbox) final;
@@ -48,8 +48,8 @@ signals:
     void beepStrengthChanged        (double beepStrength);
     void bpmChanged                 (int bpm);
     void angleStrengthsChanged      (void);
+    void angleRatiosChanged         (void);
     void strongestAngleChanged      (int strongestAngle);
-    void strengthsAvailableChanged  (bool strengthsAvailable);
     void flightMachineActiveChanged (bool flightMachineActive);
 
 private slots:
@@ -60,6 +60,7 @@ private slots:
     void _targetValueFailed             (void);
     void _updateFlightMachineActive     (bool flightMachineActive);
     void _mavCommandResult              (int vehicleId, int component, int command, int result, bool noResponseFromVehicle);
+    void _simulatePulse                 (void);
 
 private:
     typedef enum {
@@ -91,16 +92,21 @@ private:
     QList<VehicleState_t>   _vehicleStates;
     QList<double>           _rgPulseValues;
     QList<double>           _rgAngleStrengths;
+    QVariantList            _rgAngleRatios;
     QStringList             _rgStringAngleStrengths;
     int                     _strongestAngle;
-    bool                    _strengthsAvailable;
     bool                    _flightMachineActive;
+    double                  _firstHeading;
+    int                     _firstSlice;
+    int                     _nextSlice;
+    int                     _cSlice;
 
     double                  _beepStrength;
     int                     _bpm;
     QElapsedTimer           _elapsedTimer;
     QTimer                  _delayTimer;
     QTimer                  _targetValueTimer;
+    QTimer                  _simPulseTimer;
     VHFTrackerQGCOptions*   _vhfQGCOptions;
     VHFTrackerSettings*     _vhfSettings;    
 };

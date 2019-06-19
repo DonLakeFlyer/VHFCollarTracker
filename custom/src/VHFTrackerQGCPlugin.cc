@@ -5,6 +5,7 @@
 #include "VHFTrackerSettings.h"
 #include "QGCGeo.h"
 #include "QGCApplication.h"
+#include "AppSettings.h"
 
 #include <QDebug>
 #include <QPointF>
@@ -41,7 +42,6 @@ QGC_LOGGING_CATEGORY(VHFTrackerQGCPluginLog, "VHFTrackerQGCPluginLog")
 VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbox)
     : QGCCorePlugin         (app, toolbox)
     , _vehicleStateIndex    (0)
-    , _strengthsAvailable   (false)
     , _flightMachineActive  (false)
     , _beepStrength         (0)
     , _bpm                  (0)
@@ -53,6 +53,7 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
 
     connect(&_delayTimer,       &QTimer::timeout, this, &VHFTrackerQGCPlugin::_delayComplete);
     connect(&_targetValueTimer, &QTimer::timeout, this, &VHFTrackerQGCPlugin::_targetValueFailed);
+    connect(&_simPulseTimer,    &QTimer::timeout, this, &VHFTrackerQGCPlugin::_simulatePulse);
 }
 
 VHFTrackerQGCPlugin::~VHFTrackerQGCPlugin()
@@ -65,6 +66,16 @@ void VHFTrackerQGCPlugin::setToolbox(QGCToolbox* toolbox)
     QGCCorePlugin::setToolbox(toolbox);
     _vhfSettings = new VHFTrackerSettings(this);
     _vhfQGCOptions = new VHFTrackerQGCOptions(this, this);
+
+    int subDivisions = _vhfSettings->divisions()->rawValue().toInt();
+    _rgAngleStrengths.clear();
+    _rgAngleRatios.clear();
+    for (int i=0; i<subDivisions; i++) {
+        _rgAngleStrengths.append(qQNaN());
+        _rgAngleRatios.append(QVariant::fromValue(qQNaN()));
+    }
+
+    _simPulseTimer.start(2000);
 }
 
 QString VHFTrackerQGCPlugin::brandImageIndoor(void) const
@@ -169,7 +180,7 @@ void VHFTrackerQGCPlugin::cancelAndReturn(void)
 }
 
 
-void VHFTrackerQGCPlugin::takeoff(void)
+void VHFTrackerQGCPlugin::start(void)
 {
     Vehicle* vehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
 
@@ -179,10 +190,27 @@ void VHFTrackerQGCPlugin::takeoff(void)
 
     _updateFlightMachineActive(true);
 
+    // Prime angle strengths with no values
+    _cSlice = _vhfSettings->divisions()->rawValue().toInt();
+    _rgAngleStrengths.clear();
+    _rgAngleRatios.clear();
+    for (int i=0; i<_cSlice; i++) {
+        _rgAngleStrengths.append(qQNaN());
+        _rgAngleRatios.append(QVariant::fromValue(qQNaN()));
+    }
+    emit angleStrengthsChanged();
+    emit angleRatiosChanged();
+
     if (!_armVehicleAndValidate(vehicle)) {
         _resetStateAndRTL();
         return;
     }
+
+    // First heading is adjusted to be at the center of the closest subdivision
+    double vehicleHeading = vehicle->heading()->rawValue().toDouble();
+    double divisionDegrees = 360.0 / _cSlice;
+    _firstSlice = _nextSlice = static_cast<int>((vehicleHeading + (divisionDegrees / 2.0)) / divisionDegrees);
+    _firstHeading = divisionDegrees * _firstSlice;
 
     VehicleState_t vehicleState;
     double targetAltitude = _vhfSettings->altitude()->rawValue().toDouble();
@@ -199,12 +227,11 @@ void VHFTrackerQGCPlugin::takeoff(void)
     _vehicleStates.append(vehicleState);
 
     // Rotate
-    int subDivide = _vhfSettings->divisions()->rawValue().toInt();
-    double headingIncrement = 360.0 / subDivide;
-    double nextHeading = vehicle->heading()->rawValue().toDouble() - headingIncrement;
-    for (int i=0; i<subDivide; i++) {
+    double headingIncrement = 360.0 / _cSlice;
+    double nextHeading = _firstHeading - headingIncrement;
+    for (int i=0; i<_cSlice; i++) {
         nextHeading += headingIncrement;
-        if (nextHeading > 360) {
+        if (nextHeading >= 360) {
             nextHeading -= 360;
         }
 
@@ -395,7 +422,26 @@ void VHFTrackerQGCPlugin::_delayComplete(void)
         maxPulse = qMax(maxPulse, pulse);
     }
     _rgPulseValues.clear();
-    _rgAngleStrengths.append(maxPulse);
+    _rgAngleStrengths[_nextSlice] = maxPulse;
+    emit angleStrengthsChanged();
+
+    if (++_nextSlice >= _cSlice) {
+        _nextSlice = 0;
+    }
+
+    // Recalc ratios
+    maxPulse = 0;
+    for (int i=0; i<_cSlice; i++) {
+        maxPulse = qMax(maxPulse, _rgAngleStrengths[i]);
+    }
+    for (int i=0; i<_cSlice; i++) {
+        double angleStrength = _rgAngleStrengths[i];
+        if (!qIsNaN(angleStrength)) {
+            _rgAngleRatios[i] = _rgAngleStrengths[i] / maxPulse;
+        }
+    }
+    emit angleRatiosChanged();
+
     _nextVehicleState();
 }
 
@@ -407,28 +453,7 @@ void VHFTrackerQGCPlugin::_targetValueFailed(void)
 
 void VHFTrackerQGCPlugin::_detectComplete(void)
 {
-    // Determine strongest angle and convert to string from Qml
 
-    double maxPulse = 0;
-    int currentAngle = 0;
-    _strongestAngle = 0;
-    _rgStringAngleStrengths.clear();
-
-    foreach(double pulse, _rgAngleStrengths) {
-        if (pulse > maxPulse) {
-            maxPulse = pulse;
-            _strongestAngle = currentAngle;
-        }
-        currentAngle++;
-
-        _rgStringAngleStrengths.append(QStringLiteral("%1").arg(pulse));
-    }
-
-    emit angleStrengthsChanged();
-    emit strongestAngleChanged(_strongestAngle);
-
-    _strengthsAvailable = true;
-    emit strengthsAvailableChanged(true);
 }
 
 bool VHFTrackerQGCPlugin::_armVehicleAndValidate(Vehicle* vehicle)
@@ -518,4 +543,52 @@ void VHFTrackerQGCPlugin::_resetStateAndRTL(void)
     _setRTLFlightModeAndValidate(vehicle);
 
     _updateFlightMachineActive(false);
+}
+
+bool VHFTrackerQGCPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaData& metaData)
+{
+    Q_UNUSED(settingsGroup);
+    Q_UNUSED(metaData);
+
+    return true;
+#if 0
+    if (settingsGroup == AppSettings::settingsGroup) {
+        if (metaData.name == AppSettings::indoorPaletteName) {
+            metaData.a
+        }
+    }
+#endif
+}
+
+void VHFTrackerQGCPlugin::_simulatePulse(void)
+{
+    Vehicle* vehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
+
+    if (vehicle) {
+        double heading = vehicle->heading()->rawValue().toDouble();
+
+        // Strongest pulse is at 90 degrees
+        heading -= 90;
+        if (heading < 0) {
+            heading += 360;
+        }
+
+        double pulseRatio;
+        if (heading <= 180) {
+            pulseRatio = (180.0 - heading) / 180.0;
+        } else {
+            heading -= 180;
+            pulseRatio = heading / 180.0;
+        }
+        double pulse = 10.0 * pulseRatio;
+        //qDebug() << heading << pulseRatio << pulse;
+
+        mavlink_debug_vect_t    debugVect;
+        mavlink_message_t       msg;
+
+        debugVect.x = DEBUG_COMMAND_ID_PULSE;
+        debugVect.y = static_cast<float>(pulse);
+        mavlink_msg_debug_vect_encode(static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1, &msg, &debugVect);
+        _handleDebugVect(vehicle, vehicle->priorityLink(), msg);
+    }
 }
