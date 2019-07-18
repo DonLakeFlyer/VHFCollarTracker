@@ -89,6 +89,7 @@ Rectangle {
             id:                 viewRow
             Layout.fillHeight:  true
             spacing:            ScreenTools.defaultFontPixelWidth / 2
+            visible:            QGroundControl.corePlugin.showAdvancedUI    // HACK to VHFCollarTracker
 
             ExclusiveGroup { id: mainActionGroup }
 
