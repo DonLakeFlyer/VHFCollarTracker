@@ -263,6 +263,38 @@ Rectangle {
             width:      ScreenTools.defaultFontPixelWidth * 25
             spacing:    _margins
 
+            QGCLabel {
+                text:           "Freq: " + (_corePlugin.vehicleFrequency / 1000).toFixed(0)
+                font.pointSize: ScreenTools.largeFontPointSize
+            }
+
+            QGCButton {
+                id:         setFreqButton
+                width:      parent.width
+                text:       qsTr("Set Frequency")
+                enabled:    !_corePlugin.flightMachineActive
+                onClicked:  visible = false
+            }
+
+            RowLayout {
+                width:      parent.width
+                spacing:    ScreenTools.defaultFontPixelWidth / 2
+                visible:    !setFreqButton.visible
+
+                FactTextField {
+                    Layout.fillWidth:   true
+                    fact:               _corePlugin.vhfSettings.frequency
+                }
+
+                QGCButton {
+                    text: qsTr("Set")
+                    onClicked: {
+                        setFreqButton.visible = true
+                        _corePlugin.setFrequency(_corePlugin.vhfSettings.frequency.rawValue)
+                    }
+                }
+            }
+
             QGCButton {
                 width:      parent.width
                 text:       qsTr("Takeoff")

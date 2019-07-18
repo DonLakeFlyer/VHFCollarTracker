@@ -11,28 +11,25 @@
 #include <QPointF>
 #include <QLineF>
 
-// Mavlink DEBUG messages are used to communicate with QGC in both directions.
-// 	DEBUG.time_boot_msg is used to hold a command id
-//	DEBUG.index/value are then command specific
+// Mavlink DEBUG_VECT messages are used to communicate with QGC in both directions.
+// 	DEBUG.x is used to hold a command id
 
 // Pulse value
-//	DEBUG.index - not used
-//	DEBUG.value = pulse value
+//	DEBUG_VECT.y - pulse value
+//	DEBUG_VECT.z - frequency
 static const int DEBUG_COMMAND_ID_PULSE = 	0;
 
 // Set gain
-//	DEBUG.index - new gain
-//	DEBUG.value = not used
+//	DEBUG.y - new gain
 static const int DEBUG_COMMAND_ID_SET_GAIN = 1;
 
 // Set frequency
-//	DEBUG.index - new frequency
-//	DEBUG.value = not used
+//	DEBUG.y - new frequency
 static const int DEBUG_COMMAND_ID_SET_FREQ = 2;
 
-// Ack for SET commands
-//	DEBUG.index - command being acked
-//	DEBUG.value - gain/freq value which was chaned to
+// Ack for SET commands. Sent from Vehicle to GCS.
+//	DEBUG.y - command being acked
+//	DEBUG.z - gain/freq value which was changed to
 static const int DEBUG_COMMAND_ID_ACK = 			3;
 static const int DEBUG_COMMAND_ACK_SET_GAIN_INDEX =	0;
 static const int DEBUG_COMMAND_ACK_SET_FREQ_INDEX =	1;
@@ -45,8 +42,9 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
     , _flightMachineActive  (false)
     , _beepStrength         (0)
     , _bpm                  (0)
+    , _vehicleFrequency     (0)
 {
-    _showAdvancedUI = true;
+    _showAdvancedUI = false;
 
     _delayTimer.setSingleShot(true);
     _targetValueTimer.setSingleShot(true);
@@ -75,7 +73,7 @@ void VHFTrackerQGCPlugin::setToolbox(QGCToolbox* toolbox)
         _rgAngleRatios.append(QVariant::fromValue(qQNaN()));
     }
 
-    _simPulseTimer.start(2000);
+    //_simPulseTimer.start(2000);
 }
 
 QString VHFTrackerQGCPlugin::brandImageIndoor(void) const
@@ -133,7 +131,7 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
     switch (static_cast<int>(debugVect.x)) {
     case DEBUG_COMMAND_ID_PULSE:
         static int count = 0;
-        qDebug() << "DEBUG" << count++ << debugVect.y;
+        qDebug() << "DEBUG" << count++ << debugVect.y << debugVect.z;
         _beepStrength = static_cast<double>(debugVect.y);
         emit beepStrengthChanged(_beepStrength);
         _rgPulseValues.append(_beepStrength);
@@ -148,6 +146,10 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
                 }
             }
             _elapsedTimer.restart();
+        }
+        if (debugVect.z != _vehicleFrequency) {
+            _vehicleFrequency = debugVect.z;
+            emit vehicleFrequencyChanged(_vehicleFrequency);
         }
         break;
     case DEBUG_COMMAND_ID_ACK:
@@ -591,4 +593,33 @@ void VHFTrackerQGCPlugin::_simulatePulse(void)
         mavlink_msg_debug_vect_encode(static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1, &msg, &debugVect);
         _handleDebugVect(vehicle, vehicle->priorityLink(), msg);
     }
+}
+
+void VHFTrackerQGCPlugin::_sendFreqChange(int frequency)
+{
+    Vehicle* vehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
+
+    if (vehicle) {
+        mavlink_message_t       msg;
+        MAVLinkProtocol*        mavlink = qgcApp()->toolbox()->mavlinkProtocol();
+        LinkInterface*          priorityLink = vehicle->priorityLink();
+        char                    name[10];
+
+        memset(&name, 0, sizeof(name));
+        mavlink_msg_debug_vect_pack_chan(static_cast<uint8_t>(mavlink->getSystemId()),
+                                         static_cast<uint8_t>(mavlink->getComponentId()),
+                                         priorityLink->mavlinkChannel(),
+                                         &msg,
+                                         name,
+                                         0, // time_usec field unused
+                                         DEBUG_COMMAND_ID_SET_FREQ,
+                                         frequency * 1000,
+                                         0);                                // z - unusued
+        vehicle->sendMessageOnLink(priorityLink, msg);
+    }
+}
+
+void VHFTrackerQGCPlugin::setFrequency(int frequency)
+{
+    _sendFreqChange(frequency);
 }

@@ -28,9 +28,11 @@ public:
     Q_PROPERTY(QVariantList         angleRatios         MEMBER _rgAngleRatios           NOTIFY angleRatiosChanged)
     Q_PROPERTY(int                  strongestAngle      MEMBER _strongestAngle          NOTIFY strongestAngleChanged)
     Q_PROPERTY(bool                 flightMachineActive MEMBER _flightMachineActive     NOTIFY flightMachineActiveChanged)
+    Q_PROPERTY(int                  vehicleFrequency    MEMBER _vehicleFrequency        NOTIFY vehicleFrequencyChanged)
 
     Q_INVOKABLE void start          (void);
     Q_INVOKABLE void cancelAndReturn(void);
+    Q_INVOKABLE void setFrequency   (int frequency);
 
     // Overrides from QGCCorePlugin
     QString             brandImageIndoor        (void) const final;
@@ -51,6 +53,7 @@ signals:
     void angleRatiosChanged         (void);
     void strongestAngleChanged      (int strongestAngle);
     void flightMachineActiveChanged (bool flightMachineActive);
+    void vehicleFrequencyChanged    (int vehicleFrequency);
 
 private slots:
     void _vehicleStateRawValueChanged   (QVariant rawValue);
@@ -85,6 +88,7 @@ private:
     void _sendCommandAndVerify          (Vehicle* vehicle, MAV_CMD command, double param1 = 0.0, double param2 = 0.0, double param3 = 0.0, double param4 = 0.0, double param5 = 0.0, double param6 = 0.0, double param7 = 0.0);
     void _takeoff                       (Vehicle* vehicle, double takeoffAltRel);
     void _resetStateAndRTL              (void);
+    void _sendFreqChange                (int frequency);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;
@@ -109,4 +113,5 @@ private:
     QTimer                  _simPulseTimer;
     VHFTrackerQGCOptions*   _vhfQGCOptions;
     VHFTrackerSettings*     _vhfSettings;    
+    int                     _vehicleFrequency;
 };
