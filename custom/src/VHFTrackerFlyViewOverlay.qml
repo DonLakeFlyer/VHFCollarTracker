@@ -140,7 +140,6 @@ Rectangle {
                         QGCLabel {
                             text:                       _bpm
                             color:                      "black"
-                            font.pointSize:             ScreenTools.largeFontPointSize
                         }
 
                         QGCLabel {
@@ -333,10 +332,13 @@ Rectangle {
             QGCButton {
                 width:      parent.width
                 text:       "Close"
-                onClicked:  flyOverlay.visible = false
+                onClicked: {
+                    flyOverlay.visible = false
+                    _corePlugin.showAdvancedUI = true
+                }
             }
 
-            QGCLabel { text: "Temp: " + _corePlugin.temp }
+            QGCLabel { text: "Temp: " + _corePlugin.temp.toFixed(1) }
         }
     }
 }
