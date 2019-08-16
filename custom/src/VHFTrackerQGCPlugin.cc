@@ -12,27 +12,33 @@
 #include <QLineF>
 
 // Mavlink DEBUG_VECT messages are used to communicate with QGC in both directions.
-// 	DEBUG.x is used to hold a command id
+// 	DEBUG_VECT.name is used to hold a command type
+//	DEBUG_VECT.x/y/z are then command specific
 
 // Pulse value
-//	DEBUG_VECT.y - pulse value
-//	DEBUG_VECT.z - frequency
-static const int DEBUG_COMMAND_ID_PULSE = 	0;
+//	DEBUG_VECT.name = "PULSE"
+//	DEBUG_VECT.x = pulse value
+//	DEBUG_VECT.y - frequency
+//	DEBUG_VECT.z - temp
+#define DEBUG_COMMAND_ID_PULSE "PULSE"
 
 // Set gain
-//	DEBUG.y - new gain
-static const int DEBUG_COMMAND_ID_SET_GAIN = 1;
+//	DEBUG_VECT.name = "GAIN"
+//	DEBUG_VECT.x - new gain
+#define DEBUG_COMMAND_ID_SET_GAIN "SET-GAIN"
 
 // Set frequency
-//	DEBUG.y - new frequency
-static const int DEBUG_COMMAND_ID_SET_FREQ = 2;
+//	DEBUG_VECT.name = "FREQ"
+//	DEBUG_VECT.x - new frequency
+#define DEBUG_COMMAND_ID_SET_FREQ "SET-FREQ"
 
-// Ack for SET commands. Sent from Vehicle to GCS.
-//	DEBUG.y - command being acked
-//	DEBUG.z - gain/freq value which was changed to
-static const int DEBUG_COMMAND_ID_ACK = 			3;
-static const int DEBUG_COMMAND_ACK_SET_GAIN_INDEX =	0;
-static const int DEBUG_COMMAND_ACK_SET_FREQ_INDEX =	1;
+// Ack for SET commands
+//	DEBUG_VECT.name = "CMD-ACK"
+//	DEBUG_VECT.x - command being acked (DEBUG_COMMAND_ACK_SET_*)
+//	DEBUG_VECT.y - gain/freq value which was changed to
+#define DEBUG_COMMAND_ID_ACK "CMD-ACK"
+static const int DEBUG_COMMAND_ACK_SET_GAIN =	0;
+static const int DEBUG_COMMAND_ACK_SET_FREQ =	1;
 
 QGC_LOGGING_CATEGORY(VHFTrackerQGCPluginLog, "VHFTrackerQGCPluginLog")
 
@@ -41,6 +47,7 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
     , _vehicleStateIndex    (0)
     , _flightMachineActive  (false)
     , _beepStrength         (0)
+    , _temp                 (0)
     , _bpm                  (0)
     , _vehicleFrequency     (0)
 {
@@ -128,11 +135,15 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
 
     mavlink_msg_debug_vect_decode(&message, &debugVect);
 
-    switch (static_cast<int>(debugVect.x)) {
-    case DEBUG_COMMAND_ID_PULSE:
+    char command[MAVLINK_MSG_DEBUG_VECT_FIELD_NAME_LEN + 1];
+    memset(command, 0, sizeof(command));
+    mavlink_msg_debug_vect_get_name(&message, command);
+    QString commandId(command);
+
+    if (commandId == DEBUG_COMMAND_ID_PULSE) {
         static int count = 0;
-        qDebug() << "DEBUG" << count++ << debugVect.y << debugVect.z;
-        _beepStrength = static_cast<double>(debugVect.y);
+        qDebug() << "PULSE" << count++ << debugVect.x << debugVect.y << debugVect.z;
+        _beepStrength = static_cast<double>(debugVect.x);
         emit beepStrengthChanged(_beepStrength);
         _rgPulseValues.append(_beepStrength);
         if (_beepStrength == 0) {
@@ -147,23 +158,35 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
             }
             _elapsedTimer.restart();
         }
-        if (debugVect.z != _vehicleFrequency) {
-            _vehicleFrequency = debugVect.z;
+
+        if (static_cast<int>(debugVect.y) != _vehicleFrequency) {
+            _vehicleFrequency = static_cast<int>(debugVect.y);
             emit vehicleFrequencyChanged(_vehicleFrequency);
         }
-        break;
-    case DEBUG_COMMAND_ID_ACK:
-        int ackCommand =    static_cast<int>(debugVect.y);
-        int ackValue =      static_cast<int>(debugVect.z);
-        if (ackCommand == DEBUG_COMMAND_ACK_SET_FREQ_INDEX) {
+
+        int requestedFrequency = _vhfSettings->frequency()->rawValue().toInt();
+        if (_vehicleFrequency / 1000 != requestedFrequency) {
+            setFrequency(requestedFrequency);
+        }
+
+        if (!qFuzzyCompare(static_cast<qreal>(debugVect.z), _temp)) {
+            _temp = static_cast<qreal>(debugVect.z);
+            emit tempChanged(_temp);
+        }
+    } else if (commandId == DEBUG_COMMAND_ID_ACK) {
+        int ackCommand =    static_cast<int>(debugVect.x);
+        int ackValue =      static_cast<int>(debugVect.y);
+        if (ackCommand == DEBUG_COMMAND_ACK_SET_FREQ) {
             int freq = ackValue;
-            int numerator = freq / 1000;
-            int denominator = freq - (numerator * 1000);
-            _say(QStringLiteral("Frequency changed %1.%2").arg(numerator).arg(denominator, 3, 10, QChar('0')));
-        } else if (ackCommand== DEBUG_COMMAND_ACK_SET_GAIN_INDEX) {
+            int numerator = freq / 1000000;
+            int denominator = (freq - (numerator * 1000000)) / 1000;
+            int digit1 = denominator / 100;
+            int digit2 = (denominator - (digit1 * 100)) / 10;
+            int digit3 = denominator - (digit1 * 100) - (digit2 * 10);
+            _say(QStringLiteral("Frequency changed to %1 point %2 %3 %4").arg(numerator).arg(digit1).arg(digit2).arg(digit3));
+        } else if (ackCommand== DEBUG_COMMAND_ACK_SET_GAIN) {
             _say(QStringLiteral("Gain changed to %2").arg(ackValue));
         }
-        break;
     }
 
     return false;
@@ -588,8 +611,10 @@ void VHFTrackerQGCPlugin::_simulatePulse(void)
         mavlink_debug_vect_t    debugVect;
         mavlink_message_t       msg;
 
-        debugVect.x = DEBUG_COMMAND_ID_PULSE;
-        debugVect.y = static_cast<float>(pulse);
+        strcpy(debugVect.name, DEBUG_COMMAND_ID_PULSE);
+        debugVect.x = static_cast<float>(pulse);
+        debugVect.y = 146000000;
+        debugVect.z = 60;
         mavlink_msg_debug_vect_encode(static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1, &msg, &debugVect);
         _handleDebugVect(vehicle, vehicle->priorityLink(), msg);
     }
@@ -603,18 +628,18 @@ void VHFTrackerQGCPlugin::_sendFreqChange(int frequency)
         mavlink_message_t       msg;
         MAVLinkProtocol*        mavlink = qgcApp()->toolbox()->mavlinkProtocol();
         LinkInterface*          priorityLink = vehicle->priorityLink();
-        char                    name[10];
+        char                    name[MAVLINK_MSG_DEBUG_VECT_FIELD_NAME_LEN + 1];
 
         memset(&name, 0, sizeof(name));
+        strcpy(name, DEBUG_COMMAND_ID_SET_FREQ);
         mavlink_msg_debug_vect_pack_chan(static_cast<uint8_t>(mavlink->getSystemId()),
                                          static_cast<uint8_t>(mavlink->getComponentId()),
                                          priorityLink->mavlinkChannel(),
                                          &msg,
                                          name,
-                                         0, // time_usec field unused
-                                         DEBUG_COMMAND_ID_SET_FREQ,
+                                         0,                                     // time_usec field unused
                                          frequency * 1000,
-                                         0);                                // z - unusued
+                                         0, 0);                                 // y,z - unusued
         vehicle->sendMessageOnLink(priorityLink, msg);
     }
 }

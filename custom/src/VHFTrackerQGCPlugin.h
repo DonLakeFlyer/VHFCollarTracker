@@ -23,7 +23,8 @@ public:
     ~VHFTrackerQGCPlugin();
 
     Q_PROPERTY(VHFTrackerSettings*  vhfSettings         MEMBER _vhfSettings             CONSTANT)
-    Q_PROPERTY(float                beepStrength        MEMBER _beepStrength            NOTIFY beepStrengthChanged)
+    Q_PROPERTY(qreal                beepStrength        MEMBER _beepStrength            NOTIFY beepStrengthChanged)
+    Q_PROPERTY(qreal                temp                MEMBER _temp                    NOTIFY tempChanged)
     Q_PROPERTY(int                  bpm                 MEMBER _bpm                     NOTIFY bpmChanged)
     Q_PROPERTY(QVariantList         angleRatios         MEMBER _rgAngleRatios           NOTIFY angleRatiosChanged)
     Q_PROPERTY(int                  strongestAngle      MEMBER _strongestAngle          NOTIFY strongestAngleChanged)
@@ -47,7 +48,8 @@ public:
     void setToolbox(QGCToolbox* toolbox) final;
 
 signals:
-    void beepStrengthChanged        (double beepStrength);
+    void beepStrengthChanged        (qreal beepStrength);
+    void tempChanged                (qreal temp);
     void bpmChanged                 (int bpm);
     void angleStrengthsChanged      (void);
     void angleRatiosChanged         (void);
@@ -105,7 +107,8 @@ private:
     int                     _nextSlice;
     int                     _cSlice;
 
-    double                  _beepStrength;
+    qreal                   _beepStrength;
+    qreal                   _temp;
     int                     _bpm;
     QElapsedTimer           _elapsedTimer;
     QTimer                  _delayTimer;

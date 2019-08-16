@@ -335,6 +335,8 @@ Rectangle {
                 text:       "Close"
                 onClicked:  flyOverlay.visible = false
             }
+
+            QGCLabel { text: "Temp: " + _corePlugin.temp }
         }
     }
 }
