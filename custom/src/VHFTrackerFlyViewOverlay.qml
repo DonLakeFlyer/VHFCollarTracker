@@ -62,6 +62,7 @@ Rectangle {
         anchors.fill:       parent
         spacing:            _margins
 
+        // Left hand altitude bar
         ColumnLayout {
             Layout.fillHeight:  true
 
@@ -86,10 +87,12 @@ Rectangle {
             }
         }
 
+        // Center section
         ColumnLayout {
             Layout.fillWidth:   true
             Layout.fillHeight:  true
 
+            // Pulse bar
             RowLayout {
                 Layout.fillWidth: true
 
@@ -148,6 +151,23 @@ Rectangle {
                         }
                     }
                 }
+            }
+
+            QGCLabel {
+                id:                         gpsLockWarning
+                text:                       "Vehicle not ready - Waiting for GPS Lock"
+                color:                      "black"
+                font.pointSize:             ScreenTools.largeFontPointSize
+                visible:                    _activeVehicle && !_activeVehicle.homePosition.isValid
+                Layout.alignment:           Qt.AlignHCenter
+            }
+
+            QGCLabel {
+                text:                       "Battery not completely charged - Do Not Fly"
+                color:                      "black"
+                font.pointSize:             ScreenTools.largeFontPointSize
+                visible:                    !gpsLockWarning.visible && _activeVehicle && !_activeVehicle.armed && _activeVehicle.battery.percentRemaining.rawValue < 95
+                Layout.alignment:           Qt.AlignHCenter
             }
 
             Item {
@@ -258,6 +278,7 @@ Rectangle {
             }
         }
 
+        // Right hand tools section
         Column {
             width:      ScreenTools.defaultFontPixelWidth * 25
             spacing:    _margins
