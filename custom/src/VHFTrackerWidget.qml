@@ -139,7 +139,7 @@ Column {
 
         QGCLabel {
             Layout.fillWidth:       true
-            text:                   _activeVehicle.altitudeRelative.valueString
+            text:                   _activeVehicle ? _activeVehicle.altitudeRelative.valueString : ""
             horizontalAlignment:    Text.AlignHCenter
             font.pointSize:         ScreenTools.largeFontPointSize
         }

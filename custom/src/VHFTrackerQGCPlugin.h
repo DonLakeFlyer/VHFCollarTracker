@@ -51,7 +51,6 @@ signals:
     void beepStrengthChanged        (qreal beepStrength);
     void tempChanged                (qreal temp);
     void bpmChanged                 (int bpm);
-    void angleStrengthsChanged      (void);
     void angleRatiosChanged         (void);
     void strongestAngleChanged      (int strongestAngle);
     void flightMachineActiveChanged (bool flightMachineActive);

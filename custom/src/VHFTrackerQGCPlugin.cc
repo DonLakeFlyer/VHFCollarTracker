@@ -141,9 +141,10 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
     QString commandId(command);
 
     if (commandId == DEBUG_COMMAND_ID_PULSE) {
-        static int count = 0;
-        qDebug() << "PULSE" << count++ << debugVect.x << debugVect.y << debugVect.z;
-        _beepStrength = static_cast<double>(debugVect.x);
+        //static int count = 0;
+        //qDebug() << "PULSE" << count++ << debugVect.x << debugVect.y << debugVect.z;
+        double maxPulse = _vhfSettings->maxPulse()->rawValue().toDouble();
+        _beepStrength = qMin(static_cast<double>(debugVect.x), maxPulse) / maxPulse;
         emit beepStrengthChanged(_beepStrength);
         _rgPulseValues.append(_beepStrength);
         if (_beepStrength == 0) {
@@ -223,7 +224,6 @@ void VHFTrackerQGCPlugin::start(void)
         _rgAngleStrengths.append(qQNaN());
         _rgAngleRatios.append(QVariant::fromValue(qQNaN()));
     }
-    emit angleStrengthsChanged();
     emit angleRatiosChanged();
 
     if (!_armVehicleAndValidate(vehicle)) {
@@ -399,6 +399,7 @@ void VHFTrackerQGCPlugin::_nextVehicleState(void)
     case CommandDelay:
         _say(QStringLiteral("Collecting data for %1 seconds.").arg(currentState.targetValueWaitSecs));
         _vehicleStateIndex++;
+        _rgPulseValues.clear();
         _delayTimer.setInterval(currentState.targetValueWaitSecs * 1000);
         _delayTimer.start();
         break;
@@ -408,6 +409,7 @@ void VHFTrackerQGCPlugin::_nextVehicleState(void)
         _targetValueTimer.setInterval(currentState.targetValueWaitSecs * 1000);
         _targetValueTimer.start();
         connect(currentState.fact, &Fact::rawValueChanged, this, &VHFTrackerQGCPlugin::_vehicleStateRawValueChanged);
+        _vehicleStateRawValueChanged(currentState.fact->rawValue());
     }
 }
 
@@ -446,9 +448,9 @@ void VHFTrackerQGCPlugin::_delayComplete(void)
     foreach(double pulse, _rgPulseValues) {
         maxPulse = qMax(maxPulse, pulse);
     }
+    qCDebug(VHFTrackerQGCPluginLog) << "_delayComplete" << maxPulse << _rgPulseValues;
     _rgPulseValues.clear();
     _rgAngleStrengths[_nextSlice] = maxPulse;
-    emit angleStrengthsChanged();
 
     if (++_nextSlice >= _cSlice) {
         _nextSlice = 0;

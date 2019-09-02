@@ -12,6 +12,7 @@ import QtQuick.Layouts      1.2
 import QtQuick.Controls     1.2
 import QtPositioning        5.2
 import QtCharts             2.2
+import QtQuick.Dialogs      1.3
 
 import QGroundControl                   1.0
 import QGroundControl.Controls          1.0
@@ -46,7 +47,38 @@ Rectangle {
 
     readonly property real _sliceSize: 360 / _divisions
 
-    DeadMouseArea { anchors.fill: parent }
+    // Easter egg mechanism
+    DeadMouseArea {
+        anchors.fill: parent
+
+        onClicked: {
+            _clickCount++
+            eggTimer.restart()
+            if (_clickCount == 5 && !QGroundControl.corePlugin.showAdvancedUI) {
+                advancedModeConfirmation.visible = true
+            }
+        }
+
+        property int _clickCount: 0
+
+        Timer {
+            id:             eggTimer
+            interval:       1000
+            onTriggered:    parent._clickCount = 0
+        }
+
+        MessageDialog {
+            id:                 advancedModeConfirmation
+            title:              qsTr("Advanced Mode")
+            text:               qsTr("Are you sure you want to exit out of PDC Drone control mode?")
+            standardButtons:    StandardButton.Yes | StandardButton.No
+
+            onYes: {
+                flyOverlay.visible = false
+                QGroundControl.corePlugin.showAdvancedUI = true
+            }
+        }
+    }
 
     Connections {
         target: QGroundControl.corePlugin
@@ -102,16 +134,26 @@ Rectangle {
                     border.color:       "green"
 
                     Rectangle {
+                        id:                     indicatorBar
                         anchors.margins:        1
                         anchors.rightMargin:    _rightMargin
                         anchors.fill:           parent
                         color:                  "green"
 
-                        property real   _maximumPulse:   _corePlugin.vhfSettings.maxPulse.rawValue
-                        property real   _value:         _pulseStrength
-                        property real   _rightMargin:   (parent.width - 2) - ((parent.width - 2) * (Math.min(_pulseStrength, _maximumPulse) / _maximumPulse))
+                        property real   _maximumPulse:      1
+                        property real   _indicatorStrength: _pulseStrength
+                        property real   _value:             _indicatorStrength
+                        property real   _rightMargin:       (parent.width - 2) - ((parent.width - 2) * (Math.min(_indicatorStrength, _maximumPulse) / _maximumPulse))
 
-                        on_ValueChanged: pulseResetTimer.start()
+                        Connections {
+                            target: _corePlugin
+                            onBeepStrengthChanged: {
+                                pulseResetTimer.restart()
+                                noDronePulsesTimer.restart()
+                                indicatorBar._indicatorStrength = _pulseStrength
+                                noDronePulses.visible = false
+                            }
+                        }
 
                         Behavior on _value {
                             PropertyAnimation {
@@ -124,38 +166,50 @@ Rectangle {
                             id:             pulseResetTimer
                             interval:       500
                             repeat:         false
-                            onTriggered:    _pulseStrength = 0
+                            onTriggered:    indicatorBar._indicatorStrength = 0
                         }
+                    }
+
+                    QGCLabel {
+                        id:                     noDronePulses
+                        anchors.fill:           parent
+                        anchors.centerIn:       parent.center
+                        text:                   "Drone Not Sending Pulses"
+                        horizontalAlignment:    Text.AlignHCenter
+                        verticalAlignment:      Text.AlignVCenter
+                        font.pointSize:         ScreenTools.largeFontPointSize
+                        visible:                true
+
+                        Timer {
+                            id:             noDronePulsesTimer
+                            interval:       5000
+                            repeat:         false
+                            onTriggered:    noDronePulses.visible = true
+                        }
+                    }
+
+                    QGCLabel {
+                        anchors.fill:           parent
+                        anchors.centerIn:       parent.center
+                        text:                   "No Signal Detected"
+                        horizontalAlignment:    Text.AlignHCenter
+                        verticalAlignment:      Text.AlignVCenter
+                        font.pointSize:         ScreenTools.largeFontPointSize
+                        visible:                !noDronePulses.visible && _pulseStrength == 0
                     }
                 }
 
-                ColumnLayout {
-                    QGCLabel {
-                        width:                      (ScreenTools.defaultFontPixelWidth * ScreenTools.largeFontPointRatio) * 4
-                        text:                       _corePlugin.beepStrength.toFixed(2)
-                        color:                      "black"
-                        font.pointSize:             ScreenTools.largeFontPointSize
-                    }
-
-                    RowLayout {
-                        spacing: _margins
-
-                        QGCLabel {
-                            text:                       _bpm
-                            color:                      "black"
-                        }
-
-                        QGCLabel {
-                            text:                       _pulseCount
-                            color:                      "black"
-                        }
-                    }
+                QGCLabel {
+                    width:                      (ScreenTools.defaultFontPixelWidth * ScreenTools.largeFontPointRatio) * 4
+                    text:                       (100.0 * _corePlugin.beepStrength).toFixed(0) + "%"
+                    color:                      "black"
+                    font.pointSize:             ScreenTools.largeFontPointSize
                 }
             }
 
             QGCLabel {
                 id:                         gpsLockWarning
-                text:                       "Vehicle not ready - Waiting for GPS Lock"
+                text:                       "Drone not ready - Waiting for GPS Lock"
                 color:                      "black"
                 font.pointSize:             ScreenTools.largeFontPointSize
                 visible:                    _activeVehicle && !_activeVehicle.homePosition.isValid
@@ -163,10 +217,36 @@ Rectangle {
             }
 
             QGCLabel {
+                id:                         batteryWarning
                 text:                       "Battery not completely charged - Do Not Fly"
                 color:                      "black"
                 font.pointSize:             ScreenTools.largeFontPointSize
                 visible:                    !gpsLockWarning.visible && _activeVehicle && !_activeVehicle.armed && _activeVehicle.battery.percentRemaining.rawValue < 95
+                Layout.alignment:           Qt.AlignHCenter
+            }
+
+            QGCLabel {
+                text:                       "Stay back from drone"
+                color:                      "black"
+                font.pointSize:             ScreenTools.largeFontPointSize
+                visible:                    _activeVehicle && _activeVehicle.armed
+                Layout.alignment:           Qt.AlignHCenter
+            }
+
+            QGCLabel {
+                text:                       "Drone ready for takeoff"
+                color:                      "black"
+                font.pointSize:             ScreenTools.largeFontPointSize
+                visible:                    !gpsLockWarning.visible && !batteryWarning.visible && droneSafe.visible
+                Layout.alignment:           Qt.AlignHCenter
+            }
+
+            QGCLabel {
+                id:                         droneSafe
+                text:                       "Drone safe to pick up"
+                color:                      "black"
+                font.pointSize:             ScreenTools.largeFontPointSize
+                visible:                    _activeVehicle && !_activeVehicle.armed
                 Layout.alignment:           Qt.AlignHCenter
             }
 
@@ -241,9 +321,9 @@ Rectangle {
                                     angle:      -90 - (360 / _divisions / 2) + ((360 / _divisions) * index)
                                 }
 
-                                property real centerX:      width / 2
-                                property real centerY:      height / 2
-                                property real arcRadians:   (Math.PI * 2) / _divisions
+                                property real centerX:          width / 2
+                                property real centerY:          height / 2
+                                property real arcRadians:       (Math.PI * 2) / _divisions
                                 property real strengthRatio:    _corePlugin.angleRatios[index]
 
                                 Connections {
@@ -348,15 +428,6 @@ Rectangle {
                 text:       qsTr("Cancel And Return")
                 enabled:    _corePlugin.flightMachineActive
                 onClicked:  _corePlugin.cancelAndReturn()
-            }
-
-            QGCButton {
-                width:      parent.width
-                text:       "Close"
-                onClicked: {
-                    flyOverlay.visible = false
-                    _corePlugin.showAdvancedUI = true
-                }
             }
 
             QGCLabel { text: "Temp: " + _corePlugin.temp.toFixed(1) }
