@@ -92,6 +92,7 @@ private:
     void _takeoff                       (Vehicle* vehicle, double takeoffAltRel);
     void _resetStateAndRTL              (void);
     void _sendFreqChange                (int frequency);
+    int  _rawPulseToPct                 (double rawPulse);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;
