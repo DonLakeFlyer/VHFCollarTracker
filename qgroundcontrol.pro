@@ -248,6 +248,7 @@ QT += \
 
 AndroidBuild || iOSBuild {
     # Android and iOS don't unclude these
+    QMAKE_LINK += -nostdlib++
 } else {
     QT += \
         printsupport \

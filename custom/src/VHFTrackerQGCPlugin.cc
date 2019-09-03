@@ -45,6 +45,8 @@ QGC_LOGGING_CATEGORY(VHFTrackerQGCPluginLog, "VHFTrackerQGCPluginLog")
 VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbox)
     : QGCCorePlugin         (app, toolbox)
     , _vehicleStateIndex    (0)
+    , _strongestAngle       (0)
+    , _strongestPulsePct    (0)
     , _flightMachineActive  (false)
     , _beepStrength         (0)
     , _temp                 (0)
@@ -225,6 +227,10 @@ void VHFTrackerQGCPlugin::start(void)
         _rgAngleRatios.append(QVariant::fromValue(qQNaN()));
     }
     emit angleRatiosChanged();
+
+    _strongestAngle = _strongestPulsePct = 0;
+    emit strongestAngleChanged(0);
+    emit strongestPulsePctChanged(0);
 
     if (!_armVehicleAndValidate(vehicle)) {
         _resetStateAndRTL();
@@ -442,6 +448,12 @@ void VHFTrackerQGCPlugin::_say(QString text)
     _toolbox->audioOutput()->say(text.toLower());
 }
 
+int VHFTrackerQGCPlugin::_rawPulseToPct(double rawPulse)
+{
+    double maxPossiblePulse = static_cast<double>(_vhfSettings->maxPulse()->rawValue().toDouble());
+    return static_cast<int>(100.0 * (rawPulse / maxPossiblePulse));
+}
+
 void VHFTrackerQGCPlugin::_delayComplete(void)
 {
     double maxPulse = 0;
@@ -456,11 +468,22 @@ void VHFTrackerQGCPlugin::_delayComplete(void)
         _nextSlice = 0;
     }
 
-    // Recalc ratios
     maxPulse = 0;
+    int strongestSlice = 0;
     for (int i=0; i<_cSlice; i++) {
-        maxPulse = qMax(maxPulse, _rgAngleStrengths[i]);
+        if (_rgAngleStrengths[i] > maxPulse) {
+            maxPulse = _rgAngleStrengths[i];
+            strongestSlice = i;
+        }
     }
+
+    _strongestPulsePct = _rawPulseToPct(maxPulse);
+    emit strongestPulsePctChanged(_strongestPulsePct);
+
+    double sliceAngle = 360 / _vhfSettings->divisions()->rawValue().toDouble();
+    _strongestAngle = static_cast<int>(strongestSlice * sliceAngle);
+    emit strongestAngleChanged(_strongestAngle);
+
     for (int i=0; i<_cSlice; i++) {
         double angleStrength = _rgAngleStrengths[i];
         if (!qIsNaN(angleStrength)) {
@@ -608,6 +631,12 @@ void VHFTrackerQGCPlugin::_simulatePulse(void)
             pulseRatio = heading / 180.0;
         }
         double pulse = 10.0 * pulseRatio;
+
+        double currentAltRel = vehicle->altitudeRelative()->rawValue().toDouble();
+        double maxAlt = _vhfSettings->altitude()->rawValue().toDouble();
+        double altRatio = currentAltRel / maxAlt;
+        pulse *= altRatio;
+
         //qDebug() << heading << pulseRatio << pulse;
 
         mavlink_debug_vect_t    debugVect;

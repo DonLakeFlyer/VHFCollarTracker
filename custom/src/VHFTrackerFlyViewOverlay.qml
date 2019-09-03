@@ -83,9 +83,9 @@ Rectangle {
     Connections {
         target: QGroundControl.corePlugin
 
-        onBeepStrengthChanged: {
+        onLastPulsePctChanged: {
             _pulseCount++
-            _pulseStrength = beepStrength
+            _pulseStrength = lastPulsePct
         }
     }
 
@@ -152,13 +152,6 @@ Rectangle {
                                 noDronePulsesTimer.restart()
                                 indicatorBar._indicatorStrength = _pulseStrength
                                 noDronePulses.visible = false
-                            }
-                        }
-
-                        Behavior on _value {
-                            PropertyAnimation {
-                                duration:       250
-                                easing.type:    Easing.InOutQuad
                             }
                         }
 
