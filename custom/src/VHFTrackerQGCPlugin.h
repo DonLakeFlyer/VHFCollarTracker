@@ -28,6 +28,7 @@ public:
     Q_PROPERTY(int                  bpm                 MEMBER _bpm                     NOTIFY bpmChanged)
     Q_PROPERTY(QVariantList         angleRatios         MEMBER _rgAngleRatios           NOTIFY angleRatiosChanged)
     Q_PROPERTY(int                  strongestAngle      MEMBER _strongestAngle          NOTIFY strongestAngleChanged)
+    Q_PROPERTY(int                  strongestPulsePct   MEMBER _strongestPulsePct       NOTIFY strongestPulsePctChanged)
     Q_PROPERTY(bool                 flightMachineActive MEMBER _flightMachineActive     NOTIFY flightMachineActiveChanged)
     Q_PROPERTY(int                  vehicleFrequency    MEMBER _vehicleFrequency        NOTIFY vehicleFrequencyChanged)
 
@@ -53,6 +54,7 @@ signals:
     void bpmChanged                 (int bpm);
     void angleRatiosChanged         (void);
     void strongestAngleChanged      (int strongestAngle);
+    void strongestPulsePctChanged   (int strongestPulsePct);
     void flightMachineActiveChanged (bool flightMachineActive);
     void vehicleFrequencyChanged    (int vehicleFrequency);
 
@@ -90,6 +92,7 @@ private:
     void _takeoff                       (Vehicle* vehicle, double takeoffAltRel);
     void _resetStateAndRTL              (void);
     void _sendFreqChange                (int frequency);
+    int  _rawPulseToPct                 (double rawPulse);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;
@@ -100,6 +103,7 @@ private:
     QVariantList            _rgAngleRatios;
     QStringList             _rgStringAngleStrengths;
     int                     _strongestAngle;
+    int                     _strongestPulsePct;
     bool                    _flightMachineActive;
     double                  _firstHeading;
     int                     _firstSlice;
