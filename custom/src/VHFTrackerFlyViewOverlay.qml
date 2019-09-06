@@ -83,9 +83,9 @@ Rectangle {
     Connections {
         target: QGroundControl.corePlugin
 
-        onLastPulsePctChanged: {
+        onBeepStrengthChanged: {
             _pulseCount++
-            _pulseStrength = lastPulsePct
+            _pulseStrength = beepStrength
         }
     }
 
