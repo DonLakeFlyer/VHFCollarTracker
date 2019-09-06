@@ -188,7 +188,7 @@ Rectangle {
                         horizontalAlignment:    Text.AlignHCenter
                         verticalAlignment:      Text.AlignVCenter
                         font.pointSize:         ScreenTools.largeFontPointSize
-                        visible:                !noDronePulses.visible && _pulseStrength == 0
+                        visible:                !noDronePulses.visible && (100.0 * _corePlugin.beepStrength) == 0
                     }
                 }
 
