@@ -16,6 +16,7 @@ TextField {
     property bool   showUnits:  false
     property bool   showHelp:   false
     property string unitsLabel: ""
+    property real   pointSize:      ScreenTools.defaultFontPointSize    ///< Point size for button text
 
     signal helpClicked
 
@@ -49,7 +50,7 @@ TextField {
 
     style: TextFieldStyle {
         id:             tfs
-        font.pointSize: ScreenTools.defaultFontPointSize
+        font.pointSize: control.pointSize
         font.family:    ScreenTools.normalFontFamily
         renderType:     ScreenTools.isWindows ? Text.QtRendering : tfs.renderType   // This works around font rendering problems on windows
 
