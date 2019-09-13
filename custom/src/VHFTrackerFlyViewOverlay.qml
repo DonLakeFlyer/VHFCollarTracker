@@ -353,7 +353,7 @@ Rectangle {
 
         // Right hand tools section
         Column {
-            width:      ScreenTools.defaultFontPixelWidth * 25
+            width:      ScreenTools.defaultFontPixelWidth * 25 * ScreenTools.largeFontPointRatio
             spacing:    _margins
 
             QGCLabel {
@@ -365,6 +365,7 @@ Rectangle {
                 id:         setFreqButton
                 width:      parent.width
                 text:       qsTr("Set Frequency")
+                pointSize:  ScreenTools.largeFontPointSize
                 enabled:    !_corePlugin.flightMachineActive
                 onClicked:  visible = false
             }
@@ -376,11 +377,13 @@ Rectangle {
 
                 FactTextField {
                     Layout.fillWidth:   true
+                    pointSize:          ScreenTools.largeFontPointSize
                     fact:               _corePlugin.vhfSettings.frequency
                 }
 
                 QGCButton {
-                    text: qsTr("Set")
+                    text:       qsTr("Set")
+                    pointSize:  ScreenTools.largeFontPointSize
                     onClicked: {
                         setFreqButton.visible = true
                         _corePlugin.setFrequency(_corePlugin.vhfSettings.frequency.rawValue)
@@ -391,6 +394,7 @@ Rectangle {
             QGCButton {
                 width:      parent.width
                 text:       qsTr("Takeoff")
+                pointSize:  ScreenTools.largeFontPointSize
                 visible:    !_takeoffStage2
                 enabled:    !_corePlugin.flightMachineActive
                 onClicked:  _takeoffStage2 = true
@@ -404,6 +408,7 @@ Rectangle {
                 QGCButton {
                     Layout.fillWidth:   true
                     text:               qsTr("Really Takeoff")
+                    pointSize:          ScreenTools.largeFontPointSize
                     onClicked: {
                         _takeoffStage2 = false
                         _corePlugin.start()
@@ -412,6 +417,7 @@ Rectangle {
 
                 QGCButton {
                     text:       qsTr("Cancel")
+                    pointSize:  ScreenTools.largeFontPointSize
                     onClicked:  _takeoffStage2 = false
                 }
             }
@@ -419,6 +425,7 @@ Rectangle {
             QGCButton {
                 width:      parent.width
                 text:       qsTr("Cancel And Return")
+                pointSize:  ScreenTools.largeFontPointSize
                 enabled:    _corePlugin.flightMachineActive
                 onClicked:  _corePlugin.cancelAndReturn()
             }
