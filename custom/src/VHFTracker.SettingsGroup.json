@@ -22,6 +22,12 @@
     "defaultValue":     146000
 },
 {
+    "name":             "FrequencyDelta",
+    "shortDescription": "Frequency Delta",
+    "type":             "Uint32",
+    "defaultValue":     2
+},
+{
     "name":             "MaxPulse",
     "shortDescription": "Maximum pulse value",
     "type":             "Int32",

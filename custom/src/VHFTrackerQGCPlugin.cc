@@ -161,8 +161,9 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
             _elapsedTimer.restart();
         }
 
-        if (static_cast<int>(debugVect.y) != _vehicleFrequency) {
-            _vehicleFrequency = static_cast<int>(debugVect.y);
+        int currentVehicleFrequency = static_cast<int>(debugVect.y) + (_vhfSettings->frequencyDelta()->rawValue().toInt() * 1000);
+        if (currentVehicleFrequency != _vehicleFrequency) {
+            _vehicleFrequency = currentVehicleFrequency;
             emit vehicleFrequencyChanged(_vehicleFrequency);
         }
 
@@ -179,7 +180,7 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
         int ackCommand =    static_cast<int>(debugVect.x);
         int ackValue =      static_cast<int>(debugVect.y);
         if (ackCommand == DEBUG_COMMAND_ACK_SET_FREQ) {
-            int freq = ackValue;
+            int freq = ackValue + (_vhfSettings->frequencyDelta()->rawValue().toInt() * 1000);
             int numerator = freq / 1000000;
             int denominator = (freq - (numerator * 1000000)) / 1000;
             int digit1 = denominator / 100;
@@ -653,6 +654,8 @@ void VHFTrackerQGCPlugin::_simulatePulse(void)
 void VHFTrackerQGCPlugin::_sendFreqChange(int frequency)
 {
     qCDebug(VHFTrackerQGCPluginLog) << "Requesting frequency change to" << frequency;
+
+    frequency -= _vhfSettings->frequencyDelta()->rawValue().toInt();
 
     Vehicle* vehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
 

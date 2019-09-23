@@ -50,6 +50,12 @@ Column {
                 fact:               _vhfSettings.frequency
             }
 
+            /*QGCLabel { text: qsTr("Freq Delta") }
+            FactTextField {
+                Layout.fillWidth:   true
+                fact:               _vhfSettings.frequencyDelta
+            }*/
+
             QGCLabel { text: qsTr("Alt") }
             FactTextField {
                 Layout.fillWidth:   true

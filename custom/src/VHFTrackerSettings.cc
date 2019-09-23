@@ -15,20 +15,22 @@
 #include <QtQml>
 #include <QStandardPaths>
 
-const char* VHFTrackerSettings::_settingsGroup =        "VHFTracker";
-const char* VHFTrackerSettings::_altitudeFactName =     "Altitude";
-const char* VHFTrackerSettings::_divisionsFactName =    "Divisions";
-const char* VHFTrackerSettings::_frequencyFactName =    "Frequency";
-const char* VHFTrackerSettings::_maxPulseFactName =     "MaxPulse";
-const char* VHFTrackerSettings::_gainFactName =         "gain";
+const char* VHFTrackerSettings::_settingsGroup =            "VHFTracker";
+const char* VHFTrackerSettings::_altitudeFactName =         "Altitude";
+const char* VHFTrackerSettings::_divisionsFactName =        "Divisions";
+const char* VHFTrackerSettings::_frequencyFactName =        "Frequency";
+const char* VHFTrackerSettings::_frequencyDeltaFactName =   "FrequencyDelta";
+const char* VHFTrackerSettings::_maxPulseFactName =         "MaxPulse";
+const char* VHFTrackerSettings::_gainFactName =             "gain";
 
 VHFTrackerSettings::VHFTrackerSettings(QObject* parent)
-    : SettingsGroup     (_settingsGroup, _settingsGroup, parent)
-    , _altitudeFact     (nullptr)
-    , _divisionsFact    (nullptr)
-    , _frequencyFact    (nullptr)
-    , _maxPulseFact     (nullptr)
-    , _gainFact         (nullptr)
+    : SettingsGroup         (_settingsGroup, _settingsGroup, parent)
+    , _altitudeFact         (nullptr)
+    , _divisionsFact        (nullptr)
+    , _frequencyFact        (nullptr)
+    , _frequencyDeltaFact   (nullptr)
+    , _maxPulseFact         (nullptr)
+    , _gainFact             (nullptr)
 {
     QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
     qmlRegisterUncreatableType<VHFTrackerSettings>("QGroundControl.SettingsManager", 1, 0, "VHFTrackerSettings", "Reference only");
@@ -59,6 +61,15 @@ Fact* VHFTrackerSettings::frequency(void)
     }
 
     return _frequencyFact;
+}
+
+Fact* VHFTrackerSettings::frequencyDelta(void)
+{
+    if (!_frequencyDeltaFact) {
+        _frequencyDeltaFact = _createSettingsFact(_frequencyDeltaFactName);
+    }
+
+    return _frequencyDeltaFact;
 }
 
 Fact* VHFTrackerSettings::maxPulse(void)
