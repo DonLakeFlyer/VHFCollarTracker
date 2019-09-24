@@ -67,6 +67,7 @@ private slots:
     void _updateFlightMachineActive     (bool flightMachineActive);
     void _mavCommandResult              (int vehicleId, int component, int command, int result, bool noResponseFromVehicle);
     void _simulatePulse                 (void);
+    void _freqChangeFailed              (void);
 
 private:
     typedef enum {
@@ -117,6 +118,7 @@ private:
     QTimer                  _delayTimer;
     QTimer                  _targetValueTimer;
     QTimer                  _simPulseTimer;
+    QTimer                  _freqChangeTimer;
     VHFTrackerQGCOptions*   _vhfQGCOptions;
     VHFTrackerSettings*     _vhfSettings;    
     int                     _vehicleFrequency;
