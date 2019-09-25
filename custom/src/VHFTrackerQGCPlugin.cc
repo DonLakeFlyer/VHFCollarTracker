@@ -57,13 +57,16 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
 
     _delayTimer.setSingleShot(true);
     _targetValueTimer.setSingleShot(true);
-    _freqChangeTimer.setSingleShot(true);
-    _freqChangeTimer.setInterval(4000);
+    _freqChangeAckTimer.setSingleShot(true);
+    _freqChangeAckTimer.setInterval(1000);
+    _freqChangePulseTimer.setSingleShot(true);
+    _freqChangePulseTimer.setInterval(4000);
 
-    connect(&_delayTimer,       &QTimer::timeout, this, &VHFTrackerQGCPlugin::_delayComplete);
-    connect(&_targetValueTimer, &QTimer::timeout, this, &VHFTrackerQGCPlugin::_targetValueFailed);
-    connect(&_simPulseTimer,    &QTimer::timeout, this, &VHFTrackerQGCPlugin::_simulatePulse);
-    connect(&_freqChangeTimer,  &QTimer::timeout, this, &VHFTrackerQGCPlugin::_freqChangeFailed);
+    connect(&_delayTimer,           &QTimer::timeout, this, &VHFTrackerQGCPlugin::_delayComplete);
+    connect(&_targetValueTimer,     &QTimer::timeout, this, &VHFTrackerQGCPlugin::_targetValueFailed);
+    connect(&_simPulseTimer,        &QTimer::timeout, this, &VHFTrackerQGCPlugin::_simulatePulse);
+    connect(&_freqChangeAckTimer,   &QTimer::timeout, this, &VHFTrackerQGCPlugin::_freqChangeAckFailed);
+    connect(&_freqChangePulseTimer, &QTimer::timeout, this, &VHFTrackerQGCPlugin::_freqChangePulseFailed);
 }
 
 VHFTrackerQGCPlugin::~VHFTrackerQGCPlugin()
@@ -172,9 +175,9 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
 
         int requestedFrequency = _vhfSettings->frequency()->rawValue().toInt();
         if (_vehicleFrequency / 1000 == requestedFrequency) {
-            _freqChangeTimer.stop();
+            _freqChangePulseTimer.stop();
         } else {
-            if (!_freqChangeTimer.isActive()) {
+            if (!_freqChangeAckTimer.isActive() && !_freqChangePulseTimer.isActive()) {
                 setFrequency(requestedFrequency);
             }
         }
@@ -194,6 +197,9 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
             int digit2 = (denominator - (digit1 * 100)) / 10;
             int digit3 = denominator - (digit1 * 100) - (digit2 * 10);
             _say(QStringLiteral("Frequency changed to %1 point %2 %3 %4").arg(numerator).arg(digit1).arg(digit2).arg(digit3));
+
+            _freqChangeAckTimer.stop();
+            _freqChangePulseTimer.start();
         } else if (ackCommand== DEBUG_COMMAND_ACK_SET_GAIN) {
             _say(QStringLiteral("Gain changed to %2").arg(ackValue));
         }
@@ -604,17 +610,11 @@ void VHFTrackerQGCPlugin::_resetStateAndRTL(void)
 
 bool VHFTrackerQGCPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaData& metaData)
 {
-    Q_UNUSED(settingsGroup);
-    Q_UNUSED(metaData);
+    if (settingsGroup == AppSettings::batteryPercentRemainingAnnounceName) {
+        metaData.setRawDefaultValue(20);
+    }
 
     return true;
-#if 0
-    if (settingsGroup == AppSettings::settingsGroup) {
-        if (metaData.name == AppSettings::indoorPaletteName) {
-            metaData.a
-        }
-    }
-#endif
 }
 
 void VHFTrackerQGCPlugin::_simulatePulse(void)
@@ -684,7 +684,7 @@ void VHFTrackerQGCPlugin::_sendFreqChange(int frequency)
                                          0, 0);                                 // y,z - unusued
         vehicle->sendMessageOnLink(priorityLink, msg);
 
-        _freqChangeTimer.start();
+        //_freqChangeAckTimer.start();
     }
 }
 
@@ -693,8 +693,13 @@ void VHFTrackerQGCPlugin::setFrequency(int frequency)
     _sendFreqChange(frequency);
 }
 
-void VHFTrackerQGCPlugin::_freqChangeFailed(void)
+void VHFTrackerQGCPlugin::_freqChangeAckFailed(void)
 {
-    _say("Frequency change failed");
-    _vhfSettings->frequency()->setRawValue(_vehicleFrequency / 1000);
+    _say("Vehicle did not respond to frequency change request");
+}
+
+
+void VHFTrackerQGCPlugin::_freqChangePulseFailed(void)
+{
+    _say("Frequency coming from pulse data incorrect");
 }
