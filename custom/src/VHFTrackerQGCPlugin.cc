@@ -60,7 +60,7 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
     _freqChangeAckTimer.setSingleShot(true);
     _freqChangeAckTimer.setInterval(1000);
     _freqChangePulseTimer.setSingleShot(true);
-    _freqChangePulseTimer.setInterval(4000);
+    _freqChangePulseTimer.setInterval(8000);
 
     connect(&_delayTimer,           &QTimer::timeout, this, &VHFTrackerQGCPlugin::_delayComplete);
     connect(&_targetValueTimer,     &QTimer::timeout, this, &VHFTrackerQGCPlugin::_targetValueFailed);
@@ -684,7 +684,7 @@ void VHFTrackerQGCPlugin::_sendFreqChange(int frequency)
                                          0, 0);                                 // y,z - unusued
         vehicle->sendMessageOnLink(priorityLink, msg);
 
-        //_freqChangeAckTimer.start();
+        _freqChangeAckTimer.start();
     }
 }
 
