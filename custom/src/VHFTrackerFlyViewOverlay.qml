@@ -361,6 +361,11 @@ Rectangle {
                 font.pointSize: ScreenTools.largeFontPointSize
             }
 
+            QGCLabel {
+                text:           "Strongest: " + _corePlugin.strongestPulsePct
+                font.pointSize: ScreenTools.largeFontPointSize
+            }
+
             QGCButton {
                 id:         setFreqButton
                 width:      parent.width
