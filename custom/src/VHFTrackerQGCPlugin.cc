@@ -615,7 +615,7 @@ void VHFTrackerQGCPlugin::_resetStateAndRTL(void)
 
 bool VHFTrackerQGCPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaData& metaData)
 {
-    if (settingsGroup == AppSettings::batteryPercentRemainingAnnounceName) {
+    if (settingsGroup == AppSettings::settingsGroup && metaData.name() == AppSettings::batteryPercentRemainingAnnounceName) {
         metaData.setRawDefaultValue(20);
     }
 
