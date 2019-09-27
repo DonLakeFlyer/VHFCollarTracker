@@ -51,6 +51,7 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
     , _beepStrength         (0)
     , _temp                 (0)
     , _bpm                  (0)
+    , _simulate             (false)
     , _vehicleFrequency     (0)
 {
     _showAdvancedUI = false;
@@ -61,6 +62,10 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
     _freqChangeAckTimer.setInterval(1000);
     _freqChangePulseTimer.setSingleShot(true);
     _freqChangePulseTimer.setInterval(8000);
+
+    if (_simulate) {
+        _simPulseTimer.start(2000);
+    }
 
     connect(&_delayTimer,           &QTimer::timeout, this, &VHFTrackerQGCPlugin::_delayComplete);
     connect(&_targetValueTimer,     &QTimer::timeout, this, &VHFTrackerQGCPlugin::_targetValueFailed);
@@ -490,7 +495,7 @@ void VHFTrackerQGCPlugin::_delayComplete(void)
         }
     }
 
-    _strongestPulsePct = _rawPulseToPct(maxPulse);
+    _strongestPulsePct = maxPulse * 100;
     emit strongestPulsePctChanged(_strongestPulsePct);
 
     double sliceAngle = 360 / _vhfSettings->divisions()->rawValue().toDouble();
@@ -660,6 +665,10 @@ void VHFTrackerQGCPlugin::_simulatePulse(void)
 
 void VHFTrackerQGCPlugin::_sendFreqChange(int frequency)
 {
+    if (_simulate) {
+        return;
+    }
+
     qCDebug(VHFTrackerQGCPluginLog) << "Requesting frequency change to" << frequency;
 
     frequency -= _vhfSettings->frequencyDelta()->rawValue().toInt();

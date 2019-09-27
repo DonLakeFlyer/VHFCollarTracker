@@ -118,6 +118,7 @@ private:
     QElapsedTimer           _elapsedTimer;
     QTimer                  _delayTimer;
     QTimer                  _targetValueTimer;
+    bool                    _simulate;
     QTimer                  _simPulseTimer;
     QTimer                  _freqChangeAckTimer;
     QTimer                  _freqChangePulseTimer;

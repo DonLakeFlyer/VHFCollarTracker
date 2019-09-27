@@ -362,7 +362,7 @@ Rectangle {
             }
 
             QGCLabel {
-                text:           "Strongest: " + _corePlugin.strongestPulsePct
+                text:           "Strongest: " + _corePlugin.strongestPulsePct + "%" + " " + _corePlugin.strongestAngle + "deg"
                 font.pointSize: ScreenTools.largeFontPointSize
             }
 
