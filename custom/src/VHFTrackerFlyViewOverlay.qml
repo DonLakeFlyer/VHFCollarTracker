@@ -201,46 +201,54 @@ Rectangle {
             }
 
             QGCLabel {
-                id:                         gpsLockWarning
-                text:                       "Drone not ready - Waiting for GPS Lock"
-                color:                      "black"
-                font.pointSize:             ScreenTools.largeFontPointSize
-                visible:                    _activeVehicle && !_activeVehicle.homePosition.isValid
-                Layout.alignment:           Qt.AlignHCenter
+                text:               "Drone not ready - Waiting for VHF startup"
+                color:              "black"
+                font.pointSize:     ScreenTools.largeFontPointSize
+                visible:            !gpsLockWarning.visible && noDronePulses.visible
+                Layout.alignment:   Qt.AlignHCenter
             }
 
             QGCLabel {
-                id:                         batteryWarning
-                text:                       "Battery not completely charged - Do Not Fly"
-                color:                      "black"
-                font.pointSize:             ScreenTools.largeFontPointSize
-                visible:                    !gpsLockWarning.visible && _activeVehicle && !_activeVehicle.armed && _activeVehicle.battery.percentRemaining.rawValue < 95
-                Layout.alignment:           Qt.AlignHCenter
+                id:                 gpsLockWarning
+                text:               "Drone not ready - Waiting for GPS Lock"
+                color:              "black"
+                font.pointSize:     ScreenTools.largeFontPointSize
+                visible:            _activeVehicle && !_activeVehicle.homePosition.isValid
+                Layout.alignment:   Qt.AlignHCenter
             }
 
             QGCLabel {
-                text:                       "Stay back from drone"
-                color:                      "black"
-                font.pointSize:             ScreenTools.largeFontPointSize
-                visible:                    _activeVehicle && _activeVehicle.armed
-                Layout.alignment:           Qt.AlignHCenter
+                id:                 batteryWarning
+                text:               "Battery not completely charged - Do Not Fly"
+                color:              "black"
+                font.pointSize:     ScreenTools.largeFontPointSize
+                visible:            !gpsLockWarning.visible && _activeVehicle && !_activeVehicle.armed && _activeVehicle.battery.percentRemaining.rawValue < 95
+                Layout.alignment:   Qt.AlignHCenter
             }
 
             QGCLabel {
-                text:                       "Drone ready for takeoff"
-                color:                      "black"
-                font.pointSize:             ScreenTools.largeFontPointSize
-                visible:                    !gpsLockWarning.visible && !batteryWarning.visible && droneSafe.visible
-                Layout.alignment:           Qt.AlignHCenter
+                text:               "Stay back from drone"
+                color:              "black"
+                font.pointSize:     ScreenTools.largeFontPointSize
+                visible:            _activeVehicle && _activeVehicle.armed
+                Layout.alignment:   Qt.AlignHCenter
             }
 
             QGCLabel {
-                id:                         droneSafe
-                text:                       "Drone safe to pick up"
-                color:                      "black"
-                font.pointSize:             ScreenTools.largeFontPointSize
-                visible:                    _activeVehicle && !_activeVehicle.armed
-                Layout.alignment:           Qt.AlignHCenter
+                text:               "Drone ready for takeoff"
+                color:              "black"
+                font.pointSize:     ScreenTools.largeFontPointSize
+                visible:            !gpsLockWarning.visible && !batteryWarning.visible && !noDronePulses.visible && droneSafe.visible
+                Layout.alignment:   Qt.AlignHCenter
+            }
+
+            QGCLabel {
+                id:                 droneSafe
+                text:               "Drone safe to pick up"
+                color:              "black"
+                font.pointSize:     ScreenTools.largeFontPointSize
+                visible:            _activeVehicle && !_activeVehicle.armed
+                Layout.alignment:   Qt.AlignHCenter
             }
 
             Item {
