@@ -157,7 +157,7 @@ Rectangle {
 
                         Timer {
                             id:             pulseResetTimer
-                            interval:       500
+                            interval:       750
                             repeat:         false
                             onTriggered:    indicatorBar._indicatorStrength = 0
                         }
