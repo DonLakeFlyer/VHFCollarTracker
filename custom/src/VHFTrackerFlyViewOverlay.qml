@@ -365,7 +365,7 @@ Rectangle {
             spacing:    _margins
 
             QGCLabel {
-                text:           "Freq: " + (_corePlugin.vehicleFrequency / 1000).toFixed(0)
+                text:           "Freq: " + (_corePlugin.vehicleFrequency / 1000).toFixed(3)
                 font.pointSize: ScreenTools.largeFontPointSize
             }
 

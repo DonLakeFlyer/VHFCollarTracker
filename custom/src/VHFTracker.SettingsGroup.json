@@ -25,7 +25,7 @@
     "name":             "FrequencyDelta",
     "shortDescription": "Frequency Delta",
     "type":             "Uint32",
-    "defaultValue":     2
+    "defaultValue":     3
 },
 {
     "name":             "MaxPulse",
