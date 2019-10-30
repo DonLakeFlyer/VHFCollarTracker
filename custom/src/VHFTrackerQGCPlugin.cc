@@ -25,7 +25,7 @@
 //	DEBUG_VECT.name = "PULSE"
 //	DEBUG_VECT.x = pulse value
 //	DEBUG_VECT.y - frequency
-//	DEBUG_VECT.z - temp
+//	DEBUG_VECT.z - pulse send index
 #define DEBUG_COMMAND_ID_PULSE "PULSE"
 
 // Set gain
@@ -59,6 +59,8 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
     , _bpm                  (0)
     , _simulate             (false)
     , _vehicleFrequency     (0)
+    , _lastPulseSendIndex   (-1)
+    , _missedPulseCount     (0)
 {
     _showAdvancedUI = false;
 
@@ -145,11 +147,8 @@ bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, 
     return true;
 }
 
-bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message)
+bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* /* vehicle */, LinkInterface* /* link */, mavlink_message_t& message)
 {
-    Q_UNUSED(vehicle);
-    Q_UNUSED(link);
-
     mavlink_debug_vect_t debugVect;
 
     mavlink_msg_debug_vect_decode(&message, &debugVect);
@@ -165,10 +164,19 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
             return false;
         }
 
-        qCDebug(VHFTrackerQGCPluginLog) << "PULSE strength:freq:temp" << debugVect.x << static_cast<int>(debugVect.y) << debugVect.z;
+        double rawPulseStrength = static_cast<double>(debugVect.x);
+        int pulseSendIndex = static_cast<int>(debugVect.z);
+        int rawVehicleFrequency = static_cast<int>(debugVect.y);
+        qCDebug(VHFTrackerQGCPluginLog) << "PULSE strength:sendIndex:freq" << rawPulseStrength << pulseSendIndex << rawVehicleFrequency;
+
+        if (_lastPulseSendIndex != -1 && (pulseSendIndex != _lastPulseSendIndex + 1)) {
+            _missedPulseCount++;
+            emit missedPulseCountChanged(_missedPulseCount);
+        }
+        _lastPulseSendIndex = pulseSendIndex;
 
         double maxPulse = _vhfSettings->maxPulse()->rawValue().toDouble();
-        _beepStrength = qMin(static_cast<double>(debugVect.x), maxPulse) / maxPulse;
+        _beepStrength = qMin(rawPulseStrength, maxPulse) / maxPulse;
         emit beepStrengthChanged(_beepStrength);
         _rgPulseValues.append(_beepStrength);
         if (_beepStrength == 0) {
@@ -184,7 +192,7 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
             _elapsedTimer.restart();
         }
 
-        int currentVehicleFrequency = static_cast<int>(debugVect.y) + _vhfSettings->frequencyDelta()->rawValue().toInt();
+        int currentVehicleFrequency = rawVehicleFrequency + _vhfSettings->frequencyDelta()->rawValue().toInt();
         if (currentVehicleFrequency != _vehicleFrequency) {
             _vehicleFrequency = currentVehicleFrequency;
             emit vehicleFrequencyChanged(_vehicleFrequency);
@@ -199,10 +207,12 @@ bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* vehicle, LinkInterface* link
             }
         }
 
+#if 0
         if (!qFuzzyCompare(static_cast<qreal>(debugVect.z), _temp)) {
             _temp = static_cast<qreal>(debugVect.z);
             emit tempChanged(_temp);
         }
+#endif
     } else if (commandId == DEBUG_COMMAND_ID_ACK) {
         int ackCommand =    static_cast<int>(debugVect.x);
         int ackValue =      static_cast<int>(debugVect.y);

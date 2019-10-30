@@ -31,6 +31,7 @@ public:
     Q_PROPERTY(int                  strongestPulsePct   MEMBER _strongestPulsePct       NOTIFY strongestPulsePctChanged)
     Q_PROPERTY(bool                 flightMachineActive MEMBER _flightMachineActive     NOTIFY flightMachineActiveChanged)
     Q_PROPERTY(int                  vehicleFrequency    MEMBER _vehicleFrequency        NOTIFY vehicleFrequencyChanged)
+    Q_PROPERTY(int                  missedPulseCount    MEMBER _missedPulseCount        NOTIFY missedPulseCountChanged)
 
     Q_INVOKABLE void start          (void);
     Q_INVOKABLE void cancelAndReturn(void);
@@ -57,6 +58,7 @@ signals:
     void strongestPulsePctChanged   (int strongestPulsePct);
     void flightMachineActiveChanged (bool flightMachineActive);
     void vehicleFrequencyChanged    (int vehicleFrequency);
+    void missedPulseCountChanged    (int missedPulseCount);
 
 private slots:
     void _vehicleStateRawValueChanged   (QVariant rawValue);
@@ -125,4 +127,6 @@ private:
     VHFTrackerQGCOptions*   _vhfQGCOptions;
     VHFTrackerSettings*     _vhfSettings;    
     int                     _vehicleFrequency;
+    int                     _lastPulseSendIndex;
+    int                     _missedPulseCount;
 };

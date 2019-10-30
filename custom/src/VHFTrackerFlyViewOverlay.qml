@@ -443,7 +443,7 @@ Rectangle {
                 onClicked:  _corePlugin.cancelAndReturn()
             }
 
-            QGCLabel { text: "Temp: " + _corePlugin.temp.toFixed(1) }
+            QGCLabel { text: "Missed: " + _corePlugin.missedPulseCount }
         }
     }
 }
