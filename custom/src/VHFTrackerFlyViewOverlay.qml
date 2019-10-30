@@ -21,6 +21,7 @@ import QGroundControl.Palette           1.0
 import QGroundControl.ScreenTools       1.0
 import QGroundControl.Controllers       1.0
 import QGroundControl.SettingsManager   1.0
+import QGroundControl.FlightMap         1.0
 
 Rectangle {
     id:             flyOverlay
@@ -277,14 +278,14 @@ Rectangle {
                     QGCLabel {
                         anchors.left:               parent.left
                         anchors.verticalCenter:     parent.verticalCenter
-                        text:                       "E"
+                        text:                       "W"
                         font.pointSize:             ScreenTools.largeFontPointSize
                     }
 
                     QGCLabel {
                         anchors.right:          parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text:                   "W"
+                        text:                   "E"
                         font.pointSize:         ScreenTools.largeFontPointSize
                     }
 
@@ -363,6 +364,11 @@ Rectangle {
         Column {
             width:      ScreenTools.defaultFontPixelWidth * 25 * ScreenTools.largeFontPointRatio
             spacing:    _margins
+
+            QGCAttitudeWidget {
+                size:               ScreenTools.defaultFontPixelWidth * 20
+                vehicle:            _activeVehicle
+            }
 
             QGCLabel {
                 text:           "Freq: " + (_corePlugin.vehicleFrequency / 1000).toFixed(3)
