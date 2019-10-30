@@ -306,7 +306,7 @@ void VHFTrackerQGCPlugin::start(void)
 
         vehicleState.command =              CommandDelay;
         vehicleState.fact =                 nullptr;
-        vehicleState.targetValueWaitSecs =  8;
+        vehicleState.targetValueWaitSecs =  10;
         _vehicleStates.append(vehicleState);
     }
 
@@ -477,7 +477,6 @@ void VHFTrackerQGCPlugin::_say(QString text)
 {
     qCDebug(VHFTrackerQGCPluginLog) << "_say" << text;
     _toolbox->audioOutput()->say(text.toLower());
-    qDebug() << "After say";
 }
 
 int VHFTrackerQGCPlugin::_rawPulseToPct(double rawPulse)
