@@ -35,7 +35,7 @@ public:
 
     Q_INVOKABLE void start          (void);
     Q_INVOKABLE void cancelAndReturn(void);
-    Q_INVOKABLE void setFrequency   (int frequency);
+    Q_INVOKABLE void sendTag        (void);
 
     // Overrides from QGCCorePlugin
     QString             brandImageIndoor        (void) const final;
@@ -69,8 +69,7 @@ private slots:
     void _updateFlightMachineActive     (bool flightMachineActive);
     void _mavCommandResult              (int vehicleId, int component, int command, int result, bool noResponseFromVehicle);
     void _simulatePulse                 (void);
-    void _freqChangeAckFailed           (void);
-    void _freqChangePulseFailed         (void);
+    void _vhfCommandAckFailed           (void);
 
 private:
     typedef enum {
@@ -87,7 +86,8 @@ private:
         double                  targetVariance;
     } VehicleState_t;
 
-    bool _handleDebugVect               (Vehicle* vehicle, LinkInterface* link, mavlink_message_t& message);
+    void _handleVHFCommandAck           (const mavlink_debug_float_array_t& debug_float_array);
+    void _handleVHFPulse                (const mavlink_debug_float_array_t& debug_float_array);
     void _rotateVehicle                 (Vehicle* vehicle, double headingDegrees);
     void _say                           (QString text);
     bool _armVehicleAndValidate         (Vehicle* vehicle);
@@ -95,8 +95,14 @@ private:
     void _sendCommandAndVerify          (Vehicle* vehicle, MAV_CMD command, double param1 = 0.0, double param2 = 0.0, double param3 = 0.0, double param4 = 0.0, double param5 = 0.0, double param6 = 0.0, double param7 = 0.0);
     void _takeoff                       (Vehicle* vehicle, double takeoffAltRel);
     void _resetStateAndRTL              (void);
-    void _sendFreqChange                (int frequency);
     int  _rawPulseToPct                 (double rawPulse);
+    void _sendVHFCommand                (Vehicle* vehicle, LinkInterface* link, uint32_t vhfCommandId, const mavlink_message_t& msg);
+    void _handleSimulatedTagCommand     (const mavlink_debug_float_array_t& debug_float_array);
+    void _handleSimulatedStartDetection (const mavlink_debug_float_array_t& debug_float_array);
+    void _handleSimulatedStopDetection  (const mavlink_debug_float_array_t& debug_float_array);
+    QString _vhfCommandIdToText         (uint32_t vhfCommandId);
+    void _sendSimulatedVHFCommandAck    (uint32_t vhfCommandId);
+    void _startFlight                   (void);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;
@@ -122,11 +128,22 @@ private:
     QTimer                  _targetValueTimer;
     bool                    _simulate;
     QTimer                  _simPulseTimer;
-    QTimer                  _freqChangeAckTimer;
-    QTimer                  _freqChangePulseTimer;
+    QTimer                  _vhfCommandAckTimer;
+    uint32_t                _vhfCommandAckExpected;
     VHFTrackerQGCOptions*   _vhfQGCOptions;
     VHFTrackerSettings*     _vhfSettings;    
     int                     _vehicleFrequency;
     int                     _lastPulseSendIndex;
     int                     _missedPulseCount;
+
+    // Simulator values
+    uint32_t    _simulatorTagId                 = 0;
+    uint32_t    _simulatorFrequency;
+    uint32_t    _simulatorPulseDuration;
+    uint32_t    _simulatorIntraPulse1;
+    uint32_t    _simulatorIntraPulse2;
+    uint32_t    _simulatorIntraPulseUncertainty;
+    uint32_t    _simulatorIntraPulseJitter;
+    float       _simulatorMaxPulse;
+
 };

@@ -313,9 +313,6 @@ QString PX4FirmwarePlugin::missionCommandOverrides(MAV_TYPE vehicleType) const
     case MAV_TYPE_QUADROTOR:
         return QStringLiteral(":/json/PX4/MavCmdInfoMultiRotor.json");
         break;
-    case MAV_TYPE_VTOL_QUADROTOR:
-        return QStringLiteral(":/json/PX4/MavCmdInfoVTOL.json");
-        break;
     case MAV_TYPE_SUBMARINE:
         return QStringLiteral(":/json/PX4/MavCmdInfoSub.json");
         break;

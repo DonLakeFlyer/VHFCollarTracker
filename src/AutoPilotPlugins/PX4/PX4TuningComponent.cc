@@ -64,6 +64,7 @@ QUrl PX4TuningComponent::setupSource(void) const
         case MAV_TYPE_TRICOPTER:
             qmlFile = "qrc:/qml/PX4TuningComponentCopter.qml";
             break;
+#if 0
         case MAV_TYPE_VTOL_DUOROTOR:
         case MAV_TYPE_VTOL_QUADROTOR:
         case MAV_TYPE_VTOL_TILTROTOR:
@@ -73,6 +74,7 @@ QUrl PX4TuningComponent::setupSource(void) const
         case MAV_TYPE_VTOL_RESERVED5:
             qmlFile = "qrc:/qml/PX4TuningComponentVTOL.qml";
             break;
+#endif
         default:
             break;
     }

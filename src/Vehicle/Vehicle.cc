@@ -788,9 +788,6 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
     case MAVLINK_MSG_ID_STATUSTEXT:
         _handleStatusText(message, false /* longVersion */);
         break;
-    case MAVLINK_MSG_ID_STATUSTEXT_LONG:
-        _handleStatusText(message, true /* longVersion */);
-        break;
     case MAVLINK_MSG_ID_ORBIT_EXECUTION_STATUS:
         _handleOrbitExecutionStatus(message);
         break;
@@ -894,9 +891,11 @@ void Vehicle::_handleStatusText(mavlink_message_t& message, bool longVersion)
     int         severity;
 
     if (longVersion) {
+#if 0
         b.resize(MAVLINK_MSG_STATUSTEXT_LONG_FIELD_TEXT_LEN+1);
         mavlink_msg_statustext_long_get_text(&message, b.data());
         severity = mavlink_msg_statustext_long_get_severity(&message);
+#endif
     } else {
         b.resize(MAVLINK_MSG_STATUSTEXT_FIELD_TEXT_LEN+1);
         mavlink_msg_statustext_get_text(&message, b.data());
@@ -2053,12 +2052,9 @@ int Vehicle::motorCount(void)
     switch (_vehicleType) {
     case MAV_TYPE_HELICOPTER:
         return 1;
-    case MAV_TYPE_VTOL_DUOROTOR:
-        return 2;
     case MAV_TYPE_TRICOPTER:
         return 3;
     case MAV_TYPE_QUADROTOR:
-    case MAV_TYPE_VTOL_QUADROTOR:
         return 4;
     case MAV_TYPE_HEXAROTOR:
         return 6;
@@ -2900,13 +2896,6 @@ QString Vehicle::vehicleTypeName() const {
         { MAV_TYPE_FLAPPING_WING,   tr("Flapping wing")},
         { MAV_TYPE_KITE,            tr("Flapping wing")},
         { MAV_TYPE_ONBOARD_CONTROLLER, tr("Onboard companion controller")},
-        { MAV_TYPE_VTOL_DUOROTOR,   tr("Two-rotor VTOL using control surfaces in vertical operation in addition. Tailsitter")},
-        { MAV_TYPE_VTOL_QUADROTOR,  tr("Quad-rotor VTOL using a V-shaped quad config in vertical operation. Tailsitter")},
-        { MAV_TYPE_VTOL_TILTROTOR,  tr("Tiltrotor VTOL")},
-        { MAV_TYPE_VTOL_RESERVED2,  tr("VTOL reserved 2")},
-        { MAV_TYPE_VTOL_RESERVED3,  tr("VTOL reserved 3")},
-        { MAV_TYPE_VTOL_RESERVED4,  tr("VTOL reserved 4")},
-        { MAV_TYPE_VTOL_RESERVED5,  tr("VTOL reserved 5")},
         { MAV_TYPE_GIMBAL,          tr("Onboard gimbal")},
         { MAV_TYPE_ADSB,            tr("Onboard ADSB peripheral")},
     };

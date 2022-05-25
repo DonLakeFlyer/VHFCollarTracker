@@ -128,7 +128,9 @@ MavlinkConsoleController::_sendSerialData(QByteArray data, bool close)
                     0,
                     0,
                     chunk.size(),
-                    reinterpret_cast<uint8_t*>(chunk.data()));
+                    reinterpret_cast<uint8_t*>(chunk.data()),
+                    _vehicle->id(),
+                    _vehicle->defaultComponentId());
         _vehicle->sendMessageOnLink(priority_link, msg);
         data.remove(0, chunk.size());
     }

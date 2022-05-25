@@ -42,6 +42,7 @@ bool QGCMAVLink::isMultiRotor(MAV_TYPE mavType)
 bool QGCMAVLink::isVTOL(MAV_TYPE mavType)
 {
     switch (mavType) {
+#if 0
     case MAV_TYPE_VTOL_DUOROTOR:
     case MAV_TYPE_VTOL_QUADROTOR:
     case MAV_TYPE_VTOL_TILTROTOR:
@@ -50,6 +51,7 @@ bool QGCMAVLink::isVTOL(MAV_TYPE mavType)
     case MAV_TYPE_VTOL_RESERVED4:
     case MAV_TYPE_VTOL_RESERVED5:
         return true;
+#endif
     default:
         return false;
     }

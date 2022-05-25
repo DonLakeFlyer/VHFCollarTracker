@@ -892,6 +892,7 @@ void UAS::setExternalControlSetpoint(float roll, float pitch, float yaw, float t
             float attitudeQuaternion[4];
             mavlink_euler_to_quaternion(roll, pitch, yaw, attitudeQuaternion);
             uint8_t typeMask = 0x7; // disable rate control
+#if 0
             mavlink_msg_set_attitude_target_pack_chan(mavlink->getSystemId(),
                                                       mavlink->getComponentId(),
                                                       _vehicle->priorityLink()->mavlinkChannel(),
@@ -905,6 +906,7 @@ void UAS::setExternalControlSetpoint(float roll, float pitch, float yaw, float t
                                                       0,
                                                       0,
                                                       thrust);
+#endif
         } else if (joystickMode == Vehicle::JoystickModePosition) {
             // Send the the local position setpoint (local pos sp external message)
             static float px = 0;
@@ -1017,12 +1019,14 @@ void UAS::setExternalControlSetpoint(float roll, float pitch, float yaw, float t
             //qDebug() << newRollCommand << newPitchCommand << newYawCommand << newThrustCommand;
 
             // Send the MANUAL_COMMAND message
+#if 0
             mavlink_msg_manual_control_pack_chan(mavlink->getSystemId(),
                                                  mavlink->getComponentId(),
                                                  _vehicle->priorityLink()->mavlinkChannel(),
                                                  &message,
                                                  this->uasId,
                                                  newPitchCommand, newRollCommand, newThrustCommand, newYawCommand, buttons);
+#endif
         }
 
         _vehicle->sendMessageOnLink(_vehicle->priorityLink(), message);
@@ -1049,12 +1053,14 @@ void UAS::setManual6DOFControlCommands(double x, double y, double z, double roll
         // Do not control rates and throttle
         quint8 mask = (1 << 0) | (1 << 1) | (1 << 2); // ignore rates
         mask |= (1 << 6); // ignore throttle
+#if 0
         mavlink_msg_set_attitude_target_pack_chan(mavlink->getSystemId(),
                                                   mavlink->getComponentId(),
                                                   _vehicle->priorityLink()->mavlinkChannel(),
                                                   &message,
                                                   QGC::groundTimeMilliseconds(), this->uasId, _vehicle->defaultComponentId(),
                                                   mask, q, 0, 0, 0, 0);
+#endif
         _vehicle->sendMessageOnLink(_vehicle->priorityLink(), message);
         quint16 position_mask = (1 << 3) | (1 << 4) | (1 << 5) |
             (1 << 6) | (1 << 7) | (1 << 8);
@@ -1382,6 +1388,7 @@ void UAS::sendHilSensors(quint64 time_us, float xacc, float yacc, float zacc, fl
         float pressure_alt_corrupt = addZeroMeanNoise(pressure_alt, pressure_alt_var);
         float temperature_corrupt = addZeroMeanNoise(temperature,temperature_var);
 
+#if 0
         mavlink_message_t msg;
         mavlink_msg_hil_sensor_pack_chan(mavlink->getSystemId(),
                                          mavlink->getComponentId(),
@@ -1391,6 +1398,7 @@ void UAS::sendHilSensors(quint64 time_us, float xacc, float yacc, float zacc, fl
                                          yawspeed_corrupt, xmag_corrupt, ymag_corrupt, zmag_corrupt, abs_pressure_corrupt,
                                          diff_pressure_corrupt, pressure_alt_corrupt, temperature_corrupt, fields_changed);
         _vehicle->sendMessageOnLink(_vehicle->priorityLink(), msg);
+#endif
         lastSendTimeSensors = QGC::groundTimeMilliseconds();
     }
     else
@@ -1464,6 +1472,7 @@ void UAS::sendHilGps(quint64 time_us, double lat, double lon, double alt, int fi
         // scale from radians to degrees
         course = (course / M_PI) * 180.0f;
 
+#if 0
         mavlink_message_t msg;
         mavlink_msg_hil_gps_pack_chan(mavlink->getSystemId(),
                                       mavlink->getComponentId(),
@@ -1472,6 +1481,7 @@ void UAS::sendHilGps(quint64 time_us, double lat, double lon, double alt, int fi
                                       time_us, fix_type, lat*1e7, lon*1e7, alt*1e3, eph*1e2, epv*1e2, vel*1e2, vn*1e2, ve*1e2, vd*1e2, course*1e2, satellites);
         lastSendTimeGPS = QGC::groundTimeMilliseconds();
         _vehicle->sendMessageOnLink(_vehicle->priorityLink(), msg);
+#endif
     }
     else
     {

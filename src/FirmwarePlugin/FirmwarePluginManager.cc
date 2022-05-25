@@ -47,7 +47,7 @@ QList<MAV_TYPE> FirmwarePluginManager::supportedVehicleTypes(MAV_AUTOPILOT firmw
     if (factory) {
         vehicleTypes = factory->supportedVehicleTypes();
     } else if (firmwareType == MAV_AUTOPILOT_GENERIC) {
-        vehicleTypes << MAV_TYPE_FIXED_WING << MAV_TYPE_QUADROTOR << MAV_TYPE_VTOL_QUADROTOR << MAV_TYPE_GROUND_ROVER << MAV_TYPE_SUBMARINE;
+        vehicleTypes << MAV_TYPE_FIXED_WING << MAV_TYPE_QUADROTOR << MAV_TYPE_GROUND_ROVER << MAV_TYPE_SUBMARINE;
     } else {
         qWarning() << "Request for unknown firmware plugin factory" << firmwareType;
     }

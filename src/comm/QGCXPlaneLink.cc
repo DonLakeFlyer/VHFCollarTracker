@@ -147,7 +147,7 @@ void QGCXPlaneLink::enableHilActuatorControls(bool enable)
     /* Only use override for new message and specific airframes */
     MAV_TYPE type = _vehicle->vehicleType();
     float value = 0.0f;
-    if (type == MAV_TYPE_VTOL_RESERVED2) {
+    if (false/*type == MAV_TYPE_VTOL_RESERVED2*/) {
         value = (enable ? 1.0f : 0.0f);
     }
 
@@ -479,6 +479,7 @@ void QGCXPlaneLink::updateActuatorControls(quint64 time, quint64 flags, float ct
             writeBytesSafe((const char*)&p, sizeof(p));
             break;
         }
+#if 0
         case MAV_TYPE_VTOL_RESERVED2:
         {
             /**
@@ -510,6 +511,7 @@ void QGCXPlaneLink::updateActuatorControls(quint64 time, quint64 flags, float ct
 
             break;
         }
+#endif
         default:
         {
             /* direct pass-through, normal fixed-wing. */

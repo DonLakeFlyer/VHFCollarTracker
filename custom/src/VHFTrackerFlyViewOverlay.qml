@@ -141,7 +141,7 @@ Rectangle {
                         anchors.fill:           parent
                         color:                  "green"
 
-                        property real   _maximumPulse:      1
+                        property real   _maximumPulse:      100
                         property real   _indicatorStrength: _pulseStrength
                         property real   _value:             _indicatorStrength
                         property real   _rightMargin:       (parent.width - 2) - ((parent.width - 2) * (Math.min(_indicatorStrength, _maximumPulse) / _maximumPulse))
@@ -189,13 +189,13 @@ Rectangle {
                         horizontalAlignment:    Text.AlignHCenter
                         verticalAlignment:      Text.AlignVCenter
                         font.pointSize:         ScreenTools.largeFontPointSize
-                        visible:                !noDronePulses.visible && (100.0 * _corePlugin.beepStrength) == 0
+                        visible:                !noDronePulses.visible && _corePlugin.beepStrength == 0
                     }
                 }
 
                 QGCLabel {
                     width:                      (ScreenTools.defaultFontPixelWidth * ScreenTools.largeFontPointRatio) * 4
-                    text:                       (100.0 * _corePlugin.beepStrength).toFixed(0) + "%"
+                    text:                       _corePlugin.beepStrength.toFixed(0) + "%"
                     color:                      "black"
                     font.pointSize:             ScreenTools.largeFontPointSize
                 }
@@ -383,31 +383,10 @@ Rectangle {
             QGCButton {
                 id:         setFreqButton
                 width:      parent.width
-                text:       qsTr("Set Frequency")
+                text:       qsTr("Set Tag")
                 pointSize:  ScreenTools.largeFontPointSize
                 enabled:    !_corePlugin.flightMachineActive
-                onClicked:  visible = false
-            }
-
-            RowLayout {
-                width:      parent.width
-                spacing:    ScreenTools.defaultFontPixelWidth / 2
-                visible:    !setFreqButton.visible
-
-                FactTextField {
-                    Layout.fillWidth:   true
-                    pointSize:          ScreenTools.largeFontPointSize
-                    fact:               _corePlugin.vhfSettings.frequency
-                }
-
-                QGCButton {
-                    text:       qsTr("Set")
-                    pointSize:  ScreenTools.largeFontPointSize
-                    onClicked: {
-                        setFreqButton.visible = true
-                        _corePlugin.setFrequency(_corePlugin.vhfSettings.frequency.rawValue)
-                    }
-                }
+                onClicked:  showDialog(tagSettingsComponent, qsTr("Tag Settings"), qgcView.showDialogDefaultWidth, StandardButton.Ok | StandardButton.Cancel)
             }
 
             QGCButton {
@@ -450,6 +429,76 @@ Rectangle {
             }
 
             QGCLabel { text: "Missed: " + _corePlugin.missedPulseCount }
+        }
+    }
+
+    Component {
+        id: tagSettingsComponent
+
+        QGCViewDialog {
+            id: tagSettingsDialog
+
+            property var _corePlugin:    QGroundControl.corePlugin
+            property var _vhfSettings:   _corePlugin.vhfSettings
+
+            function accept() {
+                _corePlugin.sendTag()
+                tagSettingsDialog.hideDialog()
+            }
+
+            QGCFlickable {
+                anchors.fill:   parent
+                contentHeight:  grid.height
+
+                GridLayout {
+                    id:             grid
+                    anchors.left:   parent.left
+                    anchors.right:  parent.right
+                    columns:        2
+
+                    QGCLabel { text: qsTr("Id") }
+                    FactTextField {
+                        Layout.fillWidth:   true
+                        fact:               _vhfSettings.tagId
+                    }
+
+                    QGCLabel { text: qsTr("Freq") }
+                    FactTextField {
+                        Layout.fillWidth:   true
+                        fact:               _vhfSettings.frequency
+                    }
+
+                    QGCLabel { text: qsTr("Pulse Duration") }
+                    FactTextField {
+                        Layout.fillWidth:   true
+                        fact:               _vhfSettings.pulseDuration
+                    }
+
+                    QGCLabel { text: qsTr("Intra-Pulse 1") }
+                    FactTextField {
+                        Layout.fillWidth:   true
+                        fact:               _vhfSettings.intraPulse1
+                    }
+
+                    QGCLabel { text: qsTr("Intra-Pulse 2") }
+                    FactTextField {
+                        Layout.fillWidth:   true
+                        fact:               _vhfSettings.intraPulse2
+                    }
+
+                    QGCLabel { text: qsTr("Uncertainty") }
+                    FactTextField {
+                        Layout.fillWidth:   true
+                        fact:               _vhfSettings.intraPulseUncertainty
+                    }
+
+                    QGCLabel { text: qsTr("Jitter") }
+                    FactTextField {
+                        Layout.fillWidth:   true
+                        fact:               _vhfSettings.intraPulseJitter
+                    }
+                }
+            }
         }
     }
 }

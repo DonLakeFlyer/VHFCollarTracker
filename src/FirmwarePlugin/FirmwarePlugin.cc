@@ -36,7 +36,7 @@ FirmwarePluginFactory::FirmwarePluginFactory(void)
 QList<MAV_TYPE> FirmwarePluginFactory::supportedVehicleTypes(void) const
 {
     QList<MAV_TYPE> vehicleTypes;
-    vehicleTypes << MAV_TYPE_FIXED_WING << MAV_TYPE_QUADROTOR << MAV_TYPE_VTOL_QUADROTOR << MAV_TYPE_GROUND_ROVER << MAV_TYPE_SUBMARINE;
+    vehicleTypes << MAV_TYPE_FIXED_WING << MAV_TYPE_QUADROTOR << MAV_TYPE_GROUND_ROVER << MAV_TYPE_SUBMARINE;
     return vehicleTypes;
 }
 
@@ -201,9 +201,6 @@ QString FirmwarePlugin::missionCommandOverrides(MAV_TYPE vehicleType) const
         break;
     case MAV_TYPE_QUADROTOR:
         return QStringLiteral(":/json/MavCmdInfoMultiRotor.json");
-        break;
-    case MAV_TYPE_VTOL_QUADROTOR:
-        return QStringLiteral(":/json/MavCmdInfoVTOL.json");
         break;
     case MAV_TYPE_SUBMARINE:
         return QStringLiteral(":/json/MavCmdInfoSub.json");
@@ -626,6 +623,7 @@ bool FirmwarePlugin::hasGimbal(Vehicle* vehicle, bool& rollSupported, bool& pitc
 bool FirmwarePlugin::isVtol(const Vehicle* vehicle) const
 {
     switch (vehicle->vehicleType()) {
+#if 0
     case MAV_TYPE_VTOL_DUOROTOR:
     case MAV_TYPE_VTOL_QUADROTOR:
     case MAV_TYPE_VTOL_TILTROTOR:
@@ -634,6 +632,7 @@ bool FirmwarePlugin::isVtol(const Vehicle* vehicle) const
     case MAV_TYPE_VTOL_RESERVED4:
     case MAV_TYPE_VTOL_RESERVED5:
         return true;
+#endif
     default:
         return false;
     }

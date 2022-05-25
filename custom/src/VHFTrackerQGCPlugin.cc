@@ -11,40 +11,36 @@
 #include <QPointF>
 #include <QLineF>
 
-// Mavlink DEBUG_VECT messages are used to communicate with QGC in both directions.
-// 	DEBUG_VECT.name is used to hold a command type
-//	DEBUG_VECT.x/y/z are then command specific
+// DEBUG_FLOAT_ARRAY
+//  time_usec - send index (used to detect lost telemetry)
+//  array_id - command id
 
-// We can't store the full 9 digit frequency values in a DEBUG_VECT.* value without
-// running into floating point precision problems changing the integer value to an incorrect
-// value. So all frequency values sent in DEBUG_VECT are only 6 digits with the last three
-// assumed to be 0: NNN.NNN000 mHz
-#define FREQ_DIVIDER 1000
+#define COMMAND_ID_ACK                          1   // Ack response to command
+#define COMMAND_ID_TAG                          2   // Tag info
+#define COMMAND_ID_START_DETECTION              3   // Start pulse detection
+#define COMMAND_ID_STOP_DETECTION               4   // Stop pulse detection
+#define COMMAND_ID_PULSE                        5   // Detected pulse value
 
-        // Pulse value
-//	DEBUG_VECT.name = "PULSE"
-//	DEBUG_VECT.x = pulse value
-//	DEBUG_VECT.y - frequency
-//	DEBUG_VECT.z - pulse send index
-#define DEBUG_COMMAND_ID_PULSE "PULSE"
+#define ACK_IDX_COMMAND                         0   // Command being acked
+#define ACK_IDX_RESULT                          1   // Command result - 1 success, 0 failure
 
-// Set gain
-//	DEBUG_VECT.name = "GAIN"
-//	DEBUG_VECT.x - new gain
-#define DEBUG_COMMAND_ID_SET_GAIN "SET-GAIN"
+#define PULSE_IDX_DETECTION_STATUS              0   // Detection status (uint 32)
+#define PULSE_IDX_STRENGTH                      1   // Pulse strength [0-100] (float)
+#define PULSE_IDX_GROUP_INDEX                   2   // Group index 0/1/2 (uint 32)
 
-// Set frequency
-//	DEBUG_VECT.name = "FREQ"
-//	DEBUG_VECT.x - new frequency
-#define DEBUG_COMMAND_ID_SET_FREQ "SET-FREQ"
+#define PULSE_DETECTION_STATUS_SUPER_THRESHOLD  1
+#define PULSE_DETECTION_STATUS_CONFIRMED        2
 
-// Ack for SET commands
-//	DEBUG_VECT.name = "CMD-ACK"
-//	DEBUG_VECT.x - command being acked (DEBUG_COMMAND_ACK_SET_*)
-//	DEBUG_VECT.y - gain/freq value which was changed to
-#define DEBUG_COMMAND_ID_ACK "CMD-ACK"
-static const int DEBUG_COMMAND_ACK_SET_GAIN =	0;
-static const int DEBUG_COMMAND_ACK_SET_FREQ =	1;
+#define TAG_IDX_ID                              0   // Tag id (uint 32)
+#define TAG_IDX_FREQUENCY                       1   // Frequency - 6 digits shifted by three decimals, NNNNNN means NNN.NNN000 Mhz (uint 32)
+#define TAG_IDX_DURATION_MSECS                  2   // Pulse duration
+#define TAG_IDX_INTRA_PULSE1_MSECS              3   // Intra-pulse duration 1
+#define TAG_IDX_INTRA_PULSE2_MSECS              4   // Intra-pulse duration 2
+#define TAG_IDX_INTRA_PULSE_UNCERTAINTY         5   // Intra-pulse uncertainty
+#define TAG_IDX_INTRA_PULSE_JITTER              6   // Intra-pulse jitter
+#define TAG_IDX_MAX_PULSE                       7   // Max pulse value
+
+#define START_DETECTION_IDX_TAG_ID              0   // Tag to start detection on
 
 QGC_LOGGING_CATEGORY(VHFTrackerQGCPluginLog, "VHFTrackerQGCPluginLog")
 
@@ -57,7 +53,7 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
     , _beepStrength         (0)
     , _temp                 (0)
     , _bpm                  (0)
-    , _simulate             (false)
+    , _simulate             (true)
     , _vehicleFrequency     (0)
     , _lastPulseSendIndex   (-1)
     , _missedPulseCount     (0)
@@ -66,20 +62,13 @@ VHFTrackerQGCPlugin::VHFTrackerQGCPlugin(QGCApplication *app, QGCToolbox* toolbo
 
     _delayTimer.setSingleShot(true);
     _targetValueTimer.setSingleShot(true);
-    _freqChangeAckTimer.setSingleShot(true);
-    _freqChangeAckTimer.setInterval(1000);
-    _freqChangePulseTimer.setSingleShot(true);
-    _freqChangePulseTimer.setInterval(8000);
-
-    if (_simulate) {
-        _simPulseTimer.start(2000);
-    }
+    _vhfCommandAckTimer.setSingleShot(true);
+    _vhfCommandAckTimer.setInterval(1000);
 
     connect(&_delayTimer,           &QTimer::timeout, this, &VHFTrackerQGCPlugin::_delayComplete);
     connect(&_targetValueTimer,     &QTimer::timeout, this, &VHFTrackerQGCPlugin::_targetValueFailed);
     connect(&_simPulseTimer,        &QTimer::timeout, this, &VHFTrackerQGCPlugin::_simulatePulse);
-    connect(&_freqChangeAckTimer,   &QTimer::timeout, this, &VHFTrackerQGCPlugin::_freqChangeAckFailed);
-    connect(&_freqChangePulseTimer, &QTimer::timeout, this, &VHFTrackerQGCPlugin::_freqChangePulseFailed);
+    connect(&_vhfCommandAckTimer,      &QTimer::timeout, this, &VHFTrackerQGCPlugin::_vhfCommandAckFailed);
 }
 
 VHFTrackerQGCPlugin::~VHFTrackerQGCPlugin()
@@ -100,8 +89,6 @@ void VHFTrackerQGCPlugin::setToolbox(QGCToolbox* toolbox)
         _rgAngleStrengths.append(qQNaN());
         _rgAngleRatios.append(QVariant::fromValue(qQNaN()));
     }
-
-    //_simPulseTimer.start(2000);
 }
 
 QString VHFTrackerQGCPlugin::brandImageIndoor(void) const
@@ -133,107 +120,76 @@ QVariantList& VHFTrackerQGCPlugin::instrumentPages(void)
     return _instrumentPages;
 }
 
-bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle* vehicle, LinkInterface* link, mavlink_message_t message)
+bool VHFTrackerQGCPlugin::mavlinkMessage(Vehicle*, LinkInterface*, mavlink_message_t message)
 {
-    switch (message.msgid) {
-#if 0
-    case MAVLINK_MSG_ID_MEMORY_VECT:
-        return _handleMemoryVect(vehicle, link, message);
-#endif
-    case MAVLINK_MSG_ID_DEBUG_VECT:
-        return _handleDebugVect(vehicle,link, message);
-    }
+    if (message.msgid == MAVLINK_MSG_ID_DEBUG_FLOAT_ARRAY) {
+        mavlink_debug_float_array_t debug_float_array;
 
-    return true;
+        mavlink_msg_debug_float_array_decode(&message, &debug_float_array);
+
+        uint32_t messageId = static_cast<uint32_t>(debug_float_array.array_id);
+
+        switch (messageId) {
+        case COMMAND_ID_ACK:
+            _handleVHFCommandAck(debug_float_array);
+            break;
+        case COMMAND_ID_PULSE:
+            _handleVHFPulse(debug_float_array);
+            break;
+        }
+
+        return false;
+    } else {
+        return true;
+    }
 }
 
-bool VHFTrackerQGCPlugin::_handleDebugVect(Vehicle* /* vehicle */, LinkInterface* /* link */, mavlink_message_t& message)
+void VHFTrackerQGCPlugin::_handleVHFCommandAck(const mavlink_debug_float_array_t& debug_float_array)
 {
-    mavlink_debug_vect_t debugVect;
+    uint32_t vhfCommand = static_cast<uint32_t>(debug_float_array.data[ACK_IDX_COMMAND]);
+    uint32_t result     = static_cast<uint32_t>(debug_float_array.data[ACK_IDX_RESULT]);
 
-    mavlink_msg_debug_vect_decode(&message, &debugVect);
-
-    char command[MAVLINK_MSG_DEBUG_VECT_FIELD_NAME_LEN + 1];
-    memset(command, 0, sizeof(command));
-    mavlink_msg_debug_vect_get_name(&message, command);
-    QString commandId(command);
-
-    if (commandId == DEBUG_COMMAND_ID_PULSE) {
-        if (debugVect.time_usec == 0) {
-            // double send
-            return false;
-        }
-
-        double rawPulseStrength = static_cast<double>(debugVect.x);
-        int pulseSendIndex = static_cast<int>(debugVect.z);
-        int rawVehicleFrequency = static_cast<int>(debugVect.y);
-        qCDebug(VHFTrackerQGCPluginLog) << "PULSE strength:sendIndex:freq" << rawPulseStrength << pulseSendIndex << rawVehicleFrequency;
-
-        if (_lastPulseSendIndex != -1 && (pulseSendIndex != _lastPulseSendIndex + 1)) {
-            _missedPulseCount++;
-            emit missedPulseCountChanged(_missedPulseCount);
-        }
-        _lastPulseSendIndex = pulseSendIndex;
-
-        double maxPulse = _vhfSettings->maxPulse()->rawValue().toDouble();
-        _beepStrength = qMin(rawPulseStrength, maxPulse) / maxPulse;
-        emit beepStrengthChanged(_beepStrength);
-        _rgPulseValues.append(_beepStrength);
-        if (_beepStrength == 0) {
-            _elapsedTimer.invalidate();
-        } else {
-            if (_elapsedTimer.isValid()) {
-                qint64 elapsed = _elapsedTimer.elapsed();
-                if (elapsed > 0) {
-                    _bpm = (60 * 1000) / _elapsedTimer.elapsed();
-                    emit bpmChanged(_bpm);
-                }
+    if (vhfCommand == _vhfCommandAckExpected) {
+        _vhfCommandAckExpected = 0;
+        _vhfCommandAckTimer.stop();
+        qCDebug(VHFTrackerQGCPluginLog) << "VHF command ack received - command:result" << _vhfCommandIdToText(vhfCommand) << result;
+        if (result == 1) {
+            if (vhfCommand == COMMAND_ID_START_DETECTION) {
+                _startFlight();
             }
-            _elapsedTimer.restart();
-        }
-
-        int currentVehicleFrequency = rawVehicleFrequency + _vhfSettings->frequencyDelta()->rawValue().toInt();
-        if (currentVehicleFrequency != _vehicleFrequency) {
-            _vehicleFrequency = currentVehicleFrequency;
-            emit vehicleFrequencyChanged(_vehicleFrequency);
-        }
-
-        int requestedFrequency = _vhfSettings->frequency()->rawValue().toInt();
-        if (_vehicleFrequency == requestedFrequency) {
-            _freqChangePulseTimer.stop();
         } else {
-            if (!_freqChangeAckTimer.isActive() && !_freqChangePulseTimer.isActive()) {
-                setFrequency(requestedFrequency);
-            }
+            _say(QStringLiteral("%1 command failed").arg(_vhfCommandIdToText(vhfCommand)));
         }
-
-#if 0
-        if (!qFuzzyCompare(static_cast<qreal>(debugVect.z), _temp)) {
-            _temp = static_cast<qreal>(debugVect.z);
-            emit tempChanged(_temp);
-        }
-#endif
-    } else if (commandId == DEBUG_COMMAND_ID_ACK) {
-        int ackCommand =    static_cast<int>(debugVect.x);
-        int ackValue =      static_cast<int>(debugVect.y);
-        if (ackCommand == DEBUG_COMMAND_ACK_SET_FREQ) {
-            int freq = ackValue + _vhfSettings->frequencyDelta()->rawValue().toInt();
-            qDebug() << ackValue << freq;
-            int numerator = freq / 1000;
-            int denominator = freq - (numerator * 1000);
-            int digit1 = denominator / 100;
-            int digit2 = (denominator - (digit1 * 100)) / 10;
-            int digit3 = denominator - (digit1 * 100) - (digit2 * 10);
-            _say(QStringLiteral("Frequency changed to %1 point %2 %3 %4").arg(numerator).arg(digit1).arg(digit2).arg(digit3));
-
-            _freqChangeAckTimer.stop();
-            _freqChangePulseTimer.start();
-        } else if (ackCommand== DEBUG_COMMAND_ACK_SET_GAIN) {
-            _say(QStringLiteral("Gain changed to %2").arg(ackValue));
-        }
+    } else {
+        qWarning() << "_handleVHFCommandAck: Received unexpected ack expected:actual" << _vhfCommandAckExpected << vhfCommand;
     }
+}
 
-    return false;
+void VHFTrackerQGCPlugin::_handleVHFPulse(const mavlink_debug_float_array_t& debug_float_array)
+{
+    double pulseStrength = static_cast<double>(debug_float_array.data[PULSE_IDX_STRENGTH]);
+
+    if (pulseStrength < 0 || pulseStrength > 100) {
+        qCDebug(VHFTrackerQGCPluginLog) << "PULSE outside range";
+    }
+    qCDebug(VHFTrackerQGCPluginLog) << "PULSE strength" << pulseStrength;
+    pulseStrength = qMax(0.0, qMin(100.0, pulseStrength));
+
+    _beepStrength = pulseStrength;
+    emit beepStrengthChanged(_beepStrength);
+    _rgPulseValues.append(_beepStrength);
+    if (_beepStrength == 0) {
+        _elapsedTimer.invalidate();
+    } else {
+        if (_elapsedTimer.isValid()) {
+            qint64 elapsed = _elapsedTimer.elapsed();
+            if (elapsed > 0) {
+                _bpm = (60 * 1000) / _elapsedTimer.elapsed();
+                emit bpmChanged(_bpm);
+            }
+        }
+        _elapsedTimer.restart();
+    }
 }
 
 void VHFTrackerQGCPlugin::_updateFlightMachineActive(bool flightMachineActive)
@@ -248,8 +204,7 @@ void VHFTrackerQGCPlugin::cancelAndReturn(void)
     _resetStateAndRTL();
 }
 
-
-void VHFTrackerQGCPlugin::start(void)
+void VHFTrackerQGCPlugin::_startFlight(void)
 {
     Vehicle* vehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
 
@@ -323,10 +278,32 @@ void VHFTrackerQGCPlugin::start(void)
     _nextVehicleState();
 }
 
+void VHFTrackerQGCPlugin::start(void)
+{
+    Vehicle*                    vehicle             = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
+    LinkInterface*              priorityLink        = vehicle->priorityLink();
+    mavlink_message_t           msg;
+    mavlink_debug_float_array_t debug_float_array;
+    MAVLinkProtocol*            mavlink             = qgcApp()->toolbox()->mavlinkProtocol();
+
+    memset(&debug_float_array, 0, sizeof(debug_float_array));
+
+    debug_float_array.array_id                              = COMMAND_ID_START_DETECTION;
+    debug_float_array.data[START_DETECTION_IDX_TAG_ID]      = _vhfSettings->tagId()->rawValue().toFloat();
+
+    mavlink_msg_debug_float_array_encode_chan(
+                static_cast<uint8_t>(mavlink->getSystemId()),
+                static_cast<uint8_t>(mavlink->getComponentId()),
+                priorityLink->mavlinkChannel(),
+                &msg,
+                &debug_float_array);
+    _sendVHFCommand(vehicle, priorityLink, COMMAND_ID_START_DETECTION, msg);
+}
+
 void VHFTrackerQGCPlugin::_sendCommandAndVerify(Vehicle* vehicle, MAV_CMD command, double param1, double param2, double param3, double param4, double param5, double param6, double param7)
 {
     connect(vehicle, &Vehicle::mavCommandResult, this, &VHFTrackerQGCPlugin::_mavCommandResult);
-    vehicle->sendMavCommand(MAV_COMP_ID_ALL,
+    vehicle->sendMavCommand(MAV_COMP_ID_AUTOPILOT1,
                             command,
                             false /* showError */,
                             static_cast<float>(param1),
@@ -473,9 +450,9 @@ void VHFTrackerQGCPlugin::_vehicleStateRawValueChanged(QVariant rawValue)
 
     const VehicleState_t& currentState = _vehicleStates[_vehicleStateIndex];
 
-    qCDebug(VHFTrackerQGCPluginLog) << "Waiting for value actual:wait:variance" << rawValue.toDouble() << currentState.targetValue << currentState.targetVariance;
+    //qCDebug(VHFTrackerQGCPluginLog) << "Waiting for value actual:wait:variance" << rawValue.toDouble() << currentState.targetValue << currentState.targetVariance;
 
-    if (qAbs(rawValue.toDouble() - currentState.targetValue) < currentState.targetVariance) {
+    if (qAbs(rawValue.toDouble() - currentState.targetValue) <= currentState.targetVariance) {
         _targetValueTimer.stop();
         disconnect(currentState.fact, &Fact::rawValueChanged, this, &VHFTrackerQGCPlugin::_vehicleStateRawValueChanged);
         _vehicleStateIndex++;
@@ -518,7 +495,7 @@ void VHFTrackerQGCPlugin::_delayComplete(void)
         }
     }
 
-    _strongestPulsePct = maxPulse * 100;
+    _strongestPulsePct = maxPulse;
     emit strongestPulsePctChanged(_strongestPulsePct);
 
     double sliceAngle = 360 / _vhfSettings->divisions()->rawValue().toDouble();
@@ -544,7 +521,23 @@ void VHFTrackerQGCPlugin::_targetValueFailed(void)
 
 void VHFTrackerQGCPlugin::_detectComplete(void)
 {
+    Vehicle*                    vehicle             = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
+    LinkInterface*              priorityLink        = vehicle->priorityLink();
+    mavlink_message_t           msg;
+    mavlink_debug_float_array_t debug_float_array;
+    MAVLinkProtocol*            mavlink             = qgcApp()->toolbox()->mavlinkProtocol();
 
+    memset(&debug_float_array, 0, sizeof(debug_float_array));
+
+    debug_float_array.array_id = COMMAND_ID_STOP_DETECTION;
+
+    mavlink_msg_debug_float_array_encode_chan(
+                static_cast<uint8_t>(mavlink->getSystemId()),
+                static_cast<uint8_t>(mavlink->getComponentId()),
+                priorityLink->mavlinkChannel(),
+                &msg,
+                &debug_float_array);
+    _sendVHFCommand(vehicle, priorityLink, COMMAND_ID_STOP_DETECTION, msg);
 }
 
 bool VHFTrackerQGCPlugin::_armVehicleAndValidate(Vehicle* vehicle)
@@ -665,7 +658,7 @@ void VHFTrackerQGCPlugin::_simulatePulse(void)
             heading -= 180;
             pulseRatio = heading / 180.0;
         }
-        double pulse = 10.0 * pulseRatio;
+        double pulse = 100.0 * pulseRatio;
 
         double currentAltRel = vehicle->altitudeRelative()->rawValue().toDouble();
         double maxAlt = _vhfSettings->altitude()->rawValue().toDouble();
@@ -674,63 +667,140 @@ void VHFTrackerQGCPlugin::_simulatePulse(void)
 
         //qDebug() << heading << pulseRatio << pulse;
 
-        mavlink_debug_vect_t    debugVect;
-        mavlink_message_t       msg;
+        mavlink_message_t           msg;
+        mavlink_debug_float_array_t debug_float_array;
 
-        strcpy(debugVect.name, DEBUG_COMMAND_ID_PULSE);
-        debugVect.x = static_cast<float>(pulse);
-        debugVect.y = 146000000;
-        debugVect.z = 60;
-        mavlink_msg_debug_vect_encode(static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1, &msg, &debugVect);
-        _handleDebugVect(vehicle, vehicle->priorityLink(), msg);
+        debug_float_array.array_id = COMMAND_ID_PULSE;
+        debug_float_array.data[PULSE_IDX_STRENGTH] = pulse;
+        mavlink_msg_debug_float_array_encode(static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1, &msg, &debug_float_array);
+
+        mavlinkMessage(vehicle, vehicle->priorityLink(), msg);
     }
 }
 
-void VHFTrackerQGCPlugin::_sendFreqChange(int frequency)
+void VHFTrackerQGCPlugin::_handleSimulatedTagCommand(const mavlink_debug_float_array_t& debug_float_array)
 {
+    _simulatorTagId                 = static_cast<uint32_t>(debug_float_array.data[TAG_IDX_ID]);
+    _simulatorFrequency             = static_cast<uint32_t>(debug_float_array.data[TAG_IDX_FREQUENCY]);
+    _simulatorPulseDuration         = static_cast<uint32_t>(debug_float_array.data[TAG_IDX_DURATION_MSECS]);
+    _simulatorIntraPulse1           = static_cast<uint32_t>(debug_float_array.data[TAG_IDX_INTRA_PULSE1_MSECS]);
+    _simulatorIntraPulse2           = static_cast<uint32_t>(debug_float_array.data[TAG_IDX_INTRA_PULSE2_MSECS]);
+    _simulatorIntraPulseUncertainty = static_cast<uint32_t>(debug_float_array.data[TAG_IDX_INTRA_PULSE_UNCERTAINTY]);
+    _simulatorIntraPulseJitter      = static_cast<uint32_t>(debug_float_array.data[TAG_IDX_INTRA_PULSE_JITTER]);
+    _simulatorMaxPulse              = debug_float_array.data[TAG_IDX_MAX_PULSE];
+}
+
+void VHFTrackerQGCPlugin::_handleSimulatedStartDetection(const mavlink_debug_float_array_t&)
+{
+    _simPulseTimer.start(2000);
+}
+
+void VHFTrackerQGCPlugin::_handleSimulatedStopDetection(const mavlink_debug_float_array_t&)
+{
+    _simPulseTimer.stop();
+}
+
+QString VHFTrackerQGCPlugin::_vhfCommandIdToText(uint32_t vhfCommandId)
+{
+    switch (vhfCommandId) {
+    case COMMAND_ID_TAG:
+        return QStringLiteral("tag");
+    case COMMAND_ID_START_DETECTION:
+        return QStringLiteral("start detection");
+    case COMMAND_ID_STOP_DETECTION:
+        return QStringLiteral("stop detection");
+    default:
+        return QStringLiteral("unknown command");
+    }
+}
+
+
+void VHFTrackerQGCPlugin::_vhfCommandAckFailed(void)
+{
+    _say(QStringLiteral("%1 failed. no response from vehicle.").arg(_vhfCommandIdToText(_vhfCommandAckExpected)));
+    _vhfCommandAckExpected = 0;
+}
+
+void VHFTrackerQGCPlugin::_sendSimulatedVHFCommandAck(uint32_t vhfCommandId)
+{
+    Vehicle*                    vehicle             = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
+    LinkInterface*              priorityLink        = vehicle->priorityLink();
+    mavlink_message_t           msg;
+    mavlink_debug_float_array_t debug_float_array;
+    MAVLinkProtocol*            mavlink             = qgcApp()->toolbox()->mavlinkProtocol();
+
+    memset(&debug_float_array, 0, sizeof(debug_float_array));
+
+    debug_float_array.array_id              = COMMAND_ID_ACK;
+    debug_float_array.data[ACK_IDX_COMMAND] = vhfCommandId;
+    debug_float_array.data[ACK_IDX_RESULT]  = 1;
+
+    mavlink_msg_debug_float_array_encode_chan(
+                static_cast<uint8_t>(mavlink->getSystemId()),
+                static_cast<uint8_t>(mavlink->getComponentId()),
+                priorityLink->mavlinkChannel(),
+                &msg,
+                &debug_float_array);
+
+    mavlinkMessage(vehicle, priorityLink, msg);
+}
+
+void VHFTrackerQGCPlugin::_sendVHFCommand(Vehicle* vehicle, LinkInterface* link, uint32_t vhfCommandId, const mavlink_message_t& msg)
+{
+    _vhfCommandAckExpected = vhfCommandId;
+    _vhfCommandAckTimer.start();
+
     if (_simulate) {
-        return;
-    }
+        mavlink_debug_float_array_t debug_float_array;
 
-    int adjustFrequency = frequency - _vhfSettings->frequencyDelta()->rawValue().toInt();
-    qCDebug(VHFTrackerQGCPluginLog) << "Requesting frequency change to request:Adjusted" << frequency << adjustFrequency;
+        mavlink_msg_debug_float_array_decode(&msg, &debug_float_array);
 
-    Vehicle* vehicle = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
-
-    if (vehicle) {
-        mavlink_message_t       msg;
-        MAVLinkProtocol*        mavlink = qgcApp()->toolbox()->mavlinkProtocol();
-        LinkInterface*          priorityLink = vehicle->priorityLink();
-        char                    name[MAVLINK_MSG_DEBUG_VECT_FIELD_NAME_LEN + 1];
-
-        memset(&name, 0, sizeof(name));
-        strcpy(name, DEBUG_COMMAND_ID_SET_FREQ);
-        mavlink_msg_debug_vect_pack_chan(static_cast<uint8_t>(mavlink->getSystemId()),
-                                         static_cast<uint8_t>(mavlink->getComponentId()),
-                                         priorityLink->mavlinkChannel(),
-                                         &msg,
-                                         name,
-                                         0,                                     // time_usec field unused
-                                         adjustFrequency,
-                                         0, 0);                                 // y,z - unusued
-        vehicle->sendMessageOnLink(priorityLink, msg);
-
-        _freqChangeAckTimer.start();
+        switch (debug_float_array.array_id) {
+        case COMMAND_ID_TAG:
+            _handleSimulatedTagCommand(debug_float_array);
+            _sendSimulatedVHFCommandAck(COMMAND_ID_TAG);
+            break;
+        case COMMAND_ID_START_DETECTION:
+            _handleSimulatedStartDetection(debug_float_array);
+            _sendSimulatedVHFCommandAck(COMMAND_ID_START_DETECTION);
+            break;
+        case COMMAND_ID_STOP_DETECTION:
+            _handleSimulatedStopDetection(debug_float_array);
+            _sendSimulatedVHFCommandAck(COMMAND_ID_STOP_DETECTION);
+            break;
+        default:
+            qWarning() << "Internal error: Unknown command id" << debug_float_array.array_id;
+        }
+    } else {
+        vehicle->sendMessageOnLink(link, msg);
     }
 }
 
-void VHFTrackerQGCPlugin::setFrequency(int frequency)
+void VHFTrackerQGCPlugin::sendTag(void)
 {
-    _sendFreqChange(frequency);
-}
+    Vehicle*                    vehicle             = qgcApp()->toolbox()->multiVehicleManager()->activeVehicle();
+    LinkInterface*              priorityLink        = vehicle->priorityLink();
+    mavlink_message_t           msg;
+    mavlink_debug_float_array_t debug_float_array;
+    MAVLinkProtocol*            mavlink             = qgcApp()->toolbox()->mavlinkProtocol();
 
-void VHFTrackerQGCPlugin::_freqChangeAckFailed(void)
-{
-    _say("Vehicle did not respond to frequency change request");
-}
+    memset(&debug_float_array, 0, sizeof(debug_float_array));
 
+    debug_float_array.array_id                              = COMMAND_ID_TAG;
+    debug_float_array.data[TAG_IDX_ID]                      = _vhfSettings->tagId()->rawValue().toFloat();
+    debug_float_array.data[TAG_IDX_FREQUENCY]               = _vhfSettings->frequency()->rawValue().toFloat() -  _vhfSettings->frequencyDelta()->rawValue().toFloat();
+    debug_float_array.data[TAG_IDX_DURATION_MSECS]          = _vhfSettings->pulseDuration()->rawValue().toFloat();
+    debug_float_array.data[TAG_IDX_INTRA_PULSE1_MSECS]      = _vhfSettings->intraPulse1()->rawValue().toFloat();
+    debug_float_array.data[TAG_IDX_INTRA_PULSE2_MSECS]      = _vhfSettings->intraPulse2()->rawValue().toFloat();
+    debug_float_array.data[TAG_IDX_INTRA_PULSE_UNCERTAINTY] = _vhfSettings->intraPulseUncertainty()->rawValue().toFloat();
+    debug_float_array.data[TAG_IDX_INTRA_PULSE_JITTER]      = _vhfSettings->intraPulseJitter()->rawValue().toFloat();
+    debug_float_array.data[TAG_IDX_MAX_PULSE]               = _vhfSettings->maxPulse()->rawValue().toFloat();
 
-void VHFTrackerQGCPlugin::_freqChangePulseFailed(void)
-{
-    _say("Frequency coming from pulse data incorrect");
+    mavlink_msg_debug_float_array_encode_chan(
+                static_cast<uint8_t>(mavlink->getSystemId()),
+                static_cast<uint8_t>(mavlink->getComponentId()),
+                priorityLink->mavlinkChannel(),
+                &msg,
+                &debug_float_array);
+    _sendVHFCommand(vehicle, priorityLink, COMMAND_ID_TAG, msg);
 }

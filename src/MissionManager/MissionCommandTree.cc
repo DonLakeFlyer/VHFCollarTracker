@@ -51,7 +51,7 @@ void MissionCommandTree::setToolbox(QGCToolbox* toolbox)
             FirmwarePlugin* plugin = _toolbox->firmwarePluginManager()->firmwarePluginForAutopilot(firmwareType, MAV_TYPE_QUADROTOR);
 
             QList<MAV_TYPE> vehicleTypes;
-            vehicleTypes << MAV_TYPE_GENERIC << MAV_TYPE_FIXED_WING << MAV_TYPE_QUADROTOR << MAV_TYPE_VTOL_QUADROTOR << MAV_TYPE_GROUND_ROVER << MAV_TYPE_SUBMARINE;
+            vehicleTypes << MAV_TYPE_GENERIC << MAV_TYPE_FIXED_WING << MAV_TYPE_QUADROTOR << MAV_TYPE_GROUND_ROVER << MAV_TYPE_SUBMARINE;
 
             for(MAV_TYPE vehicleType: vehicleTypes) {
                 QString overrideFile = plugin->missionCommandOverrides(vehicleType);
@@ -81,8 +81,6 @@ MAV_TYPE MissionCommandTree::_baseVehicleType(MAV_TYPE mavType) const
         return MAV_TYPE_FIXED_WING;
     } else if (QGCMAVLink::isMultiRotor(mavType)) {
         return MAV_TYPE_QUADROTOR;
-    } else if (QGCMAVLink::isVTOL(mavType)) {
-        return MAV_TYPE_VTOL_QUADROTOR;
     } else if (QGCMAVLink::isRover(mavType)) {
         return MAV_TYPE_GROUND_ROVER;
     } else if (QGCMAVLink::isSub(mavType)) {

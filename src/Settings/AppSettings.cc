@@ -193,8 +193,6 @@ MAV_TYPE AppSettings::offlineEditingVehicleTypeFromVehicleType(MAV_TYPE vehicleT
         return MAV_TYPE_GROUND_ROVER;
     } else if (QGCMAVLink::isSub(vehicleType)) {
         return MAV_TYPE_SUBMARINE;
-    } else if (QGCMAVLink::isVTOL(vehicleType)) {
-        return MAV_TYPE_VTOL_QUADROTOR;
     } else if (QGCMAVLink::isFixedWing(vehicleType)) {
         return MAV_TYPE_FIXED_WING;
     } else {

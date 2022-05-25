@@ -14,24 +14,62 @@
     "defaultValue":     16
 },
 {
+    "name":             "TagId",
+    "shortDescription": "Tag Id",
+    "type":             "Uint32",
+    "defaultValue":     1
+},
+{
     "name":             "Frequency",
-    "shortDescription": "Pulse frequency",
-    "type":             "Int32",
-    "min":              146000,
-    "max":              146999,
+    "shortDescription": "Tag frequency",
+    "type":             "Uint32",
+    "min":              100000,
+    "max":              199999,
     "defaultValue":     146000
 },
 {
     "name":             "FrequencyDelta",
     "shortDescription": "Frequency Delta",
     "type":             "Uint32",
-    "defaultValue":     3
+    "defaultValue":     0
+},
+{
+    "name":             "PulseDuration",
+    "type":             "Uint32",
+    "min":              1,
+    "defaultValue":     20,
+    "units":            "msecs"
+},
+{
+    "name":             "IntraPulse1",
+    "type":             "Uint32",
+    "min":              1,
+    "defaultValue":     1500,
+    "units":            "msecs"
+},
+{
+    "name":             "IntraPulse2",
+    "type":             "Uint32",
+    "defaultValue":     2000,
+    "units":            "msecs"
+},
+{
+    "name":             "IntraPulseUncertainty",
+    "type":             "Uint32",
+    "defaultValue":     500,
+    "units":            "msecs"
+},
+{
+    "name":             "IntraPulseJitter",
+    "type":             "Uint32",
+    "defaultValue":     0,
+    "units":            "msecs"
 },
 {
     "name":             "MaxPulse",
     "shortDescription": "Maximum pulse value",
-    "type":             "Int32",
-    "min":              1,
+    "type":             "float",
+    "min":              0,
     "defaultValue":     19
 }
 ]
